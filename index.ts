@@ -26,9 +26,9 @@ for (const contract of contracts) {
         }
 
         // Fetch symbol
-        const symbol = await callContract(contract, "symbol()"); // 95d89b41
-        const name = await callContract(contract, "name()"); // 06fdde03
         if (data.decimals !== null && data.decimals !== undefined) {
+            const symbol = await callContract(contract, "symbol()"); // 95d89b41
+            const name = await callContract(contract, "name()"); // 06fdde03
             data.name_str = parse_string(name);
             data.symbol_str = parse_string(symbol);
             console.log(`  -> ${data.name_str} (${data.symbol_str}), decimals: ${data.decimals}`);

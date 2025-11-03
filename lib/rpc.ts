@@ -2,7 +2,7 @@ import { TronWeb } from "tronweb"
 import { keccak256, toUtf8Bytes } from "ethers";  // ethers v6+
 import { sleep } from "bun";
 
-const DEFAULT_RETRIES = 5;
+const DEFAULT_RETRIES = 3;
 const NODE_URL = process.env.NODE_URL || "https://tron-evm-rpc.publicnode.com";
 
 // Add this tiny helper (top-level, near your imports)
