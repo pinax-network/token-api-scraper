@@ -147,11 +147,11 @@ export async function callContract(
             const hexValue: string | undefined = json?.result;
             // Treat "0x" (empty) as no result
             if (!hexValue || hexValue.toLowerCase() === "0x") {
-                throw new Error(`No result for ${signature} on ${contract}`);
+                // throw new Error(`No result for ${signature} on ${contract}`);
+                return '';
             }
 
-            // console.log(json);
-            return hexValue;
+            return hexValue.replace(/^0x/, '');
 
         } catch (err: any) {
             clearTimeout(timer);
@@ -167,9 +167,9 @@ export async function callContract(
             const backoffMs = Math.floor(baseDelayMs * Math.pow(2, attempt - 1));
             const jitter = Math.floor(backoffMs * (0.7 + Math.random() * 0.6)); // 70%–130%
             const delay = Math.min(30_000, jitter); // cap individual delay
-            console.warn(
-                `callContract retry ${attempt}/${attempts} for ${signature} on ${contract} after ${delay}ms: ${err?.message || err}`
-            );
+            // console.warn(
+            //     `callContract retry ${attempt}/${attempts} for ${signature} on ${contract} after ${delay}ms: ${err?.message || err}`
+            // );
             await sleep(delay);
             continue;
         }

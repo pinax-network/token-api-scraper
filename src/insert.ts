@@ -1,16 +1,27 @@
 import { client } from "../lib/clickhouse";
 
-interface Token {
+interface TokenMetadata {
     contract: string;
-    symbol: string;
-    name: string;
-    decimals: number;
+    symbol_hex: string;
+    name_hex: string;
+    decimals_hex: string;
 }
 
-export async function insert_metadata(token: Token) {
+export async function insert_metadata(row: TokenMetadata) {
     client.insert({
-        table: 'metadata',
+        table: 'metadata_rpc',
         format: 'JSONEachRow',
-        values: [token],
+        values: [row],
+    });
+}
+
+export async function insert_error_metadata(contract: string, error: string) {
+    client.insert({
+        table: 'metadata_rpc',
+        format: 'JSONEachRow',
+        values: [{
+            contract,
+            error
+        }],
     });
 }

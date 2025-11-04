@@ -1,6 +1,6 @@
 WITH metadata_contracts AS (
     SELECT contract
-    FROM metadata
+    FROM metadata_rpc
 ),
 transfers AS (
     SELECT
@@ -11,5 +11,5 @@ transfers AS (
 )
 SELECT contract, count
 FROM transfers
-WHERE contract NOT IN metadata_contracts AND count > 1000
+WHERE contract NOT IN metadata_contracts
 ORDER BY count DESC;
