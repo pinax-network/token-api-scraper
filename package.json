@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "bun index.ts",
-    "check-db": "bun scripts/check-db-health.ts"
+    "start": "bun run ./services/metadata_rpc.ts",
+    "check-db": "bun run ./scripts/check-db-health.ts"
   },
   "dependencies": {
     "@clickhouse/client": "^1.12.1",
