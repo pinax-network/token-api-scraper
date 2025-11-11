@@ -1,23 +1,24 @@
 import PQueue from 'p-queue';
 import { callContract, decodeUint256 } from '../lib/rpc';
 import { insert_balances, insert_error_balances } from '../src/insert';
-import { get_distinct_accounts, get_distinct_contracts_by_account } from '../src/queries';
+import { get_latest_transfers } from '../src/queries';
 
 const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
 const queue = new PQueue({ concurrency: CONCURRENCY });
 
 console.log(`🚀 Starting TRC20 balances RPC service with concurrency: ${CONCURRENCY}`);
 
-const accounts = await get_distinct_accounts();
+const transfers = await get_latest_transfers();
 
-const processAccountContract = async (account: string, contract: string) => {
+async function processBalanceOf(account: string, contract: string) {
     // get `balanceOf` RPC call for the account
+    // console.log(`🔍 Fetching balance for account ${account} on contract ${contract}...`);
     try {
         const balance_hex = await callContract(contract, `balanceOf(address)`, [account]); // 70a08231
         const balance = decodeUint256(balance_hex);
 
         if (balance_hex) {
-            console.log(`✅ ${account} | ${contract} (${balance})`);
+            // console.log(`✅ ${account} | ${contract} (${balance})`);
             await insert_balances({
                 account,
                 contract,
@@ -35,13 +36,15 @@ const processAccountContract = async (account: string, contract: string) => {
     }
 };
 
+function isBlackHoleAddress(address: string): boolean {
+    return address === 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
+}
+
 // Process all accounts and their contracts
-for (const account of accounts) {
-    if ( account === 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb') continue // skip Black Hole address
-    const contracts = await get_distinct_contracts_by_account(account);
-    for (const contract of contracts) {
-        queue.add(() => processAccountContract(account, contract));
-    }
+for (const {log_address, from, to} of transfers) {
+    if (isBlackHoleAddress(from)) continue; // skip Black Hole address
+    queue.add(() => processBalanceOf(from, log_address));
+    queue.add(() => processBalanceOf(to, log_address));
 }
 
 // Wait for all tasks to complete

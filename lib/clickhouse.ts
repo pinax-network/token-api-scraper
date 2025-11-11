@@ -23,7 +23,7 @@ export interface QueryMetrics {
     totalTimeMs: number;
 }
 
-export async function query<T = any>(query: string, query_params: Record<string, any>): Promise<{
+export async function query<T = any>(query: string, query_params: Record<string, any> = {}): Promise<{
     data: T[];
     metrics: QueryMetrics;
 }> {
