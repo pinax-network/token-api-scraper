@@ -9,6 +9,9 @@ npm run start
 # Run TRC20 balances RPC service
 npm run balances
 
+# Run Native balances RPC service
+npm run native-balances
+
 # Run tests
 npm run test
 ```

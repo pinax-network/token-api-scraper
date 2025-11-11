@@ -47,3 +47,25 @@ export async function insert_error_balances(contract: string, account: string, e
         }],
     });
 }
+
+export async function insert_native_balances(row: {
+    account: string;
+    balance_hex: string;
+}) {
+    client.insert({
+        table: 'native_balances_rpc',
+        format: 'JSONEachRow',
+        values: [row],
+    });
+}
+
+export async function insert_error_native_balances(account: string, error: string) {
+    client.insert({
+        table: 'native_balances_rpc',
+        format: 'JSONEachRow',
+        values: [{
+            account,
+            error
+        }],
+    });
+}

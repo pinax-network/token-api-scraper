@@ -39,3 +39,9 @@ export async function get_latest_transfers() {
     const result = await query<{ log_address: string, from: string, to: string }>(sql);
     return result.data;
 }
+
+export async function get_accounts_for_native_balances() {
+    const sql = await bun.file("./sql/get_accounts_for_native_balances.sql").text();
+    const result = await query<{ account: string }>(sql);
+    return result.data.map(row => row.account);
+}
