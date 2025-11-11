@@ -3,7 +3,14 @@
 ## Quickstart
 
 ```bash
+# Run metadata RPC service
 npm run start
+
+# Run TRC20 balances RPC service
+npm run balances
+
+# Run tests
+npm run test
 ```
 
 ## Configuration
@@ -22,6 +29,8 @@ cp .env.example .env
 - `CLICKHOUSE_DATABASE` - ClickHouse database name (default: `default`)
 - `NODE_URL` - TRON RPC node URL (default: `https://tron-evm-rpc.publicnode.com`)
 - `CONCURRENCY` - Number of concurrent RPC requests (default: `10`)
+- `ENABLE_PROMETHEUS` - Enable Prometheus metrics endpoint (default: `false`, set to `true` to enable)
+- `PROMETHEUS_PORT` - Prometheus metrics HTTP port (default: `9090`)
 
 ### Concurrency Settings
 
@@ -37,6 +46,35 @@ Example:
 # Set concurrency to 5 for conservative processing
 CONCURRENCY=5 npm run start
 ```
+
+### Progress Monitoring
+
+The services now include comprehensive progress monitoring with:
+
+- **Real-time Progress Bar**: Shows completion percentage, ETA, request rate, and error count
+- **Task Overview**: Displays total unique contracts and accounts to process
+- **Statistics Summary**: Final report with success/error counts, elapsed time, and average request rate
+
+### Prometheus Metrics
+
+Enable Prometheus metrics to monitor service performance:
+
+```bash
+# Enable Prometheus metrics on default port 9090
+ENABLE_PROMETHEUS=true npm run start
+
+# Or specify a custom port
+ENABLE_PROMETHEUS=true PROMETHEUS_PORT=8080 npm run start
+```
+
+Available metrics:
+- `scraper_total_tasks` - Total number of tasks to process
+- `scraper_completed_tasks_total` - Total number of completed tasks (labeled by status: success/error)
+- `scraper_error_tasks_total` - Total number of failed tasks
+- `scraper_requests_per_second` - Current requests per second
+- `scraper_progress_percentage` - Current progress percentage
+
+Access metrics at: `http://localhost:9090/metrics` (or your configured port)
 
 ## Tests
 
