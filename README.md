@@ -1,5 +1,12 @@
 # Substreams Tron Scraper
 
+## Features
+
+- **Continuous Query Mechanism**: Tracks block numbers to enable incremental balance updates
+- **Efficient Processing**: Only queries new or updated transfers, avoiding redundant RPC calls
+- **Progress Monitoring**: Real-time progress tracking with Prometheus metrics support
+- **Concurrent Processing**: Configurable concurrency for optimal RPC throughput
+
 ## Quickstart
 
 ```bash
@@ -75,6 +82,29 @@ Available metrics:
 - `scraper_progress_percentage` - Current progress percentage
 
 Access metrics at: `http://localhost:9090/metrics` (or your configured port)
+
+## Continuous Query Mechanism
+
+The TRC20 balances service uses an intelligent continuous query mechanism that tracks block numbers to enable incremental updates:
+
+- **Block Number Tracking**: Each balance record stores the `block_num` of the transfer that triggered it
+- **Incremental Processing**: Only processes transfers newer than the last known block for each contract/account pair
+- **Efficiency**: Prevents redundant RPC calls for already-processed transfers
+- **Idempotency**: Can be run repeatedly without duplicating work
+
+For detailed information about the continuous query implementation, see [CONTINUOUS_QUERIES.md](./CONTINUOUS_QUERIES.md).
+
+### Running Continuous Updates
+
+Simply run the balances service periodically to keep balances up-to-date:
+
+```bash
+# First run - processes all new transfers
+npm run balances
+
+# Subsequent runs - only processes transfers newer than previously seen blocks
+npm run balances
+```
 
 ## Tests
 
