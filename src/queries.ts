@@ -36,6 +36,6 @@ export async function get_distinct_contracts_by_account(account: string) {
 
 export async function get_latest_transfers() {
     const sql = await bun.file("./sql/get_latest_transfers.sql").text();
-    const result = await query<{ log_address: string, from: string, to: string }>(sql);
+    const result = await query<{ log_address: string, from: string, to: string, block_num: number }>(sql);
     return result.data;
 }

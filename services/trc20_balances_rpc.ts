@@ -17,7 +17,7 @@ if (ENABLE_PROMETHEUS) {
 
 const transfers = await get_latest_transfers();
 
-async function processBalanceOf(account: string, contract: string, tracker: ProgressTracker) {
+async function processBalanceOf(account: string, contract: string, block_num: number, tracker: ProgressTracker) {
     // get `balanceOf` RPC call for the account
     try {
         const balance_hex = await callContract(contract, `balanceOf(address)`, [account]); // 70a08231
@@ -27,17 +27,18 @@ async function processBalanceOf(account: string, contract: string, tracker: Prog
             await insert_balances({
                 account,
                 contract,
-                balance_hex
+                balance_hex,
+                block_num
             });
             tracker.incrementSuccess();
         } else {
-            await insert_error_balances(contract, account, "zero balance");
+            await insert_error_balances(contract, account, "zero balance", block_num);
             tracker.incrementError();
         }
 
     } catch (err) {
         const message = (err as Error).message || String(err);
-        await insert_error_balances(contract, account, message);
+        await insert_error_balances(contract, account, message, block_num);
         tracker.incrementError();
     }
 };
@@ -51,7 +52,7 @@ const uniqueContracts = new Set<string>();
 const uniqueAccounts = new Set<string>();
 let totalTasks = 0;
 
-for (const {log_address, from, to} of transfers) {
+for (const {log_address, from, to, block_num} of transfers) {
     uniqueContracts.add(log_address);
     if (!isBlackHoleAddress(from)) {
         uniqueAccounts.add(from);
@@ -76,11 +77,11 @@ const tracker = new ProgressTracker({
 });
 
 // Process all accounts and their contracts
-for (const {log_address, from, to} of transfers) {
+for (const {log_address, from, to, block_num} of transfers) {
     if (!isBlackHoleAddress(from)) {
-        queue.add(() => processBalanceOf(from, log_address, tracker));
+        queue.add(() => processBalanceOf(from, log_address, block_num, tracker));
     }
-    queue.add(() => processBalanceOf(to, log_address, tracker));
+    queue.add(() => processBalanceOf(to, log_address, block_num, tracker));
 }
 
 // Wait for all tasks to complete

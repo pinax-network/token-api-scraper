@@ -28,6 +28,7 @@ export async function insert_balances(row: {
     contract: string;
     account: string;
     balance_hex: string;
+    block_num: number;
 }) {
     client.insert({
         table: 'trc20_balances_rpc',
@@ -36,14 +37,18 @@ export async function insert_balances(row: {
     });
 }
 
-export async function insert_error_balances(contract: string, account: string, error: string) {
+export async function insert_error_balances(contract: string, account: string, error: string, block_num?: number) {
+    const values: any = {
+        contract,
+        account,
+        error
+    };
+    if (block_num !== undefined) {
+        values.block_num = block_num;
+    }
     client.insert({
         table: 'trc20_balances_rpc',
         format: 'JSONEachRow',
-        values: [{
-            contract,
-            account,
-            error
-        }],
+        values: [values],
     });
 }
