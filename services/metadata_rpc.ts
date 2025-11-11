@@ -1,10 +1,16 @@
+import PQueue from 'p-queue';
 import { callContract } from '../lib/rpc';
 import { insert_error_metadata, insert_metadata } from '../src/insert';
 import { get_contracts } from '../src/queries';
 
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
+const queue = new PQueue({ concurrency: CONCURRENCY });
+
+console.log(`🚀 Starting metadata RPC service with concurrency: ${CONCURRENCY}`);
+
 const contracts = await get_contracts();
 
-for (const contract of contracts) {
+const processContract = async (contract: string) => {
     try {
         // Fetch decimals (required)
         const decimals_hex = await callContract(contract, "decimals()"); // 313ce567
@@ -30,4 +36,13 @@ for (const contract of contracts) {
         console.error(`❌ Error ${contract}: ${message}`);
         insert_error_metadata(contract, message);
     }
+};
+
+// Add all contracts to the queue
+for (const contract of contracts) {
+    queue.add(() => processContract(contract));
 }
+
+// Wait for all tasks to complete
+await queue.onIdle();
+console.log(`✨ All contracts processed!`);
