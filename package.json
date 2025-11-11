@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "start": "bun run ./services/metadata_rpc.ts",
-    "check-db": "bun run ./scripts/check-db-health.ts"
+    "balances": "bun run ./services/trc20_balances_rpc.ts",
+    "check-db": "bun run ./scripts/check-db-health.ts",
+    "test": "bun run ./lib/progress.test.ts"
   },
   "dependencies": {
     "@clickhouse/client": "^1.12.1",
