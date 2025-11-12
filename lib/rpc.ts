@@ -115,6 +115,91 @@ const normalizeForType = (type: string, value: any) => {
 };
 
 /** -----------------------------------------------------------------------
+ *  Generic JSON-RPC call with retry logic
+ *  ---------------------------------------------------------------------*/
+async function makeJsonRpcCall(
+  method: string,
+  params: any[],
+  retryOrOpts?: number | { retries?: number; baseDelayMs?: number; timeoutMs?: number; },
+  errorContext?: string
+): Promise<string> {
+  const { retries, baseDelayMs, timeoutMs } = toOptions(retryOrOpts);
+
+  const body = {
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  };
+
+  const attempts = Math.max(1, retries);
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(NODE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        // Non-JSON or empty response
+        if (isRetryable(parseErr, res.status)) {
+          throw new RetryableError(`Non-JSON response (status ${res.status})`);
+        }
+        throw new Error(`Failed to parse JSON (status ${res.status})`);
+      } finally {
+        clearTimeout(timer);
+      }
+
+      if (!res.ok) {
+        if (isRetryable(null, res.status, json)) {
+          throw new RetryableError(`HTTP ${res.status}`);
+        }
+        throw new Error(`HTTP ${res.status}: ${JSON.stringify(json)}`);
+      }
+
+      if (json?.error) {
+        if (isRetryable(null, res.status, json)) {
+          throw new RetryableError(`RPC error ${json.error.code}: ${json.error.message}`);
+        }
+        throw new Error(`RPC error ${json.error.code}: ${json.error.message}`);
+      }
+
+      return json?.result || "";
+
+    } catch (err: any) {
+      clearTimeout(timer);
+      lastError = err;
+
+      const retryable = err instanceof RetryableError || isRetryable(err);
+      if (!retryable || attempt === attempts) {
+        // Bubble up final error or non-retryable error
+        throw err;
+      }
+
+      // Exponential backoff with jitter
+      const backoffMs = Math.floor(baseDelayMs * Math.pow(2, attempt - 1));
+      const jitter = Math.floor(backoffMs * (0.7 + Math.random() * 0.6)); // 70%–130%
+      const delay = Math.min(30_000, jitter); // cap individual delay
+      await sleep(delay);
+      continue;
+    }
+  }
+
+  // Shouldn't reach here
+  throw lastError ?? new Error(`Unknown error in JSON-RPC call${errorContext ? `: ${errorContext}` : ""}`);
+}
+
+/** -----------------------------------------------------------------------
  *  callContract (now supports args, but stays backward compatible)
  *  ---------------------------------------------------------------------*/
 
@@ -151,8 +236,6 @@ export async function callContract(
     retryOrOpts = a3;
   }
 
-  const { retries, baseDelayMs, timeoutMs } = toOptions(retryOrOpts);
-
   // 4-byte selector
   const selector = "0x" + keccak256(toUtf8Bytes(signature)).slice(2, 10);
 
@@ -169,87 +252,19 @@ export async function callContract(
   const encodedArgs = types.length ? abi.encode(types, normArgs) : "0x";
   const data = selector + encodedArgs.replace(/^0x/, "");
 
-  const body = {
-    jsonrpc: "2.0",
-    method: "eth_call",
-    params: [
-      { to, data },
-      "latest"
-    ],
-    id: 1
-  };
+  const hexValue = await makeJsonRpcCall(
+    "eth_call",
+    [{ to, data }, "latest"],
+    retryOrOpts,
+    `calling ${signature} on ${contract}`
+  );
 
-  const attempts = Math.max(1, retries);
-  let lastError: any;
-
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-
-    try {
-      const res = await fetch(NODE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: ctrl.signal
-      });
-
-      let json: any = null;
-      try {
-        json = await res.json();
-      } catch (parseErr) {
-        // Non-JSON or empty response
-        if (isRetryable(parseErr, res.status)) {
-          throw new RetryableError(`Non-JSON response (status ${res.status})`);
-        }
-        throw new Error(`Failed to parse JSON (status ${res.status})`);
-      } finally {
-        clearTimeout(timer);
-      }
-
-      if (!res.ok) {
-        if (isRetryable(null, res.status, json)) {
-          throw new RetryableError(`HTTP ${res.status}`);
-        }
-        throw new Error(`HTTP ${res.status}: ${JSON.stringify(json)}`);
-      }
-
-      if (json?.error) {
-        if (isRetryable(null, res.status, json)) {
-          throw new RetryableError(`RPC error ${json.error.code}: ${json.error.message}`);
-        }
-        throw new Error(`RPC error ${json.error.code}: ${json.error.message}`);
-      }
-
-      const hexValue: string | undefined = json?.result;
-      // Treat "0x" (empty) as no result, and preserve your original return convention
-      if (!hexValue || hexValue.toLowerCase() === "0x") {
-        return "";
-      }
-
-      return hexValue.replace(/^0x/, "");
-
-    } catch (err: any) {
-      clearTimeout(timer);
-      lastError = err;
-
-      const retryable = err instanceof RetryableError || isRetryable(err);
-      if (!retryable || attempt === attempts) {
-        // Bubble up final error or non-retryable error
-        throw err;
-      }
-
-      // Exponential backoff with jitter
-      const backoffMs = Math.floor(baseDelayMs * Math.pow(2, attempt - 1));
-      const jitter = Math.floor(backoffMs * (0.7 + Math.random() * 0.6)); // 70%–130%
-      const delay = Math.min(30_000, jitter); // cap individual delay
-      await sleep(delay);
-      continue;
-    }
+  // Treat "0x" (empty) as no result, and preserve your original return convention
+  if (!hexValue || hexValue.toLowerCase() === "0x") {
+    return "";
   }
 
-  // Shouldn’t reach here
-  throw lastError ?? new Error(`Unknown error calling ${signature} on ${contract}`);
+  return hexValue.replace(/^0x/, "");
 }
 
 // If you want a numeric result for uint256:
@@ -266,87 +281,20 @@ export async function getNativeBalance(
   account: string,
   retryOrOpts?: RetryOpts
 ): Promise<string> {
-  const { retries, baseDelayMs, timeoutMs } = toOptions(retryOrOpts);
-
   // Convert TRON base58 address to EVM hex format
   const address = toEvmHexAddress(account);
 
-  const body = {
-    jsonrpc: "2.0",
-    method: "eth_getBalance",
-    params: [address, "latest"],
-    id: 1
-  };
+  const hexValue = await makeJsonRpcCall(
+    "eth_getBalance",
+    [address, "latest"],
+    retryOrOpts,
+    `getting balance for ${account}`
+  );
 
-  const attempts = Math.max(1, retries);
-  let lastError: any;
-
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-
-    try {
-      const res = await fetch(NODE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: ctrl.signal
-      });
-
-      let json: any = null;
-      try {
-        json = await res.json();
-      } catch (parseErr) {
-        // Non-JSON or empty response
-        if (isRetryable(parseErr, res.status)) {
-          throw new RetryableError(`Non-JSON response (status ${res.status})`);
-        }
-        throw new Error(`Failed to parse JSON (status ${res.status})`);
-      } finally {
-        clearTimeout(timer);
-      }
-
-      if (!res.ok) {
-        if (isRetryable(null, res.status, json)) {
-          throw new RetryableError(`HTTP ${res.status}`);
-        }
-        throw new Error(`HTTP ${res.status}: ${JSON.stringify(json)}`);
-      }
-
-      if (json?.error) {
-        if (isRetryable(null, res.status, json)) {
-          throw new RetryableError(`RPC error ${json.error.code}: ${json.error.message}`);
-        }
-        throw new Error(`RPC error ${json.error.code}: ${json.error.message}`);
-      }
-
-      const hexValue: string | undefined = json?.result;
-      // Treat "0x" (empty) or "0x0" as zero balance
-      if (!hexValue || hexValue.toLowerCase() === "0x" || hexValue.toLowerCase() === "0x0") {
-        return "0";
-      }
-
-      return hexValue.replace(/^0x/, "");
-
-    } catch (err: any) {
-      clearTimeout(timer);
-      lastError = err;
-
-      const retryable = err instanceof RetryableError || isRetryable(err);
-      if (!retryable || attempt === attempts) {
-        // Bubble up final error or non-retryable error
-        throw err;
-      }
-
-      // Exponential backoff with jitter
-      const backoffMs = Math.floor(baseDelayMs * Math.pow(2, attempt - 1));
-      const jitter = Math.floor(backoffMs * (0.7 + Math.random() * 0.6)); // 70%–130%
-      const delay = Math.min(30_000, jitter); // cap individual delay
-      await sleep(delay);
-      continue;
-    }
+  // Treat "0x" (empty) or "0x0" as zero balance
+  if (!hexValue || hexValue.toLowerCase() === "0x" || hexValue.toLowerCase() === "0x0") {
+    return "0";
   }
 
-  // Shouldn't reach here
-  throw lastError ?? new Error(`Unknown error getting balance for ${account}`);
+  return hexValue.replace(/^0x/, "");
 }
