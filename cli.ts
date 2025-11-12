@@ -23,6 +23,14 @@ const SERVICES = {
     'native-balances': {
         path: './services/native_balances_rpc.ts',
         description: 'Query and update native TRX balances for accounts on the Tron network'
+    },
+    'trc20-backfill': {
+        path: './services/trc20_balances_backfill.ts',
+        description: 'Backfill historical TRC-20 token balances from highest to lowest block number'
+    },
+    'native-backfill': {
+        path: './services/native_balances_backfill.ts',
+        description: 'Backfill historical native TRX balances from highest to lowest block number'
     }
 };
 
@@ -144,15 +152,20 @@ const runCommand = program
     .command('run <service>')
     .description('Run a specific scraper service')
     .addHelpText('after', `
+
 Services:
   metadata          ${SERVICES.metadata.description}
   trc20-balances    ${SERVICES['trc20-balances'].description}
   native-balances   ${SERVICES['native-balances'].description}
+  trc20-backfill    ${SERVICES['trc20-backfill'].description}
+  native-backfill   ${SERVICES['native-backfill'].description}
 
 Examples:
   $ npm run cli run metadata
   $ npm run cli run trc20-balances --concurrency 20
   $ npm run cli run native-balances --enable-prometheus --prometheus-port 8080
+  $ npm run cli run trc20-backfill --concurrency 15
+  $ npm run cli run native-backfill --enable-prometheus
   $ npm run cli run metadata --clickhouse-url http://db:8123 --node-url https://api.trongrid.io
     `)
     .action((service: string, options: any) => {

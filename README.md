@@ -24,14 +24,21 @@ npm run cli version
 # Run metadata RPC service
 npm run cli run metadata
 
-# Run TRC20 balances RPC service
+# Run TRC20 balances RPC service (incremental updates)
 npm run cli run trc20-balances
 
-# Run Native balances RPC service
+# Run Native balances RPC service (incremental updates)
 npm run cli run native-balances
+
+# Run TRC20 balances BACKFILL service (process all historical data)
+npm run cli run trc20-backfill
+
+# Run Native balances BACKFILL service (process all historical data)
+npm run cli run native-backfill
 
 # Run with custom parameters
 npm run cli run metadata --concurrency 20 --enable-prometheus
+npm run cli run trc20-backfill --concurrency 15 --prometheus-port 8080
 ```
 
 ### Using npm scripts (legacy)
@@ -40,15 +47,43 @@ npm run cli run metadata --concurrency 20 --enable-prometheus
 # Run metadata RPC service
 npm run start
 
-# Run TRC20 balances RPC service
+# Run TRC20 balances RPC service (incremental updates)
 npm run balances
 
-# Run Native balances RPC service
+# Run Native balances RPC service (incremental updates)
 npm run native-balances
+
+# Run TRC20 balances BACKFILL service (process all historical data)
+npm run backfill-trc20
+
+# Run Native balances BACKFILL service (process all historical data)
+npm run backfill-native
 
 # Run tests
 npm run test
 ```
+
+## Services Overview
+
+This project includes two types of services:
+
+### Incremental Services
+- **TRC20 Balances RPC** (`npm run balances`): Processes only new transfers since last run
+- **Native Balances RPC** (`npm run native-balances`): Processes only new accounts without balances
+
+### Backfill Services
+- **TRC20 Balances Backfill** (`npm run backfill-trc20`): Processes all historical transfers from newest to oldest blocks
+- **Native Balances Backfill** (`npm run backfill-native`): Processes all historical accounts from newest to oldest blocks
+
+**When to use Backfill Services:**
+- Initial setup: Fill in all historical balance data from the end of the chain to the beginning
+- Gap filling: Process accounts that were missed or failed in previous runs
+- Continuous operation: Run repeatedly until all historical data is processed (services will indicate when complete)
+
+**Key Differences:**
+- Incremental services skip already-processed data (efficient for ongoing updates)
+- Backfill services process ALL data from highest block backward (comprehensive historical fill)
+- Both services can run in parallel for maximum throughput
 
 ## Configuration
 
@@ -105,6 +140,10 @@ npm run cli run metadata \
   --concurrency 20 \
   --enable-prometheus \
   --prometheus-port 8080
+
+# Example: Run backfill services with custom settings
+npm run cli run trc20-backfill --concurrency 15
+npm run cli run native-backfill --enable-prometheus --prometheus-port 9091
 ```
 
 ### Progress Monitoring
@@ -167,6 +206,17 @@ docker run \
   -e CONCURRENCY=10 \
   substreams-tron-scraper run metadata
 
+# Run backfill services
+docker run \
+  -e CLICKHOUSE_URL=http://clickhouse:8123 \
+  -e CONCURRENCY=15 \
+  substreams-tron-scraper run trc20-backfill
+
+docker run \
+  -e CLICKHOUSE_URL=http://clickhouse:8123 \
+  -e CONCURRENCY=15 \
+  substreams-tron-scraper run native-backfill
+
 # Run with command-line flags
 docker run substreams-tron-scraper run trc20-balances --concurrency 20 --enable-prometheus
 ```
@@ -176,7 +226,8 @@ docker run substreams-tron-scraper run trc20-balances --concurrency 20 --enable-
 ```yaml
 version: '3.8'
 services:
-  scraper:
+  # Incremental services
+  metadata-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -186,11 +237,45 @@ services:
       - NODE_URL=https://tron-evm-rpc.publicnode.com
       - CONCURRENCY=10
     command: run metadata
+
+  trc20-balances-scraper:
+    build: .
+    environment:
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DATABASE=default
+      - NODE_URL=https://tron-evm-rpc.publicnode.com
+      - CONCURRENCY=10
+    command: run trc20-balances
+
+  # Backfill services
+  trc20-backfill-scraper:
+    build: .
+    environment:
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DATABASE=default
+      - NODE_URL=https://tron-evm-rpc.publicnode.com
+      - CONCURRENCY=15
+    command: run trc20-backfill
+
+  native-backfill-scraper:
+    build: .
+    environment:
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DATABASE=default
+      - NODE_URL=https://tron-evm-rpc.publicnode.com
+      - CONCURRENCY=15
+    command: run native-backfill
 ```
 
 ## Continuous Query Mechanism
 
-The TRC20 balances service uses an intelligent continuous query mechanism that tracks block numbers to enable incremental updates:
+The incremental balance services use an intelligent continuous query mechanism that tracks block numbers to enable incremental updates:
 
 - **Block Number Tracking**: Each balance record stores the `block_num` of the transfer that triggered it
 - **Incremental Processing**: Only processes transfers newer than the last known block for each contract/account pair
@@ -202,6 +287,44 @@ For detailed information about the continuous query implementation, see [CONTINU
 ### Running Continuous Updates
 
 Simply run the balances service periodically to keep balances up-to-date:
+
+```bash
+# First run - processes all new transfers
+npm run balances
+
+# Subsequent runs - only processes transfers newer than previously seen blocks
+npm run balances
+```
+
+## Backfill Mechanism
+
+The backfill services process historical data from the end of the chain (highest block) to the beginning (lowest block):
+
+- **Backward Processing**: Starts from the highest block number and works backwards
+- **Skip Complete Records**: Only processes accounts that don't have balances at the highest block (already complete)
+- **Continuous Operation**: Run repeatedly until all historical data is processed
+- **Limit-based Batching**: Processes up to 10,000 transfers/accounts per run to avoid overwhelming the database
+
+For detailed information about the backfill implementation, see [BACKFILL.md](./BACKFILL.md).
+
+### Running Backfill Services
+
+The backfill services are designed to run continuously until all historical data is processed:
+
+```bash
+# TRC20 backfill - processes up to 10,000 transfers per run
+npm run backfill-trc20
+# If output says "Run again to continue backfill", repeat the command
+
+# Native backfill - processes up to 10,000 accounts per run  
+npm run backfill-native
+# If output says "Run again to continue backfill", repeat the command
+```
+
+**Use Cases:**
+- **Initial Setup**: Fill in all historical balance data when first setting up the system
+- **Gap Filling**: Process accounts that were skipped or failed in previous runs
+- **Parallel Operation**: Can run alongside incremental services for maximum efficiency
 
 ```bash
 # First run - processes all new transfers
