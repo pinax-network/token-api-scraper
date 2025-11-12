@@ -486,3 +486,14 @@ Target URL: http://localhost:8123
 
 ✅ All health checks passed!
 ```
+
+### Known Issues
+
+#### TronWeb Proto Variable Error
+
+If you encounter a `ReferenceError: Can't find variable: proto` error, this is a known issue with TronWeb 6.0.4's generated protobuf files. We've implemented a polyfill to fix this. See [docs/PROTO_FIX.md](docs/PROTO_FIX.md) for details.
+
+The fix is already in place with:
+- `lib/proto-polyfill.ts` - Defines the global proto object
+- `bunfig.toml` - Preloads the polyfill for Bun tests
+- Import statements in files that use tronweb
