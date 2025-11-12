@@ -1,3 +1,5 @@
+// Import proto polyfill first to fix tronweb protobuf issues
+import "./proto-polyfill";
 import { TronWeb } from "tronweb";
 import { keccak256, toUtf8Bytes, AbiCoder } from "ethers"; // ethers v6+
 import { sleep } from "bun";

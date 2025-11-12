@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from './config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, TRANSFERS_TABLE } from './config';
 
 describe('config module', () => {
     test('CONCURRENCY should be a valid number', () => {
@@ -23,5 +23,13 @@ describe('config module', () => {
     test('PROMETHEUS_PORT should be a valid port number', () => {
         expect(PROMETHEUS_PORT).toBeGreaterThanOrEqual(1);
         expect(PROMETHEUS_PORT).toBeLessThanOrEqual(65535);
+    });
+
+    test('TRANSFERS_TABLE should be a string', () => {
+        expect(typeof TRANSFERS_TABLE).toBe('string');
+    });
+
+    test('TRANSFERS_TABLE should have a default value', () => {
+        expect(TRANSFERS_TABLE).toBe('transfers');
     });
 });

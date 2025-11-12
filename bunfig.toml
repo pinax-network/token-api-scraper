@@ -1,0 +1,3 @@
+[test]
+# Preload the proto polyfill before running tests to fix tronweb protobuf issues
+preload = ["./lib/proto-polyfill.ts"]

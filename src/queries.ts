@@ -1,5 +1,6 @@
 import bun from "bun";
 import { query } from "../lib/clickhouse";
+import { TRANSFERS_TABLE } from "../lib/config";
 
 
 // join both by_swaps & by_transfers to get more complete list
@@ -23,37 +24,44 @@ export async function get_contracts_by_swaps() {
 }
 
 export async function get_distinct_accounts() {
-    const sql = await bun.file("./sql/get_distinct_accounts.sql").text();
+    let sql = await bun.file("./sql/get_distinct_accounts.sql").text();
+    sql = sql.replace(/trc20_transfer_agg/g, `${TRANSFERS_TABLE}_agg`);
     const result = await query<{ account: string }>(sql);
     return result.data.map(row => row.account);
 }
 
 export async function get_distinct_contracts_by_account(account: string) {
-    const sql = await bun.file("./sql/get_distinct_contracts_by_account.sql").text();
+    let sql = await bun.file("./sql/get_distinct_contracts_by_account.sql").text();
+    sql = sql.replace(/trc20_transfer_agg/g, `${TRANSFERS_TABLE}_agg`);
     const result = await query<{ log_address: string }>(sql, { account });
     return result.data.map(row => row.log_address);
 }
 
 export async function get_latest_transfers() {
-    const sql = await bun.file("./sql/get_latest_transfers.sql").text();
+    let sql = await bun.file("./sql/get_latest_transfers.sql").text();
+    sql = sql.replace(/trc20_transfer/g, TRANSFERS_TABLE);
     const result = await query<{ log_address: string, from: string, to: string, block_num: number }>(sql);
     return result.data;
 }
 
 export async function get_accounts_for_native_balances() {
-    const sql = await bun.file("./sql/get_accounts_for_native_balances.sql").text();
+    let sql = await bun.file("./sql/get_accounts_for_native_balances.sql").text();
+    sql = sql.replace(/trc20_transfer_agg/g, `${TRANSFERS_TABLE}_agg`);
     const result = await query<{ account: string }>(sql);
     return result.data.map(row => row.account);
 }
 
 export async function get_erc20_backfill_transfers() {
-    const sql = await bun.file("./sql/get_erc20_backfill_transfers.sql").text();
+    let sql = await bun.file("./sql/get_erc20_backfill_transfers.sql").text();
+    sql = sql.replace(/trc20_transfer/g, TRANSFERS_TABLE);
     const result = await query<{ log_address: string, from: string, to: string, block_num: number }>(sql);
     return result.data;
 }
 
 export async function get_native_backfill_accounts() {
-    const sql = await bun.file("./sql/get_native_backfill_accounts.sql").text();
+    let sql = await bun.file("./sql/get_native_backfill_accounts.sql").text();
+    sql = sql.replace(/trc20_transfer_agg/g, `${TRANSFERS_TABLE}_agg`);
+    sql = sql.replace(/trc20_transfer/g, TRANSFERS_TABLE);
     const result = await query<{ account: string, last_seen_block: number }>(sql);
     return result.data;
 }
