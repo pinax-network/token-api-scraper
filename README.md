@@ -9,6 +9,28 @@
 
 ## Quickstart
 
+### Database Setup
+
+Before running any services, you need to set up the database schema:
+
+```bash
+# Deploy all schema files to ClickHouse
+npm run cli setup sql/schema.0.functions.sql sql/schema.0.offchain.metadata.sql sql/schema.0.offchain.trc20_balances.sql
+
+# Or deploy them individually
+npm run cli setup sql/schema.0.functions.sql
+npm run cli setup sql/schema.0.offchain.metadata.sql
+npm run cli setup sql/schema.0.offchain.trc20_balances.sql
+
+# Deploy to a ClickHouse cluster (adds ON CLUSTER and uses Replicated* engines)
+npm run cli setup sql/schema.*.sql --cluster my_cluster
+
+# Deploy with custom database connection
+npm run cli setup sql/schema.*.sql \
+  --clickhouse-url http://localhost:8123 \
+  --clickhouse-database my_database
+```
+
 ### Using the CLI
 
 ```bash
@@ -63,6 +85,25 @@ npm run backfill-native
 npm run test
 ```
 
+### Complete Workflow Example
+
+Here's a complete workflow for setting up and running the scraper:
+
+```bash
+# 1. Setup database schema
+npm run cli setup sql/schema.0.functions.sql sql/schema.0.offchain.metadata.sql sql/schema.0.offchain.trc20_balances.sql
+
+# 2. Fetch token metadata
+npm run cli run metadata
+
+# 3. Start scraping TRC20 balances (incremental)
+npm run cli run trc20-balances
+
+# 4. Optionally backfill historical data in parallel
+npm run cli run trc20-backfill --concurrency 15
+npm run cli run native-backfill --concurrency 15
+```
+
 ## Services Overview
 
 This project includes two types of services:
@@ -84,6 +125,69 @@ This project includes two types of services:
 - Incremental services skip already-processed data (efficient for ongoing updates)
 - Backfill services process ALL data from highest block backward (comprehensive historical fill)
 - Both services can run in parallel for maximum throughput
+
+## Database Setup
+
+### Setup Command
+
+The `setup` command deploys SQL schema files to your ClickHouse database. This is required before running any services.
+
+#### Basic Usage
+
+```bash
+# Deploy all schema files
+npm run cli setup sql/schema.0.functions.sql sql/schema.0.offchain.metadata.sql sql/schema.0.offchain.trc20_balances.sql
+
+# Deploy individual files
+npm run cli setup sql/schema.0.functions.sql
+```
+
+#### Cluster Support
+
+For ClickHouse clusters, use the `--cluster` flag. This will:
+- Add `ON CLUSTER '<name>'` to all CREATE/ALTER statements
+- Convert `MergeTree` engines to `ReplicatedMergeTree`
+- Convert `ReplacingMergeTree` to `ReplicatedReplacingMergeTree`
+
+```bash
+# Deploy to a cluster
+npm run cli setup sql/schema.*.sql --cluster my_cluster
+
+# Deploy to cluster with custom database
+npm run cli setup sql/schema.*.sql \
+  --cluster production_cluster \
+  --clickhouse-url http://clickhouse-node1:8123 \
+  --clickhouse-database tron_data
+```
+
+#### Schema Files
+
+The project includes three schema files:
+
+1. **schema.0.functions.sql**: Helper functions for decoding hex values
+   - `hex_to_string()` - Decode hex to UTF-8 string
+   - `hex_to_uint256()` - Decode hex to UInt256
+   - `format_balance()` - Format balance with decimals
+
+2. **schema.0.offchain.metadata.sql**: Token metadata table
+   - Stores token name, symbol, and decimals from smart contracts
+   - Uses ReplacingMergeTree for automatic deduplication
+
+3. **schema.0.offchain.trc20_balances.sql**: Balance tables
+   - `trc20_balances_rpc` - TRC20 token balances with block number tracking
+   - `native_balances_rpc` - Native TRX balances
+
+#### Connection Options
+
+The setup command accepts the same ClickHouse connection options as other commands:
+
+```bash
+npm run cli setup sql/schema.*.sql \
+  --clickhouse-url http://localhost:8123 \
+  --clickhouse-username default \
+  --clickhouse-password secret \
+  --clickhouse-database my_database
+```
 
 ## Configuration
 

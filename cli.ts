@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { spawn } from 'child_process';
 import { resolve } from 'path';
 import { readFileSync } from 'fs';
+import { executeSqlSetup } from './lib/setup';
 
 // Read version from package.json
 const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
@@ -225,6 +226,95 @@ program
         });
         console.log('');
     });
+
+// ============================================================================
+// COMMAND: setup <files...>
+// ============================================================================
+const setupCommand = program
+    .command('setup <files...>')
+    .description('Deploy SQL schema files to ClickHouse database')
+    .option(
+        '--cluster <name>',
+        'ClickHouse cluster name. Adds ON CLUSTER clause and converts to Replicated* table engines.'
+    )
+    .addHelpText('after', `
+
+Setup SQL Schema Files:
+  The setup command deploys SQL schema files to your ClickHouse database.
+  You can provide one or multiple SQL files to execute in sequence.
+
+Cluster Support:
+  Use --cluster flag to deploy schemas on a ClickHouse cluster:
+  - Adds 'ON CLUSTER <name>' to all CREATE/ALTER statements
+  - Converts MergeTree engines to ReplicatedMergeTree
+  - Converts ReplacingMergeTree to ReplicatedReplacingMergeTree
+
+Examples:
+  # Deploy single schema file
+  $ npm run cli setup sql/schema.0.functions.sql
+
+  # Deploy multiple schema files
+  $ npm run cli setup sql/schema.0.functions.sql sql/schema.0.offchain.metadata.sql
+
+  # Deploy all schema files
+  $ npm run cli setup sql/schema.*.sql
+
+  # Deploy to a cluster
+  $ npm run cli setup sql/schema.0.functions.sql --cluster my_cluster
+
+  # Deploy all schemas with custom database
+  $ npm run cli setup sql/schema.*.sql \\
+      --clickhouse-url http://localhost:8123 \\
+      --clickhouse-database my_database \\
+      --cluster production_cluster
+    `)
+    .action(async (files: string[], options: any) => {
+        console.log('🚀 SQL Setup Command\n');
+
+        // Update ClickHouse client environment from CLI options
+        // These options override existing environment variables
+        if (options.clickhouseUrl) process.env.CLICKHOUSE_URL = options.clickhouseUrl;
+        if (options.clickhouseUsername) process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
+        if (options.clickhousePassword) process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
+        if (options.clickhouseDatabase) process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
+
+        // Resolve file paths
+        const resolvedFiles = files.map(f => resolve(process.cwd(), f));
+
+        try {
+            await executeSqlSetup(resolvedFiles, {
+                cluster: options.cluster
+            });
+            process.exit(0);
+        } catch (error) {
+            const err = error as Error;
+            console.error(`\n❌ Setup failed: ${err.message}`);
+            process.exit(1);
+        }
+    });
+
+// Add ClickHouse connection options to setup command
+setupCommand
+    .option(
+        '--clickhouse-url <url>',
+        'ClickHouse database connection URL',
+        process.env.CLICKHOUSE_URL || 'http://localhost:8123'
+    )
+    .option(
+        '--clickhouse-username <user>',
+        'Username for authenticating with ClickHouse',
+        process.env.CLICKHOUSE_USERNAME || 'default'
+    )
+    .option(
+        '--clickhouse-password <password>',
+        'Password for authenticating with ClickHouse',
+        process.env.CLICKHOUSE_PASSWORD || ''
+    )
+    .option(
+        '--clickhouse-database <db>',
+        'ClickHouse database name',
+        process.env.CLICKHOUSE_DATABASE || 'default'
+    );
 
 // ============================================================================
 // Parse CLI arguments
