@@ -146,6 +146,8 @@ The backfill services process historical data from the end of the chain (highest
 - **Continuous Operation**: Run repeatedly until all historical data is processed
 - **Limit-based Batching**: Processes up to 10,000 transfers/accounts per run to avoid overwhelming the database
 
+For detailed information about the backfill implementation, see [BACKFILL.md](./BACKFILL.md).
+
 ### Running Backfill Services
 
 The backfill services are designed to run continuously until all historical data is processed:
