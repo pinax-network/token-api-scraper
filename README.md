@@ -1,4 +1,4 @@
-# Substreams EVM Scraper
+# Token API Scraper
 
 ## Features
 
@@ -321,20 +321,20 @@ The project includes a Dockerfile for running the CLI in a containerized environ
 ### Building the Docker Image
 
 ```bash
-docker build -t substreams-evm-scraper .
+docker build -t token-api-scraper .
 ```
 
 ### Running with Docker
 
 ```bash
 # Show help
-docker run substreams-evm-scraper help
+docker run token-api-scraper help
 
 # List services
-docker run substreams-evm-scraper list
+docker run token-api-scraper list
 
 # Show version
-docker run substreams-evm-scraper version
+docker run token-api-scraper version
 
 # Run a service with environment variables
 docker run \
@@ -343,21 +343,21 @@ docker run \
   -e CLICKHOUSE_PASSWORD=password \
   -e NODE_URL=https://tron-evm-rpc.publicnode.com \
   -e CONCURRENCY=10 \
-  substreams-evm-scraper run metadata
+  token-api-scraper run metadata
 
 # Run backfill services
 docker run \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
   -e CONCURRENCY=15 \
-  substreams-evm-scraper run erc20-backfill
+  token-api-scraper run erc20-backfill
 
 docker run \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
   -e CONCURRENCY=15 \
-  substreams-evm-scraper run native-backfill
+  token-api-scraper run native-backfill
 
 # Run with command-line flags
-docker run substreams-evm-scraper run erc20-balances --concurrency 20 --enable-prometheus
+docker run token-api-scraper run erc20-balances --concurrency 20 --enable-prometheus
 ```
 
 ### Docker Compose Example

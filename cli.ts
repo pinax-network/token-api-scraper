@@ -39,7 +39,7 @@ const SERVICES = {
 const program = new Command();
 
 program
-    .name('substreams-evm-scraper')
+    .name('token-api-scraper')
     .description('CLI tool for running EVM blockchain data scraping services')
     .version(VERSION, '-v, --version', 'Display the current version');
 
