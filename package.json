@@ -10,7 +10,7 @@
     "backfill-trc20": "bun run ./services/trc20_balances_backfill.ts",
     "backfill-native": "bun run ./services/native_balances_backfill.ts",
     "check-db": "bun run ./scripts/check-db-health.ts",
-    "test": "bun run ./lib/progress.test.ts"
+    "test": "bun test"
   },
   "dependencies": {
     "@clickhouse/client": "^1.12.1",

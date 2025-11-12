@@ -1,9 +1,9 @@
+import { describe, test, expect } from 'bun:test';
 import { transformSqlForCluster, splitSqlStatements } from './setup';
 
-// Test splitSqlStatements
-console.log('Testing splitSqlStatements...');
-
-const testSql = `
+describe('splitSqlStatements', () => {
+    test('should split SQL statements correctly', () => {
+        const testSql = `
 -- This is a comment
 CREATE TABLE test1 (id UInt32);
 
@@ -16,15 +16,14 @@ CREATE TABLE test2 (
 ALTER TABLE test1 ADD COLUMN extra String;
 `;
 
-const statements = splitSqlStatements(testSql);
-console.log(`✓ Found ${statements.length} statements`);
-console.assert(statements.length === 3, 'Should find 3 statements');
-console.log('✓ splitSqlStatements passed\n');
+        const statements = splitSqlStatements(testSql);
+        expect(statements.length).toBe(3);
+    });
+});
 
-// Test transformSqlForCluster
-console.log('Testing transformSqlForCluster...');
-
-const testSqlForTransform = `
+describe('transformSqlForCluster', () => {
+    test('should add ON CLUSTER clause', () => {
+        const testSqlForTransform = `
 CREATE TABLE IF NOT EXISTS test_table (
     id UInt32,
     name String
@@ -37,52 +36,69 @@ ALTER TABLE test_table ADD COLUMN extra String;
 CREATE OR REPLACE FUNCTION test_func AS (x) -> x * 2;
 `;
 
-const transformed = transformSqlForCluster(testSqlForTransform, 'my_cluster');
+        const transformed = transformSqlForCluster(testSqlForTransform, 'my_cluster');
+        
+        expect(transformed).toContain("ON CLUSTER 'my_cluster'");
+    });
 
-console.assert(
-    transformed.includes("ON CLUSTER 'my_cluster'"),
-    'Should add ON CLUSTER clause'
-);
+    test('should convert to ReplicatedReplacingMergeTree', () => {
+        const testSqlForTransform = `
+CREATE TABLE IF NOT EXISTS test_table (
+    id UInt32,
+    name String
+)
+ENGINE = ReplacingMergeTree(version)
+ORDER BY id;
+`;
 
-console.assert(
-    transformed.includes('ReplicatedReplacingMergeTree'),
-    'Should convert to ReplicatedReplacingMergeTree'
-);
+        const transformed = transformSqlForCluster(testSqlForTransform, 'my_cluster');
+        
+        expect(transformed).toContain('ReplicatedReplacingMergeTree');
+    });
 
-console.assert(
-    transformed.includes('/clickhouse/tables/{shard}/{database}/{table}'),
-    'Should add ZooKeeper path'
-);
+    test('should add ZooKeeper path', () => {
+        const testSqlForTransform = `
+CREATE TABLE IF NOT EXISTS test_table (
+    id UInt32,
+    name String
+)
+ENGINE = ReplacingMergeTree(version)
+ORDER BY id;
+`;
 
-console.log('✓ transformSqlForCluster passed\n');
+        const transformed = transformSqlForCluster(testSqlForTransform, 'my_cluster');
+        
+        expect(transformed).toContain('/clickhouse/tables/{shard}/{database}/{table}');
+    });
+});
 
-// Test with actual schema file
-console.log('Testing with actual schema files...');
+describe('schema files', () => {
+    test('should parse functions schema', async () => {
+        const functionsSql = await Bun.file('./sql/schema.0.functions.sql').text();
+        const functionsStatements = splitSqlStatements(functionsSql);
+        
+        expect(functionsStatements.length).toBeGreaterThan(0);
+    });
 
-const functionsSql = await Bun.file('./sql/schema.0.functions.sql').text();
-const metadataSql = await Bun.file('./sql/schema.0.offchain.metadata.sql').text();
-const balancesSql = await Bun.file('./sql/schema.0.offchain.trc20_balances.sql').text();
+    test('should parse metadata schema', async () => {
+        const metadataSql = await Bun.file('./sql/schema.0.offchain.metadata.sql').text();
+        const metadataStatements = splitSqlStatements(metadataSql);
+        
+        expect(metadataStatements.length).toBeGreaterThan(0);
+    });
 
-const functionsStatements = splitSqlStatements(functionsSql);
-console.log(`✓ Functions schema: ${functionsStatements.length} statements`);
+    test('should parse balances schema', async () => {
+        const balancesSql = await Bun.file('./sql/schema.0.offchain.trc20_balances.sql').text();
+        const balancesStatements = splitSqlStatements(balancesSql);
+        
+        expect(balancesStatements.length).toBeGreaterThan(0);
+    });
 
-const metadataStatements = splitSqlStatements(metadataSql);
-console.log(`✓ Metadata schema: ${metadataStatements.length} statements`);
-
-const balancesStatements = splitSqlStatements(balancesSql);
-console.log(`✓ Balances schema: ${balancesStatements.length} statements`);
-
-// Test cluster transformation on actual files
-const transformedMetadata = transformSqlForCluster(metadataSql, 'test_cluster');
-console.assert(
-    transformedMetadata.includes("ON CLUSTER 'test_cluster'"),
-    'Metadata schema should have cluster clauses'
-);
-console.assert(
-    transformedMetadata.includes('ReplicatedReplacingMergeTree'),
-    'Metadata schema should use replicated engine'
-);
-
-console.log('✓ All schema files validated\n');
-
-console.log('✅ All tests passed!');
+    test('should transform metadata schema for cluster', async () => {
+        const metadataSql = await Bun.file('./sql/schema.0.offchain.metadata.sql').text();
+        const transformedMetadata = transformSqlForCluster(metadataSql, 'test_cluster');
+        
+        expect(transformedMetadata).toContain("ON CLUSTER 'test_cluster'");
+        expect(transformedMetadata).toContain('ReplicatedReplacingMergeTree');
+    });
+});
