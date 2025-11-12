@@ -68,7 +68,7 @@ export class ProgressTracker {
 
         // Initialize progress bar
         this.progressBar = new cliProgress.SingleBar({
-            format: `${this.serviceName} |{bar}| {percentage}% | ETA: {eta_formatted} | {value}/{total} | Rate: {rate} req/s | Errors: {errors}`,
+            format: `${this.serviceName} |{bar}| {percentage}% | ETA: {eta_formatted} | {value}/{total} | Rate: {rate} req/s | Elapsed: {elapsed}`,
             barCompleteChar: '\u2588',
             barIncompleteChar: '\u2591',
             hideCursor: true
@@ -76,7 +76,7 @@ export class ProgressTracker {
 
         this.progressBar.start(this.totalTasks, 0, {
             rate: '0.00',
-            errors: 0
+            elapsed: '0s'
         });
 
         // Initialize Prometheus metrics
@@ -132,7 +132,7 @@ export class ProgressTracker {
 
         this.progressBar.update(this.completedTasks, {
             rate: rate.toFixed(2),
-            errors: this.errorTasks
+            elapsed: this.formatElapsed(elapsed)
         });
 
         // Update Prometheus metrics
@@ -140,17 +140,32 @@ export class ProgressTracker {
         progressGauge.labels(this.serviceName).set(percentage);
     }
 
+    private formatElapsed(seconds: number): string {
+        if (seconds < 60) {
+            return `${seconds.toFixed(0)}s`;
+        } else if (seconds < 3600) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}m ${secs}s`;
+        } else {
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            return `${hours}h ${mins}m`;
+        }
+    }
+
     public complete() {
         this.progressBar.stop();
         const elapsed = (Date.now() - this.startTime) / 1000;
         const rate = elapsed > 0 ? this.completedTasks / elapsed : 0;
+        const successRate = this.totalTasks > 0 ? (this.successfulTasks / this.totalTasks) * 100 : 0;
 
         console.log(`\n✨ ${this.serviceName} completed!`);
         console.log(`📊 Statistics:`);
         console.log(`   Total tasks: ${this.totalTasks}`);
-        console.log(`   Successful: ${this.successfulTasks}`);
-        console.log(`   Errors: ${this.errorTasks}`);
-        console.log(`   Time elapsed: ${elapsed.toFixed(2)}s`);
+        console.log(`   Successful: ${this.successfulTasks} (${successRate.toFixed(1)}%)`);
+        console.log(`   Failed: ${this.errorTasks}`);
+        console.log(`   Time elapsed: ${this.formatElapsed(elapsed)}`);
         console.log(`   Average rate: ${rate.toFixed(2)} req/s`);
         
         if (this.prometheusServer) {
