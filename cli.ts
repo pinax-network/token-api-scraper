@@ -121,6 +121,12 @@ function addCommonOptions(command: Command): Command {
             '--prometheus-port <port>',
             'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
             process.env.PROMETHEUS_PORT || '9090'
+        )
+        // Transfers Table Option
+        .option(
+            '--transfers-table <table>',
+            'Name of the transfers table to query. Options: transfers, native_transfer, trc20_transfer',
+            process.env.TRANSFERS_TABLE || 'transfers'
         );
 }
 
@@ -159,7 +165,8 @@ function runService(serviceName: string, options: any) {
         MAX_DELAY_MS: options.maxDelayMs,
         TIMEOUT_MS: options.timeoutMs,
         ENABLE_PROMETHEUS: options.enablePrometheus ? 'true' : (process.env.ENABLE_PROMETHEUS || 'false'),
-        PROMETHEUS_PORT: options.prometheusPort
+        PROMETHEUS_PORT: options.prometheusPort,
+        TRANSFERS_TABLE: options.transfersTable
     };
     
     // Spawn the service as a child process

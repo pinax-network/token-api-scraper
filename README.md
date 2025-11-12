@@ -213,6 +213,7 @@ cp .env.example .env
 - `TIMEOUT_MS` - Timeout in milliseconds for individual RPC requests (default: `10000`)
 - `ENABLE_PROMETHEUS` - Enable Prometheus metrics endpoint (default: `false`, set to `true` to enable)
 - `PROMETHEUS_PORT` - Prometheus metrics HTTP port (default: `9090`)
+- `TRANSFERS_TABLE` - Name of the transfers table to query (default: `transfers`, options: `transfers`, `native_transfer`, `trc20_transfer`)
 
 ### Concurrency Settings
 
@@ -265,6 +266,7 @@ The CLI supports passing configuration via command-line flags, which override en
 --timeout-ms <num>             Timeout for individual RPC requests
 --enable-prometheus            Enable Prometheus metrics endpoint
 --prometheus-port <port>       Prometheus metrics HTTP port
+--transfers-table <table>      Name of the transfers table to query (options: transfers, native_transfer, trc20_transfer)
 
 # Example: Run with custom configuration
 npm run cli run metadata \
@@ -277,6 +279,10 @@ npm run cli run metadata \
 # Example: Run backfill services with custom settings
 npm run cli run trc20-backfill --concurrency 15
 npm run cli run native-backfill --enable-prometheus --prometheus-port 9091
+
+# Example: Run with a custom transfers table
+npm run cli run trc20-balances --transfers-table trc20_transfer
+npm run cli run native-balances --transfers-table native_transfer
 ```
 
 ### Progress Monitoring

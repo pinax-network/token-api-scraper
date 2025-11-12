@@ -20,3 +20,10 @@ export const ENABLE_PROMETHEUS = process.env.ENABLE_PROMETHEUS === 'true';
  * Default: 9090
  */
 export const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090', 10);
+
+/**
+ * Name of the transfers table to query
+ * Default: "transfers"
+ * Options: "transfers", "native_transfer", "trc20_transfer"
+ */
+export const TRANSFERS_TABLE = process.env.TRANSFERS_TABLE || 'transfers';
