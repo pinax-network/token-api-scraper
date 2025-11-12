@@ -9,6 +9,40 @@
 
 ## Quickstart
 
+### Using the CLI
+
+```bash
+# Show help
+npm run cli help
+
+# List available services
+npm run cli list
+
+# Show version
+npm run cli version
+
+# Run metadata RPC service
+npm run cli run metadata
+
+# Run TRC20 balances RPC service (incremental updates)
+npm run cli run trc20-balances
+
+# Run Native balances RPC service (incremental updates)
+npm run cli run native-balances
+
+# Run TRC20 balances BACKFILL service (process all historical data)
+npm run cli run trc20-backfill
+
+# Run Native balances BACKFILL service (process all historical data)
+npm run cli run native-backfill
+
+# Run with custom parameters
+npm run cli run metadata --concurrency 20 --enable-prometheus
+npm run cli run trc20-backfill --concurrency 15 --prometheus-port 8080
+```
+
+### Using npm scripts (legacy)
+
 ```bash
 # Run metadata RPC service
 npm run start
@@ -85,6 +119,33 @@ Example:
 CONCURRENCY=5 npm run start
 ```
 
+## CLI Options
+
+The CLI supports passing configuration via command-line flags, which override environment variables:
+
+```bash
+# Available flags:
+--clickhouse-url <url>         ClickHouse database URL
+--clickhouse-username <user>   ClickHouse username
+--clickhouse-password <pass>   ClickHouse password
+--clickhouse-database <db>     ClickHouse database name
+--node-url <url>               TRON RPC node URL
+--concurrency <num>            Number of concurrent RPC requests
+--enable-prometheus            Enable Prometheus metrics endpoint
+--prometheus-port <port>       Prometheus metrics HTTP port
+
+# Example: Run with custom configuration
+npm run cli run metadata \
+  --clickhouse-url http://localhost:8123 \
+  --concurrency 20 \
+  --enable-prometheus \
+  --prometheus-port 8080
+
+# Example: Run backfill services with custom settings
+npm run cli run trc20-backfill --concurrency 15
+npm run cli run native-backfill --enable-prometheus --prometheus-port 9091
+```
+
 ### Progress Monitoring
 
 The services now include comprehensive progress monitoring with:
@@ -113,6 +174,104 @@ Available metrics:
 - `scraper_progress_percentage` - Current progress percentage
 
 Access metrics at: `http://localhost:9090/metrics` (or your configured port)
+
+## Docker
+
+The project includes a Dockerfile for running the CLI in a containerized environment.
+
+### Building the Docker Image
+
+```bash
+docker build -t substreams-tron-scraper .
+```
+
+### Running with Docker
+
+```bash
+# Show help
+docker run substreams-tron-scraper help
+
+# List services
+docker run substreams-tron-scraper list
+
+# Show version
+docker run substreams-tron-scraper version
+
+# Run a service with environment variables
+docker run \
+  -e CLICKHOUSE_URL=http://clickhouse:8123 \
+  -e CLICKHOUSE_USERNAME=default \
+  -e CLICKHOUSE_PASSWORD=password \
+  -e NODE_URL=https://tron-evm-rpc.publicnode.com \
+  -e CONCURRENCY=10 \
+  substreams-tron-scraper run metadata
+
+# Run backfill services
+docker run \
+  -e CLICKHOUSE_URL=http://clickhouse:8123 \
+  -e CONCURRENCY=15 \
+  substreams-tron-scraper run trc20-backfill
+
+docker run \
+  -e CLICKHOUSE_URL=http://clickhouse:8123 \
+  -e CONCURRENCY=15 \
+  substreams-tron-scraper run native-backfill
+
+# Run with command-line flags
+docker run substreams-tron-scraper run trc20-balances --concurrency 20 --enable-prometheus
+```
+
+### Docker Compose Example
+
+```yaml
+version: '3.8'
+services:
+  # Incremental services
+  metadata-scraper:
+    build: .
+    environment:
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DATABASE=default
+      - NODE_URL=https://tron-evm-rpc.publicnode.com
+      - CONCURRENCY=10
+    command: run metadata
+
+  trc20-balances-scraper:
+    build: .
+    environment:
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DATABASE=default
+      - NODE_URL=https://tron-evm-rpc.publicnode.com
+      - CONCURRENCY=10
+    command: run trc20-balances
+
+  # Backfill services
+  trc20-backfill-scraper:
+    build: .
+    environment:
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DATABASE=default
+      - NODE_URL=https://tron-evm-rpc.publicnode.com
+      - CONCURRENCY=15
+    command: run trc20-backfill
+
+  native-backfill-scraper:
+    build: .
+    environment:
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DATABASE=default
+      - NODE_URL=https://tron-evm-rpc.publicnode.com
+      - CONCURRENCY=15
+    command: run native-backfill
+```
 
 ## Continuous Query Mechanism
 
