@@ -331,7 +331,8 @@ export async function callContract(
     return "";
   }
 
-  return hexValue.replace(/^0x/, "");
+  // Keep the 0x prefix in the returned hex value
+  return hexValue;
 }
 
 // If you want a numeric result for uint256:
@@ -360,8 +361,9 @@ export async function getNativeBalance(
 
   // Treat "0x" (empty) or "0x0" as zero balance
   if (!hexValue || hexValue.toLowerCase() === "0x" || hexValue.toLowerCase() === "0x0") {
-    return "0";
+    return "0x0";
   }
 
-  return hexValue.replace(/^0x/, "");
+  // Keep the 0x prefix in the returned hex value
+  return hexValue;
 }
