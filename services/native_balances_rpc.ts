@@ -3,10 +3,7 @@ import { getNativeBalance } from '../lib/rpc';
 import { insert_native_balances, insert_error_native_balances } from '../src/insert';
 import { get_accounts_for_native_balances } from '../src/queries';
 import { ProgressTracker } from '../lib/progress';
-
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
-const ENABLE_PROMETHEUS = process.env.ENABLE_PROMETHEUS === 'true';
-const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090', 10);
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../lib/config';
 
 const queue = new PQueue({ concurrency: CONCURRENCY });
 

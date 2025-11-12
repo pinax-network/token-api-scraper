@@ -3,10 +3,7 @@ import { callContract } from '../lib/rpc';
 import { insert_error_metadata, insert_metadata } from '../src/insert';
 import { get_contracts } from '../src/queries';
 import { ProgressTracker } from '../lib/progress';
-
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
-const ENABLE_PROMETHEUS = process.env.ENABLE_PROMETHEUS === 'true';
-const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090', 10);
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../lib/config';
 
 const queue = new PQueue({ concurrency: CONCURRENCY });
 
