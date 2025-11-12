@@ -7,7 +7,7 @@
     "start": "bun run ./services/metadata_rpc.ts",
     "balances": "bun run ./services/trc20_balances_rpc.ts",
     "native-balances": "bun run ./services/native_balances_rpc.ts",
-    "backfill-trc20": "bun run ./services/trc20_balances_backfill.ts",
+    "backfill-erc20": "bun run ./services/trc20_balances_backfill.ts",
     "backfill-native": "bun run ./services/native_balances_backfill.ts",
     "check-db": "bun run ./scripts/check-db-health.ts",
     "test": "bun test"
