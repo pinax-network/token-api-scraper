@@ -6,7 +6,7 @@ This document outlines test cases to verify the continuous query logic works cor
 
 **Setup:**
 - `trc20_balances_rpc` is empty
-- `erc20_transfer` has 100 transfers
+- `trc20_transfer` has 100 transfers
 
 **Expected Result:**
 - Query returns all 100 transfers (up to LIMIT)
@@ -22,7 +22,7 @@ SELECT COUNT(*) FROM trc20_transfer; -- Should match result count (up to 10000)
 
 **Setup:**
 - `trc20_balances_rpc` has balances for accounts A, B, C at block 1000
-- `erc20_transfer` has new transfers at blocks 1001-1100
+- `trc20_transfer` has new transfers at blocks 1001-1100
 
 **Expected Result:**
 - Query returns only transfers at block > 1000 for accounts A, B, C
@@ -42,7 +42,7 @@ WHERE t.to IN (SELECT account FROM trc20_balances_rpc)
 
 **Setup:**
 - `trc20_balances_rpc` has balances at block 2000
-- Latest transfer in `erc20_transfer` is at block 1999
+- Latest transfer in `trc20_transfer` is at block 1999
 
 **Expected Result:**
 - Query returns empty result set
@@ -119,7 +119,7 @@ SELECT * FROM trc20_transfer WHERE `from` = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb'
 The query should efficiently use indexes on:
 - `trc20_balances_rpc.contract` and `.account`
 - `trc20_balances_rpc.block_num`
-- `erc20_transfer.log_address`, `.from`, `.to`, `.block_num`
+- `trc20_transfer.log_address`, `.from`, `.to`, `.block_num`
 
 ### Query Plan Verification
 ```sql

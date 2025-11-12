@@ -73,29 +73,29 @@ ORDER BY id;
 });
 
 describe('schema files', () => {
-    test('should parse functions schema', async () => {
-        const functionsSql = await Bun.file('./sql/schema.0.functions.sql').text();
+    test('should parse metadata schema', async () => {
+        const functionsSql = await Bun.file('./sql/schema.metadata.sql').text();
         const functionsStatements = splitSqlStatements(functionsSql);
         
         expect(functionsStatements.length).toBeGreaterThan(0);
     });
 
     test('should parse metadata schema', async () => {
-        const metadataSql = await Bun.file('./sql/schema.0.offchain.metadata.sql').text();
+        const metadataSql = await Bun.file('./sql/schema.metadata.sql').text();
         const metadataStatements = splitSqlStatements(metadataSql);
         
         expect(metadataStatements.length).toBeGreaterThan(0);
     });
 
     test('should parse balances schema', async () => {
-        const balancesSql = await Bun.file('./sql/schema.0.offchain.erc20_balances.sql').text();
+        const balancesSql = await Bun.file('./sql/schema.trc20_balances.sql').text();
         const balancesStatements = splitSqlStatements(balancesSql);
         
         expect(balancesStatements.length).toBeGreaterThan(0);
     });
 
     test('should transform metadata schema for cluster', async () => {
-        const metadataSql = await Bun.file('./sql/schema.0.offchain.metadata.sql').text();
+        const metadataSql = await Bun.file('./sql/schema.metadata.sql').text();
         const transformedMetadata = transformSqlForCluster(metadataSql, 'test_cluster');
         
         expect(transformedMetadata).toContain("ON CLUSTER 'test_cluster'");

@@ -4,7 +4,7 @@ WITH metadata_contracts AS (
 ),
 contracts AS (
     SELECT log_address AS contract
-    FROM `tron:tvm-tokens@v0.1.2`.erc20_transfer
+    FROM `tron:tvm-tokens@v0.1.2`.trc20_transfer
     GROUP BY log_address
 )
 SELECT contract

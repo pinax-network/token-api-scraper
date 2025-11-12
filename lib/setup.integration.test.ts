@@ -12,9 +12,8 @@ import { resolve } from 'path';
 
 describe('Setup CLI Integration Tests', () => {
     const schemaFiles = [
-        'sql/schema.0.functions.sql',
-        'sql/schema.0.offchain.metadata.sql',
-        'sql/schema.0.offchain.erc20_balances.sql'
+        'sql/schema.metadata.sql',
+        'sql/schema.trc20_balances.sql'
     ];
 
     test('all schema files should exist', () => {
@@ -63,7 +62,7 @@ describe('Setup CLI Integration Tests', () => {
     });
 
     test('metadata schema should have expected statements', () => {
-        const metadataContent = readFileSync('sql/schema.0.offchain.metadata.sql', 'utf8');
+        const metadataContent = readFileSync('sql/schema.metadata.sql', 'utf8');
         const statements = splitSqlStatements(metadataContent);
 
         const hasCreateTable = statements.some(s => s.includes('CREATE TABLE'));
@@ -83,11 +82,11 @@ describe('Setup CLI Integration Tests', () => {
     });
 
     test('should have expected helper functions', () => {
-        const functionsContent = readFileSync('sql/schema.0.functions.sql', 'utf8');
+        const allContent = schemaFiles.map(f => readFileSync(f, 'utf8')).join('\n');
         const expectedFunctions = ['hex_to_string', 'hex_to_uint256', 'format_balance'];
 
         for (const func of expectedFunctions) {
-            expect(functionsContent).toContain(func);
+            expect(allContent).toContain(func);
         }
     });
 });

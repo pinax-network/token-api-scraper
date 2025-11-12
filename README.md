@@ -68,13 +68,13 @@ npm run cli run trc20-backfill --concurrency 15 --prometheus-port 8080
 # Run metadata RPC service
 npm run start
 
-# Run ERC20 balances RPC service (incremental updates)
+# Run TRC-20 balances RPC service (incremental updates)
 npm run balances
 
 # Run Native balances RPC service (incremental updates)
 npm run native-balances
 
-# Run ERC20 balances BACKFILL service (process all historical data)
+# Run TRC-20 balances BACKFILL service (process all historical data)
 npm run backfill-erc20
 
 # Run Native balances BACKFILL service (process all historical data)
@@ -90,16 +90,16 @@ Here's a complete workflow for setting up and running the scraper:
 
 ```bash
 # 1. Setup database schema
-npm run cli setup sql/schema.0.functions.sql sql/schema.0.offchain.metadata.sql sql/schema.0.offchain.erc20_balances.sql
+npm run cli setup sql/schema.metadata.sql sql/schema.trc20_balances.sql
 
 # 2. Fetch token metadata
 npm run cli run metadata
 
-# 3. Start scraping ERC20 balances (incremental)
-npm run cli run erc20-balances
+# 3. Start scraping TRC-20 balances (incremental)
+npm run cli run trc20-balances
 
 # 4. Optionally backfill historical data in parallel
-npm run cli run erc20-backfill --concurrency 15
+npm run cli run trc20-backfill --concurrency 15
 npm run cli run native-backfill --concurrency 15
 ```
 
@@ -108,11 +108,11 @@ npm run cli run native-backfill --concurrency 15
 This project includes two types of services:
 
 ### Incremental Services
-- **ERC20 Balances RPC** (`npm run balances`): Processes only new transfers since last run
+- **TRC-20 Balances RPC** (`npm run balances`): Processes only new transfers since last run
 - **Native Balances RPC** (`npm run native-balances`): Processes only new accounts without balances
 
 ### Backfill Services
-- **ERC20 Balances Backfill** (`npm run backfill-erc20`): Processes all historical transfers from newest to oldest blocks
+- **TRC-20 Balances Backfill** (`npm run backfill-erc20`): Processes all historical transfers from newest to oldest blocks
 - **Native Balances Backfill** (`npm run backfill-native`): Processes all historical accounts from newest to oldest blocks
 
 **When to use Backfill Services:**
@@ -135,10 +135,10 @@ The `setup` command deploys SQL schema files to your ClickHouse database. This i
 
 ```bash
 # Deploy all schema files
-npm run cli setup sql/schema.0.functions.sql sql/schema.0.offchain.metadata.sql sql/schema.0.offchain.erc20_balances.sql
+npm run cli setup sql/schema.metadata.sql sql/schema.trc20_balances.sql
 
 # Deploy individual files
-npm run cli setup sql/schema.0.functions.sql
+npm run cli setup sql/schema.metadata.sql
 ```
 
 #### Cluster Support
@@ -161,19 +161,16 @@ npm run cli setup sql/schema.*.sql \
 
 #### Schema Files
 
-The project includes three schema files:
+The project includes two schema files:
 
-1. **schema.0.functions.sql**: Helper functions for decoding hex values
-   - `hex_to_string()` - Decode hex to UTF-8 string
-   - `hex_to_uint256()` - Decode hex to UInt256
-   - `format_balance()` - Format balance with decimals
-
-2. **schema.0.offchain.metadata.sql**: Token metadata table
-   - Stores token name, symbol, and decimals from smart contracts
+1. **schema.metadata.sql**: Token metadata storage
+   - Helper functions: `hex_to_string()`, `hex_to_uint256()`
+   - `metadata_rpc` table - Stores token name, symbol, and decimals from smart contracts
    - Uses ReplacingMergeTree for automatic deduplication
 
-3. **schema.0.offchain.erc20_balances.sql**: Balance tables
-   - `trc20_balances_rpc` - ERC20 token balances with block number tracking
+2. **schema.trc20_balances.sql**: Balance tables
+   - Helper functions: `hex_to_uint256()`, `format_balance()`
+   - `trc20_balances_rpc` - TRC-20 token balances with block number tracking
    - `native_balances_rpc` - Native token balances
 
 #### Connection Options
@@ -276,7 +273,7 @@ npm run cli run metadata \
   --prometheus-port 8080
 
 # Example: Run backfill services with custom settings
-npm run cli run erc20-backfill --concurrency 15
+npm run cli run trc20-backfill --concurrency 15
 npm run cli run native-backfill --enable-prometheus --prometheus-port 9091
 
 # Example: Run with a custom transfers table
@@ -348,7 +345,7 @@ docker run \
 docker run \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
   -e CONCURRENCY=15 \
-  token-api-scraper run erc20-backfill
+  token-api-scraper run trc20-backfill
 
 docker run \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
@@ -356,7 +353,7 @@ docker run \
   token-api-scraper run native-backfill
 
 # Run with command-line flags
-docker run token-api-scraper run erc20-balances --concurrency 20 --enable-prometheus
+docker run token-api-scraper run trc20-balances --concurrency 20 --enable-prometheus
 ```
 
 ### Docker Compose Example
@@ -376,7 +373,7 @@ services:
       - CONCURRENCY=10
     command: run metadata
 
-  erc20-balances-scraper:
+  trc20-balances-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -385,10 +382,10 @@ services:
       - CLICKHOUSE_DATABASE=default
       - NODE_URL=https://tron-evm-rpc.publicnode.com
       - CONCURRENCY=10
-    command: run erc20-balances
+    command: run trc20-balances
 
   # Backfill services
-  erc20-backfill-scraper:
+  trc20-backfill-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -397,7 +394,7 @@ services:
       - CLICKHOUSE_DATABASE=default
       - NODE_URL=https://tron-evm-rpc.publicnode.com
       - CONCURRENCY=15
-    command: run erc20-backfill
+    command: run trc20-backfill
 
   native-backfill-scraper:
     build: .
@@ -450,7 +447,7 @@ For detailed information about the backfill implementation, see [BACKFILL.md](./
 The backfill services are designed to run continuously until all historical data is processed:
 
 ```bash
-# ERC20 backfill - processes up to 10,000 transfers per run
+# TRC-20 backfill - processes up to 10,000 transfers per run
 npm run backfill-erc20
 # If output says "Run again to continue backfill", repeat the command
 
