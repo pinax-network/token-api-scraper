@@ -1,7 +1,10 @@
 # Token API Scraper
 
+A specialized tool for scraping and indexing TRC-20 token data on the TRON blockchain. This scraper continuously monitors token transfers and maintains up-to-date balance information.
+
 ## Features
 
+- **TRC-20 Focus**: Designed specifically for TRON TRC-20 tokens
 - **Continuous Query Mechanism**: Tracks block numbers to enable incremental balance updates
 - **Efficient Processing**: Only queries new or updated transfers, avoiding redundant RPC calls
 - **Progress Monitoring**: Real-time progress tracking with Prometheus metrics support

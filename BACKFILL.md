@@ -125,7 +125,7 @@ npm run backfill-native
 
 Both incremental and backfill services use `block_num` to track progress:
 
-- **ERC20 Balances**: Stores the block number of the transfer that triggered the balance query
+- **TRC-20 Balances**: Stores the block number of the transfer that triggered the balance query
 - **Native Balances**: Doesn't store block_num (current balance is sufficient)
 
 ### Skip Logic

@@ -23,7 +23,7 @@ const SERVICES = {
     },
     'native-balances': {
         path: './services/native_balances_rpc.ts',
-        description: 'Query and update native token balances for accounts on the EVM network'
+        description: 'Query and update native token balances for accounts on the TRON network'
     },
     'trc20-backfill': {
         path: './services/trc20_balances_backfill.ts',
