@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { spawn } from 'child_process';
 import { resolve } from 'path';
 import { readFileSync } from 'fs';
-import { executeSqlSetup } from './lib/setup';
+import { executeSqlSetup, promptClusterSelection } from './lib/setup';
 
 // Read version from package.json
 const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
@@ -235,8 +235,8 @@ const setupCommand = program
     .command('setup <files...>')
     .description('Deploy SQL schema files to ClickHouse database')
     .option(
-        '--cluster <name>',
-        'ClickHouse cluster name. Adds ON CLUSTER clause and converts to Replicated* table engines.'
+        '--cluster [name]',
+        'ClickHouse cluster name. If provided without a name, shows available clusters to choose from.'
     )
     .addHelpText('after', `
 
@@ -249,6 +249,9 @@ Cluster Support:
   - Adds 'ON CLUSTER <name>' to all CREATE/ALTER statements
   - Converts MergeTree engines to ReplicatedMergeTree
   - Converts ReplacingMergeTree to ReplicatedReplacingMergeTree
+  
+  If --cluster is provided without a name, the tool will query available
+  clusters using "SHOW CLUSTERS" and prompt you to select one.
 
 Examples:
   # Deploy single schema file
@@ -262,6 +265,9 @@ Examples:
 
   # Deploy to a cluster
   $ npm run cli setup sql/schema.0.functions.sql --cluster my_cluster
+  
+  # Interactively select a cluster
+  $ npm run cli setup sql/schema.0.functions.sql --cluster
 
   # Deploy all schemas with custom database
   $ npm run cli setup sql/schema.*.sql \\
@@ -279,12 +285,27 @@ Examples:
         if (options.clickhousePassword) process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
         if (options.clickhouseDatabase) process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
 
+        // Handle cluster option
+        let clusterName = options.cluster;
+        
+        // If --cluster flag is provided without a value (true), prompt for selection
+        if (clusterName === true) {
+            try {
+                clusterName = await promptClusterSelection();
+                console.log(`\n✅ Selected cluster: ${clusterName}\n`);
+            } catch (error) {
+                const err = error as Error;
+                console.error(`\n❌ Failed to select cluster: ${err.message}`);
+                process.exit(1);
+            }
+        }
+
         // Resolve file paths
         const resolvedFiles = files.map(f => resolve(process.cwd(), f));
 
         try {
             await executeSqlSetup(resolvedFiles, {
-                cluster: options.cluster
+                cluster: clusterName
             });
             process.exit(0);
         } catch (error) {

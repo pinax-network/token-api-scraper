@@ -1,12 +1,62 @@
 import { readFileSync, existsSync } from 'fs';
 import { basename } from 'path';
 import { client } from './clickhouse';
+import { select } from '@inquirer/prompts';
 
 /**
  * Options for SQL setup
  */
 export interface SetupOptions {
     cluster?: string;
+}
+
+/**
+ * Cluster information from SHOW CLUSTERS query
+ */
+interface ClusterInfo {
+    cluster: string;
+}
+
+/**
+ * Query available clusters from ClickHouse
+ */
+export async function showClusters(): Promise<string[]> {
+    try {
+        const resultSet = await client.query({
+            query: 'SHOW CLUSTERS',
+            format: 'JSONEachRow',
+        });
+        const clusters: ClusterInfo[] = await resultSet.json();
+        return clusters.map(c => c.cluster);
+    } catch (error) {
+        const err = error as Error;
+        throw new Error(`Failed to query clusters: ${err.message}`);
+    }
+}
+
+/**
+ * Prompt user to select a cluster from available clusters
+ */
+export async function promptClusterSelection(): Promise<string> {
+    console.log('\n🔍 Fetching available clusters...\n');
+    
+    const clusters = await showClusters();
+    
+    if (clusters.length === 0) {
+        throw new Error('No clusters found. Please specify a cluster name manually using --cluster <name>');
+    }
+    
+    console.log(`Found ${clusters.length} cluster(s):\n`);
+    
+    const selectedCluster = await select({
+        message: 'Select a cluster:',
+        choices: clusters.map(cluster => ({
+            name: cluster,
+            value: cluster,
+        })),
+    });
+    
+    return selectedCluster;
 }
 
 /**

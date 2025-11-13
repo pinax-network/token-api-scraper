@@ -127,3 +127,17 @@ describe('error handling', () => {
         }
     });
 });
+
+describe('showClusters', () => {
+    test('should export showClusters function', async () => {
+        const { showClusters } = await import('./setup');
+        expect(typeof showClusters).toBe('function');
+    });
+});
+
+describe('promptClusterSelection', () => {
+    test('should export promptClusterSelection function', async () => {
+        const { promptClusterSelection } = await import('./setup');
+        expect(typeof promptClusterSelection).toBe('function');
+    });
+});
