@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the continuous query mechanism implemented for the ERC20 balances scraper service. The system tracks the last processed block number for each contract/account pair to enable incremental updates and avoid redundant RPC calls.
+This document describes the continuous query mechanism implemented for the TRC-20 balances scraper service. The system tracks the last processed block number for each contract/account pair to enable incremental updates and avoid redundant RPC calls.
 
 ## Architecture
 
@@ -18,7 +18,7 @@ The `trc20_balances_rpc` table now includes a `block_num` field that stores the 
 
 ```
 1. Query trc20_balances_rpc to get the highest block_num per contract/account pair
-2. Query erc20_transfer for transfers where:
+2. Query trc20_transfer for transfers where:
    - The account doesn't exist in balances yet, OR
    - The transfer's block_num is greater than the last known block for that account
 3. Process only the new/updated balances via RPC

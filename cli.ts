@@ -15,7 +15,7 @@ const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf
 const SERVICES = {
     'metadata': {
         path: './services/metadata_rpc.ts',
-        description: 'Fetch and store ERC-20 token metadata (name, symbol, decimals) from smart contracts'
+        description: 'Fetch and store TRC-20 token metadata (name, symbol, decimals) from smart contracts'
     },
     'trc20-balances': {
         path: './services/trc20_balances_rpc.ts',
@@ -23,7 +23,7 @@ const SERVICES = {
     },
     'native-balances': {
         path: './services/native_balances_rpc.ts',
-        description: 'Query and update native token balances for accounts on the EVM network'
+        description: 'Query and update native token balances for accounts on the TRON network'
     },
     'trc20-backfill': {
         path: './services/trc20_balances_backfill.ts',
@@ -40,7 +40,7 @@ const program = new Command();
 
 program
     .name('token-api-scraper')
-    .description('CLI tool for running EVM blockchain data scraping services')
+    .description('CLI tool for running TRC-20 blockchain data scraping services')
     .version(VERSION, '-v, --version', 'Display the current version');
 
 /**
@@ -201,9 +201,9 @@ Services:
 
 Examples:
   $ npm run cli run metadata
-  $ npm run cli run erc20-balances --concurrency 20
+  $ npm run cli run trc20-balances --concurrency 20
   $ npm run cli run native-balances --enable-prometheus --prometheus-port 8080
-  $ npm run cli run erc20-backfill --concurrency 15
+  $ npm run cli run trc20-backfill --concurrency 15
   $ npm run cli run native-backfill --enable-prometheus
   $ npm run cli run metadata --clickhouse-url http://db:8123 --node-url https://api.trongrid.io
     `)
