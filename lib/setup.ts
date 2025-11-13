@@ -1,4 +1,5 @@
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
+import { basename } from 'path';
 import { client } from './clickhouse';
 
 /**
@@ -116,6 +117,23 @@ export async function executeSqlSetup(
         console.log(`📄 Processing: ${filePath}`);
 
         try {
+            // Check if file exists and provide helpful error message
+            if (!existsSync(filePath)) {
+                const fileName = basename(filePath);
+                const hasValidExtension = /\.(sql|SQL)$/i.test(fileName);
+                
+                // If the file doesn't have a SQL extension, it might be a misplaced cluster name
+                if (!hasValidExtension) {
+                    throw new Error(
+                        `File not found: ${filePath}\n\n` +
+                        `💡 Tip: If '${fileName}' is a cluster name, use: --cluster ${fileName}\n` +
+                        `   Example: bun run cli.ts setup file1.sql file2.sql --cluster ${fileName}`
+                    );
+                } else {
+                    throw new Error(`File not found: ${filePath}`);
+                }
+            }
+
             // Read SQL file
             const sqlContent = readFileSync(filePath, 'utf8');
             

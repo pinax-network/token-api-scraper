@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { transformSqlForCluster, splitSqlStatements } from './setup';
+import { transformSqlForCluster, splitSqlStatements, executeSqlSetup } from './setup';
 
 describe('splitSqlStatements', () => {
     test('should split SQL statements correctly', () => {
@@ -100,5 +100,30 @@ describe('schema files', () => {
         
         expect(transformedMetadata).toContain("ON CLUSTER 'test_cluster'");
         expect(transformedMetadata).toContain('ReplicatedReplacingMergeTree');
+    });
+});
+
+describe('error handling', () => {
+    test('should provide helpful error for non-SQL file', async () => {
+        try {
+            await executeSqlSetup(['nonexistent-cluster-name'], {});
+            expect(true).toBe(false); // Should not reach here
+        } catch (error) {
+            const err = error as Error;
+            expect(err.message).toContain('File not found');
+            expect(err.message).toContain('--cluster');
+            expect(err.message).toContain('nonexistent-cluster-name');
+        }
+    });
+
+    test('should provide simple error for SQL file not found', async () => {
+        try {
+            await executeSqlSetup(['nonexistent.sql'], {});
+            expect(true).toBe(false); // Should not reach here
+        } catch (error) {
+            const err = error as Error;
+            expect(err.message).toContain('File not found');
+            expect(err.message).not.toContain('--cluster'); // Should not suggest cluster for .sql files
+        }
     });
 });
