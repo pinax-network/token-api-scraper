@@ -1,22 +1,3 @@
--- Function to safely convert hex to decimal (UInt256)
--- Used for decoding balance and decimals values
-CREATE OR REPLACE FUNCTION hex_to_uint256 AS (hex_str) -> if(
-    hex_str = '' OR hex_str IS NULL,
-    0,
-    reinterpretAsUInt256(reverse(unhex(replaceRegexpAll(hex_str, '^0x', ''))))
-);
-
--- Function to format balance with decimals
--- Converts raw balance to human-readable format
-CREATE OR REPLACE FUNCTION format_balance AS (balance, decimals) -> if(
-    decimals = 0,
-    toString(balance),
-    concat(
-        toString(toDecimal128(balance / pow(10, decimals), decimals)),
-        ' (', toString(balance), ' raw)'
-    )
-);
-
 CREATE TABLE IF NOT EXISTS trc20_balances_rpc (
     -- block --
     block_num                   UInt32 DEFAULT 0,
@@ -28,7 +9,7 @@ CREATE TABLE IF NOT EXISTS trc20_balances_rpc (
     contract                    LowCardinality(String),
     account                     String,
     balance_hex                 String,
-    balance                     UInt256 MATERIALIZED abi_hex_to_uint256_or_zero(balance_hex),
+    balance                     UInt256 DEFAULT hex_to_uint256(balance_hex),
 
     -- error handling --
     created_at                  DateTime('UTC') DEFAULT now(),
@@ -54,11 +35,8 @@ ORDER BY (
 CREATE TABLE IF NOT EXISTS trc20_balances (
     -- block --
     block_num                   UInt32,
-    block_hash                  String,
-    timestamp                   DateTime('UTC'),
-    minute                      UInt32,
 
-    -- token metadata --
+    -- token balance --
     contract                    String,
     account                     String,
     balance                     UInt256,
