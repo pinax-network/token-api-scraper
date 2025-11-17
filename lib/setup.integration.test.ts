@@ -12,8 +12,9 @@ import { resolve } from 'path';
 
 describe('Setup CLI Integration Tests', () => {
     const schemaFiles = [
-        'sql/schema.metadata.sql',
-        'sql/schema.trc20_balances.sql'
+        'sql.schemas/schema.functions.sql',
+        'sql.schemas/schema.metadata.sql',
+        'sql.schemas/schema.trc20_balances.sql'
     ];
 
     test('all schema files should exist', () => {
@@ -62,18 +63,18 @@ describe('Setup CLI Integration Tests', () => {
     });
 
     test('metadata schema should have expected statements', () => {
-        const metadataContent = readFileSync('sql/schema.metadata.sql', 'utf8');
+        const metadataContent = readFileSync('sql.schemas/schema.metadata.sql', 'utf8');
         const statements = splitSqlStatements(metadataContent);
 
         const hasCreateTable = statements.some(s => s.includes('CREATE TABLE'));
-        const hasCreateFunction = statements.some(s => s.includes('CREATE OR REPLACE FUNCTION'));
+        const hasInsert = statements.some(s => s.includes('INSERT'));
 
         expect(hasCreateTable).toBe(true);
-        expect(hasCreateFunction).toBe(true);
+        expect(hasInsert).toBe(true);
     });
 
     test('should have expected table names', () => {
-        const expectedTables = ['metadata_rpc', 'trc20_balances_rpc', 'native_balances_rpc'];
+        const expectedTables = ['metadata_rpc', 'trc20_balances_rpc'];
         const allContent = schemaFiles.map(f => readFileSync(f, 'utf8')).join('\n');
 
         for (const table of expectedTables) {
@@ -83,10 +84,24 @@ describe('Setup CLI Integration Tests', () => {
 
     test('should have expected helper functions', () => {
         const allContent = schemaFiles.map(f => readFileSync(f, 'utf8')).join('\n');
-        const expectedFunctions = ['hex_to_string', 'hex_to_uint256', 'format_balance'];
+        const expectedFunctions = ['hex_to_string', 'hex_to_uint256', 'hex_to_uint8'];
 
         for (const func of expectedFunctions) {
             expect(allContent).toContain(func);
         }
+    });
+
+    test('functions schema should transform correctly with cluster', () => {
+        const functionsContent = readFileSync('sql.schemas/schema.functions.sql', 'utf8');
+        const transformed = transformSqlForCluster(functionsContent, 'test_cluster');
+        
+        // Count CREATE FUNCTION statements
+        const functionMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION/gi);
+        const clusterMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+ON\s+CLUSTER/gi);
+        
+        // All CREATE FUNCTION statements should have ON CLUSTER
+        expect(functionMatches).toBeTruthy();
+        expect(clusterMatches).toBeTruthy();
+        expect(functionMatches?.length).toBe(clusterMatches?.length);
     });
 });
