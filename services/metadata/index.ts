@@ -51,8 +51,9 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
 };
 
 console.log(`\n📋 Task Overview:`);
-console.log(`   Unique contracts: ${contracts.length}`);
-console.log(`   Total tasks to process: ${contracts.length}`);
+console.log(`   Unique contracts by transfers: ${contracts_by_transfers.data.length}`);
+console.log(`   Unique contracts by swaps: ${contracts_by_swaps.data.length}`);
+console.log(`   Total tasks to process: ${contracts_by_transfers.data.length + contracts_by_swaps.data.length}`);
 console.log(``);
 
 // Initialize progress tracker

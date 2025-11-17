@@ -8,9 +8,9 @@ CREATE TABLE IF NOT EXISTS metadata_rpc (
 
     -- token metadata --
     contract                    String,
-    decimals_hex                String,
-    name_hex                    String,
-    symbol_hex                  String,
+    decimals_hex                String DEFAULT '',
+    name_hex                    String DEFAULT '',
+    symbol_hex                  String DEFAULT '',
 
     -- decoded, with error-tolerant defaults --
     decimals                    UInt8 MATERIALIZED hex_to_uint8(decimals_hex),
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS metadata_rpc (
     -- error handling --
     created_at                  DateTime('UTC') DEFAULT now(),
     error_msg                   LowCardinality(String) DEFAULT '',
-    is_ok                       UInt8 DEFAULT error_msg = '',
+    is_ok                       UInt8 DEFAULT error_msg = '' AND decimals_hex != '',
 
     -- PROJECTIONS --
     PROJECTION prj_contract_error_stats (
