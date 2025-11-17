@@ -38,7 +38,6 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
             });
             tracker.incrementSuccess();
         } else {
-            console.log(`Contract ${contract} missing decimals()`);
             await insert_error_metadata({contract, block_num}, "missing decimals()");
             tracker.incrementError();
         }
