@@ -246,6 +246,7 @@ Setup SQL Schema Files:
 Cluster Support:
   Use --cluster flag to deploy schemas on a ClickHouse cluster:
   - Adds 'ON CLUSTER <name>' to all CREATE/ALTER statements
+  - Adds 'ON CLUSTER <name>' to all CREATE FUNCTION statements
   - Converts MergeTree engines to ReplicatedMergeTree
   - Converts ReplacingMergeTree to ReplicatedReplacingMergeTree
   
