@@ -176,3 +176,77 @@ describe('Hex decoding - SQL compatibility validation', () => {
         }
     });
 });
+
+describe('Hex decoding - whitespace handling', () => {
+    /**
+     * Note: The SQL function hex_to_string_or_null now strips whitespace,
+     * but the JavaScript abi.decode does not. This means there's a slight
+     * difference between SQL and JS behavior when whitespace is present.
+     * The SQL function will clean up the data, while JS returns it as-is.
+     * These tests document the expected behavior after SQL processing.
+     */
+
+    test('should decode string with leading spaces', () => {
+        // Hex encoded "   孙悟空" - has leading spaces (3 spaces)
+        // 0x20 = space, 0xe5ad99 = 孙, 0xe6829f = 悟, 0xe7a9ba = 空
+        const hex = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c202020e5ad99e6829fe7a9ba0000000000000000000000000000000000000000";
+        const [decoded] = abi.decode(["string"], hex);
+        // JS will have spaces, but SQL will trim them
+        expect(decoded).toBe("   孙悟空");
+        // After SQL trim: "孙悟空"
+    });
+
+    test('should decode string with leading tab and spaces', () => {
+        // Hex encoded "  \tsunDOG" - has spaces and tab (2 spaces + tab)
+        // 0x20 = space, 0x09 = tab
+        const hex = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000920200973756e444f470000000000000000000000000000000000000000000000";
+        const [decoded] = abi.decode(["string"], hex);
+        // JS will have the whitespace
+        expect(decoded).toBe("  \tsunDOG");
+        // After SQL trim: "sunDOG"
+    });
+
+    test('should decode string with newline at start', () => {
+        // Hex encoded "\n\nAllbridge LP" - has leading newlines (2 newlines)
+        // 0x0a = newline
+        const hex = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000e0a0a416c6c627269646765204c50000000000000000000000000000000000000";
+        const [decoded] = abi.decode(["string"], hex);
+        // JS will have the newlines
+        expect(decoded).toBe("\n\nAllbridge LP");
+        // After SQL processing: "Allbridge LP" (trim removes leading \n)
+    });
+
+    test('should decode string with internal line breaks', () => {
+        // Hex encoded "Five\nEnergy" - has internal newline
+        // 0x0a = newline
+        const hex = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b466976650a456e65726779000000000000000000000000000000000000000000";
+        const [decoded] = abi.decode(["string"], hex);
+        expect(decoded).toBe("Five\nEnergy");
+        // After SQL replaceRegexpAll: "Five Energy" (replaces \n with space)
+    });
+
+    test('should decode string with trailing whitespace', () => {
+        // Hex encoded "USDT   " - has trailing spaces (3 spaces)
+        const hex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000075553445420202000000000000000000000000000000000000000000000000000";
+        const [decoded] = abi.decode(["string"], hex);
+        expect(decoded).toBe("USDT   ");
+        // After SQL trim: "USDT"
+    });
+
+    test('should decode string with multiple consecutive whitespace characters', () => {
+        // Hex encoded "Assure\t\tfree gas" - has two consecutive tabs
+        // 0x09 = tab
+        const hex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000104173737572650909667265652067617300000000000000000000000000000000";
+        const [decoded] = abi.decode(["string"], hex);
+        expect(decoded).toBe("Assure\t\tfree gas");
+        // After SQL replaceRegexpAll: "Assure free gas" (replaces \t\t with single space)
+    });
+
+    test('should handle string that is only whitespace', () => {
+        // Hex encoded "   \n\t  " - only whitespace (3 spaces, newline, tab, 2 spaces)
+        const hex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000072020200a09202000000000000000000000000000000000000000000000000000";
+        const [decoded] = abi.decode(["string"], hex);
+        expect(decoded).toBe("   \n\t  ");
+        // After SQL processing: "" (all whitespace trimmed/normalized to empty)
+    });
+});

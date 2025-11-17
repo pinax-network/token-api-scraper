@@ -9,13 +9,20 @@
 
 -- Nullable, safe on empty / NULL.
 -- NOTE: this will still throw if hex_str is not valid hex.
+-- Strips leading/trailing whitespace and normalizes internal whitespace.
 CREATE OR REPLACE FUNCTION hex_to_string_or_null AS (hex_str) ->
 (
     if(
         hex_str = '' OR hex_str IS NULL,
         CAST(NULL AS Nullable(String)),
-        unhex(
-            replaceRegexpAll(hex_str, '^0x', '')
+        trim(
+            replaceRegexpAll(
+                unhex(
+                    replaceRegexpAll(hex_str, '^0x', '')
+                ),
+                '[\n\r\t]+',
+                ' '
+            )
         )
     )
 );
