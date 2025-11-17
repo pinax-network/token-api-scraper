@@ -14,8 +14,9 @@ interface ClickHouseError extends Error {
  */
 function handleInsertError(error: unknown, context: string): void {
     const err = error as ClickHouseError;
-    console.error(`${context}:`, err.message);
-    if (err.code === 'ConnectionRefused' || err.message?.includes('Connection refused')) {
+    const errorMessage = err?.message || String(error);
+    console.error(`${context}:`, errorMessage);
+    if (err?.code === 'ConnectionRefused' || errorMessage?.includes('Connection refused')) {
         console.error('Unable to connect to ClickHouse. Check database connection.');
     }
 }
