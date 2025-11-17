@@ -176,9 +176,8 @@ function runService(serviceName: string, options: any) {
     child.on('exit', (code) => {
         if (code === 0) {
             console.log(`\n✅ Service '${serviceName}' completed successfully`);
-        } else {
-            console.error(`\n❌ Service '${serviceName}' exited with code ${code}`);
         }
+        // Exit silently without logging error message for non-zero exit codes
         process.exit(code || 0);
     });
 }
