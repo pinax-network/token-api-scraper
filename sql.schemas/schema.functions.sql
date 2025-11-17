@@ -7,6 +7,23 @@
 -- String decoders
 -- --------------------------------------------
 
+-- This ensures:
+-- No leading/trailing spaces
+-- No multi-spaces
+-- No newlines
+-- No indent characters
+-- No weird unicode whitespace
+CREATE OR REPLACE FUNCTION normalize_ws AS (s) ->
+(
+    trim(BOTH ' ' FROM
+        replaceRegexpAll(
+            s,
+            '[\\pZ\\pC]+',  -- ALL unicode whitespace & control chars
+            ' '
+        )
+    )
+);
+
 -- Nullable, safe on empty / NULL.
 -- NOTE: this will still throw if hex_str is not valid hex.
 CREATE OR REPLACE FUNCTION hex_to_string_or_null AS (hex_str) ->
@@ -14,8 +31,8 @@ CREATE OR REPLACE FUNCTION hex_to_string_or_null AS (hex_str) ->
     if(
         hex_str = '' OR hex_str IS NULL,
         CAST(NULL AS Nullable(String)),
-        unhex(
-            replaceRegexpAll(hex_str, '^0x', '')
+        normalize_ws(
+            unhex(replaceRegexpAll(hex_str, '^0x', ''))
         )
     )
 );
@@ -23,10 +40,7 @@ CREATE OR REPLACE FUNCTION hex_to_string_or_null AS (hex_str) ->
 -- Non-null wrapper: falls back to '' on NULL/empty.
 CREATE OR REPLACE FUNCTION hex_to_string AS (hex_str) ->
 (
-    ifNull(
-        hex_to_string_or_null(hex_str),
-        ''
-    )
+    ifNull(hex_to_string_or_null(hex_str), '')
 );
 
 -- --------------------------------------------
