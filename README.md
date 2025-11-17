@@ -148,6 +148,7 @@ npm run cli setup sql/schema.metadata.sql
 
 For ClickHouse clusters, use the `--cluster` flag. This will:
 - Add `ON CLUSTER '<name>'` to all CREATE/ALTER statements
+- Add `ON CLUSTER '<name>'` to all CREATE FUNCTION statements (including CREATE OR REPLACE FUNCTION, CREATE FUNCTION IF NOT EXISTS)
 - Convert `MergeTree` engines to `ReplicatedMergeTree`
 - Convert `ReplacingMergeTree` to `ReplicatedReplacingMergeTree`
 

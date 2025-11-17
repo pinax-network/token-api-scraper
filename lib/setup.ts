@@ -230,7 +230,7 @@ export async function executeSqlSetup(
     
     if (options.cluster) {
         console.log(`\n📊 Cluster: ${options.cluster}`);
-        console.log('   - ON CLUSTER clause added to all statements');
+        console.log('   - ON CLUSTER clause added to all CREATE/ALTER/FUNCTION statements');
         console.log('   - Converted to Replicated* table engines');
     }
 }
