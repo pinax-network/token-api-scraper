@@ -2,6 +2,7 @@ import { client } from "../lib/clickhouse";
 
 export async function insert_metadata(row: {
     contract: string;
+    block_num: number;
     symbol_hex: string;
     name_hex: string;
     decimals_hex: string;
@@ -13,12 +14,12 @@ export async function insert_metadata(row: {
     });
 }
 
-export async function insert_error_metadata(contract: string, error: string) {
+export async function insert_error_metadata(row: {contract: string, block_num: number}, error: string) {
     client.insert({
         table: 'metadata_rpc',
         format: 'JSONEachRow',
         values: [{
-            contract,
+            ...row,
             error
         }],
     });
@@ -37,19 +38,11 @@ export async function insert_balances(row: {
     });
 }
 
-export async function insert_error_balances(contract: string, account: string, error: string, block_num?: number) {
-    const values: any = {
-        contract,
-        account,
-        error
-    };
-    if (block_num !== undefined) {
-        values.block_num = block_num;
-    }
+export async function insert_error_balances(row: {block_num: number, contract: string, account: string}, error: string) {
     client.insert({
         table: 'trc20_balances_rpc',
         format: 'JSONEachRow',
-        values: [values],
+        values: [{...row, error}],
     });
 }
 

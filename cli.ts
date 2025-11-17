@@ -14,7 +14,7 @@ const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf
  */
 const SERVICES = {
     'metadata': {
-        path: './services/metadata_rpc.ts',
+        path: './services/metadata/index.ts',
         description: 'Fetch and store TRC-20 token metadata (name, symbol, decimals) from smart contracts'
     },
     'trc20-balances': {
