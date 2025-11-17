@@ -62,6 +62,20 @@ CREATE OR REPLACE FUNCTION test_func AS (x) -> x * 2;
         expect(transformed).toContain("CREATE FUNCTION IF NOT EXISTS ON CLUSTER 'my_cluster' test_func");
     });
 
+    test('should add ON CLUSTER to CREATE MATERIALIZED VIEW', () => {
+        const sql = 'CREATE MATERIALIZED VIEW mv_test TO target_table AS SELECT * FROM source;';
+        const transformed = transformSqlForCluster(sql, 'my_cluster');
+        
+        expect(transformed).toContain("CREATE MATERIALIZED VIEW ON CLUSTER 'my_cluster' mv_test");
+    });
+
+    test('should add ON CLUSTER to CREATE MATERIALIZED VIEW IF NOT EXISTS', () => {
+        const sql = 'CREATE MATERIALIZED VIEW IF NOT EXISTS mv_test TO target_table AS SELECT * FROM source;';
+        const transformed = transformSqlForCluster(sql, 'my_cluster');
+        
+        expect(transformed).toContain("CREATE MATERIALIZED VIEW IF NOT EXISTS ON CLUSTER 'my_cluster' mv_test");
+    });
+
     test('should convert to ReplicatedReplacingMergeTree', () => {
         const testSqlForTransform = `
 CREATE TABLE IF NOT EXISTS test_table (
@@ -90,6 +104,53 @@ ORDER BY id;
         const transformed = transformSqlForCluster(testSqlForTransform, 'my_cluster');
         
         expect(transformed).toContain('/clickhouse/tables/{shard}/{database}/{table}');
+    });
+
+    test('should convert MergeTree without parentheses to ReplicatedMergeTree', () => {
+        const sql = `
+CREATE TABLE test_table (
+    id UInt32
+)
+ENGINE = MergeTree
+ORDER BY id;
+`;
+        const transformed = transformSqlForCluster(sql, 'my_cluster');
+        
+        expect(transformed).toContain('ReplicatedMergeTree');
+        expect(transformed).toContain('/clickhouse/tables/{shard}/{database}/{table}');
+        expect(transformed).toContain("'{replica}'");
+        // Should not have the original MergeTree anymore
+        expect(transformed).not.toMatch(/ENGINE\s*=\s*MergeTree(?!\()/i);
+    });
+
+    test('should convert MergeTree with empty parentheses to ReplicatedMergeTree', () => {
+        const sql = `
+CREATE TABLE test_table (
+    id UInt32
+)
+ENGINE = MergeTree()
+ORDER BY id;
+`;
+        const transformed = transformSqlForCluster(sql, 'my_cluster');
+        
+        expect(transformed).toContain('ReplicatedMergeTree');
+        expect(transformed).toContain('/clickhouse/tables/{shard}/{database}/{table}');
+    });
+
+    test('should convert MergeTree with parameters to ReplicatedMergeTree', () => {
+        const sql = `
+CREATE TABLE test_table (
+    id UInt32,
+    date Date
+)
+ENGINE = MergeTree(date, id, 8192)
+ORDER BY id;
+`;
+        const transformed = transformSqlForCluster(sql, 'my_cluster');
+        
+        expect(transformed).toContain('ReplicatedMergeTree');
+        expect(transformed).toContain('/clickhouse/tables/{shard}/{database}/{table}');
+        expect(transformed).toContain('date, id, 8192');
     });
 });
 
@@ -132,6 +193,61 @@ describe('schema files', () => {
         
         expect(transformedMetadata).toContain("ON CLUSTER 'test_cluster'");
         expect(transformedMetadata).toContain('ReplicatedReplacingMergeTree');
+    });
+
+    test('should transform all actual metadata.sql correctly', async () => {
+        const metadataSql = await Bun.file('./sql/schema.metadata.sql').text();
+        const transformed = transformSqlForCluster(metadataSql, 'test_cluster');
+        
+        // Check all CREATE FUNCTION statements have ON CLUSTER
+        const functionMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION/gi);
+        const functionClusterMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+ON\s+CLUSTER/gi);
+        expect(functionMatches?.length).toBe(functionClusterMatches?.length);
+        
+        // Check all CREATE TABLE statements have ON CLUSTER
+        const tableMatches = transformed.match(/CREATE\s+TABLE/gi);
+        const tableClusterMatches = transformed.match(/CREATE\s+TABLE.*ON\s+CLUSTER/gi);
+        expect(tableMatches?.length).toBe(tableClusterMatches?.length);
+        
+        // Check CREATE MATERIALIZED VIEW has ON CLUSTER
+        expect(transformed).toContain('CREATE MATERIALIZED VIEW');
+        expect(transformed).toContain('CREATE MATERIALIZED VIEW IF NOT EXISTS ON CLUSTER');
+        
+        // Check MergeTree converted
+        expect(transformed).toContain('ReplicatedMergeTree');
+        expect(transformed).toContain('ReplicatedReplacingMergeTree');
+        
+        // Ensure no plain MergeTree left
+        const plainMergeTree = transformed.match(/ENGINE\s*=\s*MergeTree(?=\s|$|;)/gi);
+        expect(plainMergeTree).toBeNull();
+    });
+
+    test('should transform all actual trc20_balances.sql correctly', async () => {
+        const balancesSql = await Bun.file('./sql/schema.trc20_balances.sql').text();
+        const transformed = transformSqlForCluster(balancesSql, 'test_cluster');
+        
+        // Check CREATE FUNCTION has ON CLUSTER
+        expect(transformed).toContain('CREATE OR REPLACE FUNCTION ON CLUSTER');
+        
+        // Check all CREATE TABLE statements have ON CLUSTER
+        const tableMatches = transformed.match(/CREATE\s+TABLE/gi);
+        const tableClusterMatches = transformed.match(/CREATE\s+TABLE.*ON\s+CLUSTER/gi);
+        expect(tableMatches?.length).toBe(tableClusterMatches?.length);
+        
+        // Check CREATE MATERIALIZED VIEW has ON CLUSTER
+        expect(transformed).toContain('CREATE MATERIALIZED VIEW IF NOT EXISTS ON CLUSTER');
+        
+        // Check all MergeTree engines converted
+        const mergeTreeCount = (transformed.match(/ENGINE\s*=\s*ReplicatedMergeTree/gi) || []).length;
+        const replacingMergeTreeCount = (transformed.match(/ENGINE\s*=\s*ReplicatedReplacingMergeTree/gi) || []).length;
+        
+        // Should have at least 2 ReplicatedMergeTree and 1 ReplicatedReplacingMergeTree
+        expect(mergeTreeCount).toBeGreaterThanOrEqual(2);
+        expect(replacingMergeTreeCount).toBeGreaterThanOrEqual(1);
+        
+        // Ensure no plain MergeTree left
+        const plainMergeTree = transformed.match(/ENGINE\s*=\s*MergeTree(?=\s|$|;)/gi);
+        expect(plainMergeTree).toBeNull();
     });
 });
 

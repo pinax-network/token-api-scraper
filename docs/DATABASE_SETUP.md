@@ -98,7 +98,9 @@ npm run cli setup sql/schema.*.sql \
 ### ClickHouse Cluster
 
 For clustered deployments, use the `--cluster` flag. This automatically:
-- Adds `ON CLUSTER '<name>'` to all CREATE/ALTER statements
+- Adds `ON CLUSTER '<name>'` to CREATE TABLE and ALTER TABLE statements
+- Adds `ON CLUSTER '<name>'` to CREATE FUNCTION statements
+- Adds `ON CLUSTER '<name>'` to CREATE MATERIALIZED VIEW statements
 - Converts `MergeTree` engines to `ReplicatedMergeTree`
 - Converts `ReplacingMergeTree` to `ReplicatedReplacingMergeTree`
 
