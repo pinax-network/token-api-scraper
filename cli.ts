@@ -13,8 +13,8 @@ const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf
  * Each service corresponds to a TypeScript file in the services directory
  */
 const SERVICES = {
-    'metadata': {
-        path: './services/metadata/index.ts',
+    'metadata-transfers': {
+        path: './services/metadata-transfers/index.ts',
         description: 'Fetch and store TRC-20 token metadata (name, symbol, decimals) from smart contracts'
     },
     'trc20-balances': {
@@ -131,17 +131,17 @@ function addCommonOptions(command: Command): Command {
  */
 function runService(serviceName: string, options: any) {
     const service = SERVICES[serviceName as keyof typeof SERVICES];
-    
+
     if (!service) {
         console.error(`❌ Error: Unknown service '${serviceName}'`);
         console.log(`\n📋 Available services: ${Object.keys(SERVICES).join(', ')}`);
         process.exit(1);
     }
-    
+
     console.log(`🚀 Starting service: ${serviceName}\n`);
-    
+
     const servicePath = resolve(__dirname, service.path);
-    
+
     // Build environment variables from CLI options
     // CLI options override existing environment variables
     const env = {
@@ -192,19 +192,19 @@ const runCommand = program
     .addHelpText('after', `
 
 Services:
-  metadata          ${SERVICES.metadata.description}
-  trc20-balances    ${SERVICES['trc20-balances'].description}
-  native-balances   ${SERVICES['native-balances'].description}
-  trc20-backfill    ${SERVICES['trc20-backfill'].description}
-  native-backfill   ${SERVICES['native-backfill'].description}
+  metadata-transfers ${SERVICES['metadata-transfers'].description}
+  trc20-balances     ${SERVICES['trc20-balances'].description}
+  native-balances    ${SERVICES['native-balances'].description}
+  trc20-backfill     ${SERVICES['trc20-backfill'].description}
+  native-backfill    ${SERVICES['native-backfill'].description}
 
 Examples:
-  $ npm run cli run metadata
+  $ npm run cli run metadata-transfers
   $ npm run cli run trc20-balances --concurrency 20
   $ npm run cli run native-balances --enable-prometheus --prometheus-port 8080
   $ npm run cli run trc20-backfill --concurrency 15
   $ npm run cli run native-backfill --enable-prometheus
-  $ npm run cli run metadata --clickhouse-url http://db:8123 --node-url https://api.trongrid.io
+  $ npm run cli run metadata-transfers --clickhouse-url http://db:8123 --node-url https://api.trongrid.io
     `)
     .action((service: string, options: any) => {
         runService(service, options);
