@@ -86,21 +86,25 @@ export function transformSqlForCluster(sql: string, clusterName: string): string
 
     // Add ON CLUSTER to CREATE FUNCTION statements (all variants)
     // Handles: CREATE OR REPLACE FUNCTION, CREATE FUNCTION, CREATE FUNCTION IF NOT EXISTS
+    // Pattern: CREATE [OR REPLACE] FUNCTION [IF NOT EXISTS] function_name ...
+    // Result: CREATE [OR REPLACE] FUNCTION [IF NOT EXISTS] function_name ON CLUSTER 'name' ...
     transformed = transformed.replace(
-        /CREATE(\s+OR\s+REPLACE)?\s+FUNCTION(\s+IF\s+NOT\s+EXISTS)?/gi,
-        (match, orReplace, ifNotExists) => {
+        /CREATE(\s+OR\s+REPLACE)?\s+FUNCTION(\s+IF\s+NOT\s+EXISTS)?\s+(\S+)/gi,
+        (match, orReplace, ifNotExists, functionName) => {
             const orReplacePart = orReplace || '';
             const ifNotExistsPart = ifNotExists || '';
-            return `CREATE${orReplacePart} FUNCTION${ifNotExistsPart} ON CLUSTER '${clusterName}'`;
+            return `CREATE${orReplacePart} FUNCTION${ifNotExistsPart} ${functionName} ON CLUSTER '${clusterName}'`;
         }
     );
 
     // Add ON CLUSTER to CREATE MATERIALIZED VIEW statements
+    // Pattern: CREATE MATERIALIZED VIEW [IF NOT EXISTS] view_name ...
+    // Result: CREATE MATERIALIZED VIEW [IF NOT EXISTS] view_name ON CLUSTER 'name' ...
     transformed = transformed.replace(
-        /CREATE\s+MATERIALIZED\s+VIEW(\s+IF\s+NOT\s+EXISTS)?/gi,
-        (match, ifNotExists) => {
+        /CREATE\s+MATERIALIZED\s+VIEW(\s+IF\s+NOT\s+EXISTS)?\s+(\S+)/gi,
+        (match, ifNotExists, viewName) => {
             const ifNotExistsPart = ifNotExists || '';
-            return `CREATE MATERIALIZED VIEW${ifNotExistsPart} ON CLUSTER '${clusterName}'`;
+            return `CREATE MATERIALIZED VIEW${ifNotExistsPart} ${viewName} ON CLUSTER '${clusterName}'`;
         }
     );
 
