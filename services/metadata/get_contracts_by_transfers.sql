@@ -1,5 +1,5 @@
 WITH metadata_contracts AS (
-    SELECT contract, block_num
+    SELECT contract
     FROM metadata_rpc
 ),
 contracts AS (
@@ -11,4 +11,4 @@ contracts AS (
 )
 SELECT *
 FROM contracts
-WHERE (contract, block_num) NOT IN metadata_contracts
+WHERE contract NOT IN metadata_contracts
