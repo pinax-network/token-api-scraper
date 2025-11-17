@@ -95,6 +95,15 @@ export function transformSqlForCluster(sql: string, clusterName: string): string
         }
     );
 
+    // Add ON CLUSTER to CREATE MATERIALIZED VIEW statements
+    transformed = transformed.replace(
+        /CREATE\s+MATERIALIZED\s+VIEW(\s+IF\s+NOT\s+EXISTS)?/gi,
+        (match, ifNotExists) => {
+            const ifNotExistsPart = ifNotExists || '';
+            return `CREATE MATERIALIZED VIEW${ifNotExistsPart} ON CLUSTER '${clusterName}'`;
+        }
+    );
+
     // Convert MergeTree engines to ReplicatedMergeTree
     // ReplacingMergeTree -> ReplicatedReplacingMergeTree
     transformed = transformed.replace(
@@ -104,7 +113,14 @@ export function transformSqlForCluster(sql: string, clusterName: string): string
         }
     );
 
-    // Handle basic MergeTree (without Replacing)
+    // Handle basic MergeTree without parentheses (most common case)
+    // Match: ENGINE = MergeTree (followed by newline, whitespace, or semicolon)
+    transformed = transformed.replace(
+        /ENGINE\s*=\s*MergeTree(?=\s|$|;)/gi,
+        `ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')`
+    );
+
+    // Handle MergeTree with empty parentheses
     transformed = transformed.replace(
         /ENGINE\s*=\s*MergeTree\(\s*\)/gi,
         `ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')`
@@ -230,7 +246,7 @@ export async function executeSqlSetup(
     
     if (options.cluster) {
         console.log(`\n📊 Cluster: ${options.cluster}`);
-        console.log('   - ON CLUSTER clause added to all CREATE/ALTER/FUNCTION statements');
-        console.log('   - Converted to Replicated* table engines');
+        console.log('   - ON CLUSTER clause added to CREATE TABLE, ALTER TABLE, CREATE FUNCTION, and CREATE MATERIALIZED VIEW statements');
+        console.log('   - Converted MergeTree engines to Replicated* variants (ReplicatedMergeTree, ReplicatedReplacingMergeTree)');
     }
 }
