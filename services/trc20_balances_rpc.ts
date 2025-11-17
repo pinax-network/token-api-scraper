@@ -29,13 +29,13 @@ async function processBalanceOf(account: string, contract: string, block_num: nu
             });
             tracker.incrementSuccess();
         } else {
-            await insert_error_balances(contract, account, "zero balance", block_num);
+            await insert_error_balances({block_num, contract, account}, "zero balance");
             tracker.incrementError();
         }
 
     } catch (err) {
         const message = (err as Error).message || String(err);
-        await insert_error_balances(contract, account, message, block_num);
+        await insert_error_balances({block_num, contract, account}, message);
         tracker.incrementError();
     }
 };

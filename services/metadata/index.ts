@@ -29,7 +29,7 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
         if (decimals_hex) {
             const symbol_hex = await callContract(contract, "symbol()"); // 95d89b41
             const name_hex = await callContract(contract, "name()"); // 06fdde03
-            insert_metadata({
+            await insert_metadata({
                 contract,
                 block_num,
                 name_hex,
@@ -39,13 +39,13 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
             tracker.incrementSuccess();
         } else {
             console.log(`Contract ${contract} missing decimals()`);
-            insert_error_metadata({contract, block_num}, "missing decimals()");
+            await insert_error_metadata({contract, block_num}, "missing decimals()");
             tracker.incrementError();
         }
 
     } catch (err) {
         const message = (err as Error).message || String(err);
-        insert_error_metadata({contract, block_num}, message);
+        await insert_error_metadata({contract, block_num}, message);
         tracker.incrementError();
     }
 };
