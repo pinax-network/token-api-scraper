@@ -41,6 +41,27 @@ CREATE OR REPLACE FUNCTION test_func AS (x) -> x * 2;
         expect(transformed).toContain("ON CLUSTER 'my_cluster'");
     });
 
+    test('should add ON CLUSTER to CREATE OR REPLACE FUNCTION', () => {
+        const sql = 'CREATE OR REPLACE FUNCTION test_func AS (x) -> x * 2;';
+        const transformed = transformSqlForCluster(sql, 'my_cluster');
+        
+        expect(transformed).toContain("CREATE OR REPLACE FUNCTION ON CLUSTER 'my_cluster' test_func");
+    });
+
+    test('should add ON CLUSTER to plain CREATE FUNCTION', () => {
+        const sql = 'CREATE FUNCTION test_func AS (x) -> x * 2;';
+        const transformed = transformSqlForCluster(sql, 'my_cluster');
+        
+        expect(transformed).toContain("CREATE FUNCTION ON CLUSTER 'my_cluster' test_func");
+    });
+
+    test('should add ON CLUSTER to CREATE FUNCTION IF NOT EXISTS', () => {
+        const sql = 'CREATE FUNCTION IF NOT EXISTS test_func AS (x) -> x * 2;';
+        const transformed = transformSqlForCluster(sql, 'my_cluster');
+        
+        expect(transformed).toContain("CREATE FUNCTION IF NOT EXISTS ON CLUSTER 'my_cluster' test_func");
+    });
+
     test('should convert to ReplicatedReplacingMergeTree', () => {
         const testSqlForTransform = `
 CREATE TABLE IF NOT EXISTS test_table (
@@ -73,29 +94,40 @@ ORDER BY id;
 });
 
 describe('schema files', () => {
-    test('should parse metadata schema', async () => {
-        const functionsSql = await Bun.file('./sql/schema.metadata.sql').text();
+    test('should parse functions schema', async () => {
+        const functionsSql = await Bun.file('./sql.schemas/schema.functions.sql').text();
         const functionsStatements = splitSqlStatements(functionsSql);
         
         expect(functionsStatements.length).toBeGreaterThan(0);
     });
 
     test('should parse metadata schema', async () => {
-        const metadataSql = await Bun.file('./sql/schema.metadata.sql').text();
+        const metadataSql = await Bun.file('./sql.schemas/schema.metadata.sql').text();
         const metadataStatements = splitSqlStatements(metadataSql);
         
         expect(metadataStatements.length).toBeGreaterThan(0);
     });
 
     test('should parse balances schema', async () => {
-        const balancesSql = await Bun.file('./sql/schema.trc20_balances.sql').text();
+        const balancesSql = await Bun.file('./sql.schemas/schema.trc20_balances.sql').text();
         const balancesStatements = splitSqlStatements(balancesSql);
         
         expect(balancesStatements.length).toBeGreaterThan(0);
     });
 
+    test('should transform functions schema for cluster', async () => {
+        const functionsSql = await Bun.file('./sql.schemas/schema.functions.sql').text();
+        const transformedFunctions = transformSqlForCluster(functionsSql, 'test_cluster');
+        
+        expect(transformedFunctions).toContain("ON CLUSTER 'test_cluster'");
+        // Verify all CREATE FUNCTION statements have ON CLUSTER
+        const functionMatches = transformedFunctions.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION/gi);
+        const clusterMatches = transformedFunctions.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+ON\s+CLUSTER/gi);
+        expect(functionMatches?.length).toBe(clusterMatches?.length);
+    });
+
     test('should transform metadata schema for cluster', async () => {
-        const metadataSql = await Bun.file('./sql/schema.metadata.sql').text();
+        const metadataSql = await Bun.file('./sql.schemas/schema.metadata.sql').text();
         const transformedMetadata = transformSqlForCluster(metadataSql, 'test_cluster');
         
         expect(transformedMetadata).toContain("ON CLUSTER 'test_cluster'");

@@ -84,10 +84,15 @@ export function transformSqlForCluster(sql: string, clusterName: string): string
         }
     );
 
-    // Add ON CLUSTER to CREATE OR REPLACE FUNCTION statements
+    // Add ON CLUSTER to CREATE FUNCTION statements (all variants)
+    // Handles: CREATE OR REPLACE FUNCTION, CREATE FUNCTION, CREATE FUNCTION IF NOT EXISTS
     transformed = transformed.replace(
-        /CREATE OR REPLACE FUNCTION/gi,
-        `CREATE OR REPLACE FUNCTION ON CLUSTER '${clusterName}'`
+        /CREATE(\s+OR\s+REPLACE)?\s+FUNCTION(\s+IF\s+NOT\s+EXISTS)?/gi,
+        (match, orReplace, ifNotExists) => {
+            const orReplacePart = orReplace || '';
+            const ifNotExistsPart = ifNotExists || '';
+            return `CREATE${orReplacePart} FUNCTION${ifNotExistsPart} ON CLUSTER '${clusterName}'`;
+        }
     );
 
     // Convert MergeTree engines to ReplicatedMergeTree
