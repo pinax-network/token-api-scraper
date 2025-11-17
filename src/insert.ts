@@ -1,5 +1,25 @@
 import { client } from "../lib/clickhouse";
 
+/**
+ * Interface for ClickHouse client errors
+ */
+interface ClickHouseError extends Error {
+    code?: string;
+    message: string;
+}
+
+/**
+ * Helper function to handle insert errors consistently
+ * Logs error details and provides specific guidance for connection issues
+ */
+function handleInsertError(error: unknown, context: string): void {
+    const err = error as ClickHouseError;
+    console.error(`${context}:`, err.message);
+    if (err.code === 'ConnectionRefused' || err.message?.includes('Connection refused')) {
+        console.error('Unable to connect to ClickHouse. Check database connection.');
+    }
+}
+
 export async function insert_metadata(row: {
     contract: string;
     block_num: number;
@@ -13,12 +33,9 @@ export async function insert_metadata(row: {
             format: 'JSONEachRow',
             values: [row],
         });
-    } catch (error: any) {
+    } catch (error) {
         // Log error but don't throw - allows service to continue processing other items
-        console.error(`Failed to insert metadata for contract ${row.contract}:`, error.message);
-        if (error.code === 'ConnectionRefused' || error.message?.includes('Connection refused')) {
-            console.error('Unable to connect to ClickHouse. Check database connection.');
-        }
+        handleInsertError(error, `Failed to insert metadata for contract ${row.contract}`);
     }
 }
 
@@ -32,12 +49,9 @@ export async function insert_error_metadata(row: {contract: string, block_num: n
                 error
             }],
         });
-    } catch (insertError: any) {
+    } catch (insertError) {
         // Log error but don't throw - allows service to continue processing other items
-        console.error(`Failed to insert error metadata for contract ${row.contract}:`, insertError.message);
-        if (insertError.code === 'ConnectionRefused' || insertError.message?.includes('Connection refused')) {
-            console.error('Unable to connect to ClickHouse. Check database connection.');
-        }
+        handleInsertError(insertError, `Failed to insert error metadata for contract ${row.contract}`);
     }
 }
 
@@ -53,12 +67,9 @@ export async function insert_balances(row: {
             format: 'JSONEachRow',
             values: [row],
         });
-    } catch (error: any) {
+    } catch (error) {
         // Log error but don't throw - allows service to continue processing other items
-        console.error(`Failed to insert balance for account ${row.account}:`, error.message);
-        if (error.code === 'ConnectionRefused' || error.message?.includes('Connection refused')) {
-            console.error('Unable to connect to ClickHouse. Check database connection.');
-        }
+        handleInsertError(error, `Failed to insert balance for account ${row.account}`);
     }
 }
 
@@ -69,12 +80,9 @@ export async function insert_error_balances(row: {block_num: number, contract: s
             format: 'JSONEachRow',
             values: [{...row, error}],
         });
-    } catch (insertError: any) {
+    } catch (insertError) {
         // Log error but don't throw - allows service to continue processing other items
-        console.error(`Failed to insert error balance for account ${row.account}:`, insertError.message);
-        if (insertError.code === 'ConnectionRefused' || insertError.message?.includes('Connection refused')) {
-            console.error('Unable to connect to ClickHouse. Check database connection.');
-        }
+        handleInsertError(insertError, `Failed to insert error balance for account ${row.account}`);
     }
 }
 
@@ -88,12 +96,9 @@ export async function insert_native_balances(row: {
             format: 'JSONEachRow',
             values: [row],
         });
-    } catch (error: any) {
+    } catch (error) {
         // Log error but don't throw - allows service to continue processing other items
-        console.error(`Failed to insert native balance for account ${row.account}:`, error.message);
-        if (error.code === 'ConnectionRefused' || error.message?.includes('Connection refused')) {
-            console.error('Unable to connect to ClickHouse. Check database connection.');
-        }
+        handleInsertError(error, `Failed to insert native balance for account ${row.account}`);
     }
 }
 
@@ -107,11 +112,8 @@ export async function insert_error_native_balances(account: string, error: strin
                 error
             }],
         });
-    } catch (insertError: any) {
+    } catch (insertError) {
         // Log error but don't throw - allows service to continue processing other items
-        console.error(`Failed to insert error native balance for account ${account}:`, insertError.message);
-        if (insertError.code === 'ConnectionRefused' || insertError.message?.includes('Connection refused')) {
-            console.error('Unable to connect to ClickHouse. Check database connection.');
-        }
+        handleInsertError(insertError, `Failed to insert error native balance for account ${account}`);
     }
 }
