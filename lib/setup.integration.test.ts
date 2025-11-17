@@ -97,7 +97,7 @@ describe('Setup CLI Integration Tests', () => {
         
         // Count CREATE FUNCTION statements
         const functionMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION/gi);
-        const clusterMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+ON\s+CLUSTER/gi);
+        const clusterMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+\S+\s+ON\s+CLUSTER/gi);
         
         // All CREATE FUNCTION statements should have ON CLUSTER
         expect(functionMatches).toBeTruthy();

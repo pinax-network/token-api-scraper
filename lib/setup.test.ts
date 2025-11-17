@@ -45,35 +45,35 @@ CREATE OR REPLACE FUNCTION test_func AS (x) -> x * 2;
         const sql = 'CREATE OR REPLACE FUNCTION test_func AS (x) -> x * 2;';
         const transformed = transformSqlForCluster(sql, 'my_cluster');
         
-        expect(transformed).toContain("CREATE OR REPLACE FUNCTION ON CLUSTER 'my_cluster' test_func");
+        expect(transformed).toContain("CREATE OR REPLACE FUNCTION test_func ON CLUSTER 'my_cluster'");
     });
 
     test('should add ON CLUSTER to plain CREATE FUNCTION', () => {
         const sql = 'CREATE FUNCTION test_func AS (x) -> x * 2;';
         const transformed = transformSqlForCluster(sql, 'my_cluster');
         
-        expect(transformed).toContain("CREATE FUNCTION ON CLUSTER 'my_cluster' test_func");
+        expect(transformed).toContain("CREATE FUNCTION test_func ON CLUSTER 'my_cluster'");
     });
 
     test('should add ON CLUSTER to CREATE FUNCTION IF NOT EXISTS', () => {
         const sql = 'CREATE FUNCTION IF NOT EXISTS test_func AS (x) -> x * 2;';
         const transformed = transformSqlForCluster(sql, 'my_cluster');
         
-        expect(transformed).toContain("CREATE FUNCTION IF NOT EXISTS ON CLUSTER 'my_cluster' test_func");
+        expect(transformed).toContain("CREATE FUNCTION IF NOT EXISTS test_func ON CLUSTER 'my_cluster'");
     });
 
     test('should add ON CLUSTER to CREATE MATERIALIZED VIEW', () => {
         const sql = 'CREATE MATERIALIZED VIEW mv_test TO target_table AS SELECT * FROM source;';
         const transformed = transformSqlForCluster(sql, 'my_cluster');
         
-        expect(transformed).toContain("CREATE MATERIALIZED VIEW ON CLUSTER 'my_cluster' mv_test");
+        expect(transformed).toContain("CREATE MATERIALIZED VIEW mv_test ON CLUSTER 'my_cluster'");
     });
 
     test('should add ON CLUSTER to CREATE MATERIALIZED VIEW IF NOT EXISTS', () => {
         const sql = 'CREATE MATERIALIZED VIEW IF NOT EXISTS mv_test TO target_table AS SELECT * FROM source;';
         const transformed = transformSqlForCluster(sql, 'my_cluster');
         
-        expect(transformed).toContain("CREATE MATERIALIZED VIEW IF NOT EXISTS ON CLUSTER 'my_cluster' mv_test");
+        expect(transformed).toContain("CREATE MATERIALIZED VIEW IF NOT EXISTS mv_test ON CLUSTER 'my_cluster'");
     });
 
     test('should convert to ReplicatedReplacingMergeTree', () => {
@@ -182,8 +182,9 @@ describe('schema files', () => {
         
         expect(transformedFunctions).toContain("ON CLUSTER 'test_cluster'");
         // Verify all CREATE FUNCTION statements have ON CLUSTER
+        // Pattern: function_name ON CLUSTER
         const functionMatches = transformedFunctions.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION/gi);
-        const clusterMatches = transformedFunctions.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+ON\s+CLUSTER/gi);
+        const clusterMatches = transformedFunctions.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+\S+\s+ON\s+CLUSTER/gi);
         expect(functionMatches?.length).toBe(clusterMatches?.length);
     });
 
@@ -200,8 +201,9 @@ describe('schema files', () => {
         const transformed = transformSqlForCluster(metadataSql, 'test_cluster');
         
         // Check all CREATE FUNCTION statements have ON CLUSTER
+        // Pattern: function_name ON CLUSTER
         const functionMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION/gi);
-        const functionClusterMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+ON\s+CLUSTER/gi);
+        const functionClusterMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+\S+\s+ON\s+CLUSTER/gi);
         expect(functionMatches?.length).toBe(functionClusterMatches?.length);
         
         // Check all CREATE TABLE statements have ON CLUSTER
@@ -211,7 +213,8 @@ describe('schema files', () => {
         
         // Check CREATE MATERIALIZED VIEW has ON CLUSTER
         expect(transformed).toContain('CREATE MATERIALIZED VIEW');
-        expect(transformed).toContain('CREATE MATERIALIZED VIEW IF NOT EXISTS ON CLUSTER');
+        // Pattern: view_name ON CLUSTER
+        expect(transformed).toMatch(/CREATE MATERIALIZED VIEW IF NOT EXISTS \S+ ON CLUSTER/);
         
         // Check MergeTree converted
         expect(transformed).toContain('ReplicatedMergeTree');
@@ -227,7 +230,8 @@ describe('schema files', () => {
         const transformed = transformSqlForCluster(balancesSql, 'test_cluster');
         
         // Check CREATE FUNCTION has ON CLUSTER
-        expect(transformed).toContain('CREATE OR REPLACE FUNCTION ON CLUSTER');
+        // Pattern: function_name ON CLUSTER
+        expect(transformed).toMatch(/CREATE OR REPLACE FUNCTION \S+ ON CLUSTER/);
         
         // Check all CREATE TABLE statements have ON CLUSTER
         const tableMatches = transformed.match(/CREATE\s+TABLE/gi);
@@ -235,7 +239,8 @@ describe('schema files', () => {
         expect(tableMatches?.length).toBe(tableClusterMatches?.length);
         
         // Check CREATE MATERIALIZED VIEW has ON CLUSTER
-        expect(transformed).toContain('CREATE MATERIALIZED VIEW IF NOT EXISTS ON CLUSTER');
+        // Pattern: view_name ON CLUSTER
+        expect(transformed).toMatch(/CREATE MATERIALIZED VIEW IF NOT EXISTS \S+ ON CLUSTER/);
         
         // Check all MergeTree engines converted
         const mergeTreeCount = (transformed.match(/ENGINE\s*=\s*ReplicatedMergeTree/gi) || []).length;
