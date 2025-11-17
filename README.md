@@ -212,7 +212,6 @@ cp .env.example .env
 - `TIMEOUT_MS` - Timeout in milliseconds for individual RPC requests (default: `10000`)
 - `ENABLE_PROMETHEUS` - Enable Prometheus metrics endpoint (default: `false`, set to `true` to enable)
 - `PROMETHEUS_PORT` - Prometheus metrics HTTP port (default: `9090`)
-- `TRANSFERS_TABLE` - Name of the transfers table to query (default: `transfers`, options: `transfers`, `native_transfer`, `trc20_transfer`)
 
 ### Concurrency Settings
 

@@ -159,21 +159,20 @@ function runService(serviceName: string, options: any) {
         MAX_DELAY_MS: options.maxDelayMs,
         TIMEOUT_MS: options.timeoutMs,
         ENABLE_PROMETHEUS: options.enablePrometheus ? 'true' : (process.env.ENABLE_PROMETHEUS || 'false'),
-        PROMETHEUS_PORT: options.prometheusPort,
-        TRANSFERS_TABLE: options.transfersTable
+        PROMETHEUS_PORT: options.prometheusPort
     };
-    
+
     // Spawn the service as a child process
     const child = spawn('bun', ['run', servicePath], {
         stdio: 'inherit',  // Pipe stdout/stderr to parent process
         env
     });
-    
+
     child.on('error', (err) => {
         console.error(`❌ Failed to start service: ${err.message}`);
         process.exit(1);
     });
-    
+
     child.on('exit', (code) => {
         if (code === 0) {
             console.log(`\n✅ Service '${serviceName}' completed successfully`);
