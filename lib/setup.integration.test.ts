@@ -66,10 +66,10 @@ describe('Setup CLI Integration Tests', () => {
         const statements = splitSqlStatements(metadataContent);
 
         const hasCreateTable = statements.some(s => s.includes('CREATE TABLE'));
-        const hasAlterTable = statements.some(s => s.includes('ALTER TABLE'));
+        const hasCreateFunction = statements.some(s => s.includes('CREATE OR REPLACE FUNCTION'));
 
         expect(hasCreateTable).toBe(true);
-        expect(hasAlterTable).toBe(true);
+        expect(hasCreateFunction).toBe(true);
     });
 
     test('should have expected table names', () => {
