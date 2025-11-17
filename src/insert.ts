@@ -40,14 +40,14 @@ export async function insert_metadata(row: {
     }
 }
 
-export async function insert_error_metadata(row: {contract: string, block_num: number}, error: string) {
+export async function insert_error_metadata(row: {contract: string, block_num: number}, error_msg: string) {
     try {
         await client.insert({
             table: 'metadata_rpc',
             format: 'JSONEachRow',
             values: [{
                 ...row,
-                error
+                error_msg
             }],
         });
     } catch (insertError) {
@@ -74,12 +74,15 @@ export async function insert_balances(row: {
     }
 }
 
-export async function insert_error_balances(row: {block_num: number, contract: string, account: string}, error: string) {
+export async function insert_error_balances(row: {block_num: number, contract: string, account: string}, error_msg: string) {
     try {
         await client.insert({
             table: 'trc20_balances_rpc',
             format: 'JSONEachRow',
-            values: [{...row, error}],
+            values: [{
+                ...row,
+                error_msg
+            }],
         });
     } catch (insertError) {
         // Log error but don't throw - allows service to continue processing other items

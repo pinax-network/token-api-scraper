@@ -12,8 +12,13 @@ if (ENABLE_PROMETHEUS) {
     console.log(`📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`);
 }
 
-const sql = await Bun.file(__dirname + "/get_contracts_by_transfers.sql").text();
-const contracts = await query<{ contract: string, block_num: number }>(sql);
+const contracts_by_transfers = await query<{ contract: string, block_num: number }>(
+    await Bun.file(__dirname + "/get_contracts_by_transfers.sql").text()
+);
+const contracts_by_swaps = await query<{ contract: string, block_num: number }>(
+    await Bun.file(__dirname + "/get_contracts_by_swaps.sql").text()
+);
+const contracts = contracts_by_transfers.data.concat(contracts_by_swaps.data);
 
 async function processMetadata(contract: string, block_num: number, tracker: ProgressTracker) {
     try {
@@ -33,6 +38,7 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
             });
             tracker.incrementSuccess();
         } else {
+            console.log(`Contract ${contract} missing decimals()`);
             await insert_error_metadata({contract, block_num}, "missing decimals()");
             tracker.incrementError();
         }
@@ -45,20 +51,20 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
 };
 
 console.log(`\n📋 Task Overview:`);
-console.log(`   Unique contracts: ${contracts.data.length}`);
-console.log(`   Total tasks to process: ${contracts.data.length}`);
+console.log(`   Unique contracts: ${contracts.length}`);
+console.log(`   Total tasks to process: ${contracts.length}`);
 console.log(``);
 
 // Initialize progress tracker
 const tracker = new ProgressTracker({
     serviceName: 'Metadata',
-    totalTasks: contracts.data.length,
+    totalTasks: contracts.length,
     enablePrometheus: ENABLE_PROMETHEUS,
     prometheusPort: PROMETHEUS_PORT
 });
 
 // Add all contracts to the queue
-for (const {contract, block_num} of contracts.data) {
+for (const {contract, block_num} of contracts) {
     queue.add(() => processMetadata(contract, block_num, tracker));
 }
 
