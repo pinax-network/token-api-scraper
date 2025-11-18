@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'bun:test';
 import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE } from './config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_ENABLED, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_ENABLED, RPC_BATCH_SIZE } from './config';
 
 describe('config module', () => {
     test('CONCURRENCY should be a valid number', () => {
@@ -41,5 +42,18 @@ describe('config module', () => {
 
     test('BATCH_INSERT_MAX_SIZE should be positive', () => {
         expect(BATCH_INSERT_MAX_SIZE).toBeGreaterThan(0);
+    });
+
+    test('RPC_BATCH_ENABLED should be a boolean', () => {
+        expect(typeof RPC_BATCH_ENABLED).toBe('boolean');
+    });
+
+    test('RPC_BATCH_SIZE should be a valid number', () => {
+        expect(typeof RPC_BATCH_SIZE).toBe('number');
+        expect(isNaN(RPC_BATCH_SIZE)).toBe(false);
+    });
+
+    test('RPC_BATCH_SIZE should be positive', () => {
+        expect(RPC_BATCH_SIZE).toBeGreaterThan(0);
     });
 });
