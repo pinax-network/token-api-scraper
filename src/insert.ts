@@ -1,4 +1,6 @@
 import { client } from "../lib/clickhouse";
+import { getBatchInsertQueue } from "../lib/batch-insert";
+import { BATCH_INSERT_ENABLED } from "../lib/config";
 
 /**
  * Interface for ClickHouse client errors
@@ -21,6 +23,29 @@ function handleInsertError(error: unknown, context: string): void {
     }
 }
 
+/**
+ * Insert a row into ClickHouse, using batch insert if enabled
+ */
+async function insertRow<T>(table: string, value: T, context: string): Promise<void> {
+    try {
+        if (BATCH_INSERT_ENABLED) {
+            // Use batch insert queue
+            const batchQueue = getBatchInsertQueue();
+            await batchQueue.add(table, value);
+        } else {
+            // Direct insert (legacy behavior)
+            await client.insert({
+                table,
+                format: 'JSONEachRow',
+                values: [value],
+            });
+        }
+    } catch (error) {
+        // Log error but don't throw - allows service to continue processing other items
+        handleInsertError(error, context);
+    }
+}
+
 export async function insert_metadata(row: {
     contract: string;
     block_num: number;
@@ -28,32 +53,11 @@ export async function insert_metadata(row: {
     name_hex: string;
     decimals_hex: string;
 }) {
-    try {
-        await client.insert({
-            table: 'metadata_rpc',
-            format: 'JSONEachRow',
-            values: [row],
-        });
-    } catch (error) {
-        // Log error but don't throw - allows service to continue processing other items
-        handleInsertError(error, `Failed to insert metadata for contract ${row.contract}`);
-    }
+    await insertRow('metadata_rpc', row, `Failed to insert metadata for contract ${row.contract}`);
 }
 
 export async function insert_error_metadata(row: {contract: string, block_num: number}, error_msg: string) {
-    try {
-        await client.insert({
-            table: 'metadata_rpc',
-            format: 'JSONEachRow',
-            values: [{
-                ...row,
-                error_msg
-            }],
-        });
-    } catch (insertError) {
-        // Log error but don't throw - allows service to continue processing other items
-        handleInsertError(insertError, `Failed to insert error metadata for contract ${row.contract}`);
-    }
+    await insertRow('metadata_rpc', { ...row, error_msg }, `Failed to insert error metadata for contract ${row.contract}`);
 }
 
 export async function insert_balances(row: {
@@ -62,62 +66,20 @@ export async function insert_balances(row: {
     balance_hex: string;
     block_num: number;
 }) {
-    try {
-        await client.insert({
-            table: 'trc20_balances_rpc',
-            format: 'JSONEachRow',
-            values: [row],
-        });
-    } catch (error) {
-        // Log error but don't throw - allows service to continue processing other items
-        handleInsertError(error, `Failed to insert balance for account ${row.account}`);
-    }
+    await insertRow('trc20_balances_rpc', row, `Failed to insert balance for account ${row.account}`);
 }
 
 export async function insert_error_balances(row: {block_num: number, contract: string, account: string}, error_msg: string) {
-    try {
-        await client.insert({
-            table: 'trc20_balances_rpc',
-            format: 'JSONEachRow',
-            values: [{
-                ...row,
-                error_msg
-            }],
-        });
-    } catch (insertError) {
-        // Log error but don't throw - allows service to continue processing other items
-        handleInsertError(insertError, `Failed to insert error balance for account ${row.account}`);
-    }
+    await insertRow('trc20_balances_rpc', { ...row, error_msg }, `Failed to insert error balance for account ${row.account}`);
 }
 
 export async function insert_native_balances(row: {
     account: string;
     balance_hex: string;
 }) {
-    try {
-        await client.insert({
-            table: 'native_balances_rpc',
-            format: 'JSONEachRow',
-            values: [row],
-        });
-    } catch (error) {
-        // Log error but don't throw - allows service to continue processing other items
-        handleInsertError(error, `Failed to insert native balance for account ${row.account}`);
-    }
+    await insertRow('native_balances_rpc', row, `Failed to insert native balance for account ${row.account}`);
 }
 
 export async function insert_error_native_balances(account: string, error: string) {
-    try {
-        await client.insert({
-            table: 'native_balances_rpc',
-            format: 'JSONEachRow',
-            values: [{
-                account,
-                error
-            }],
-        });
-    } catch (insertError) {
-        // Log error but don't throw - allows service to continue processing other items
-        handleInsertError(insertError, `Failed to insert error native balance for account ${account}`);
-    }
+    await insertRow('native_balances_rpc', { account, error }, `Failed to insert error native balance for account ${account}`);
 }
