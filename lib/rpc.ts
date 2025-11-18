@@ -267,6 +267,182 @@ async function makeJsonRpcCall(
 }
 
 /** -----------------------------------------------------------------------
+ *  Batch JSON-RPC call support
+ *  ---------------------------------------------------------------------*/
+
+/**
+ * Represents a single batch request item
+ */
+export interface BatchRequest {
+  method: string;
+  params: any[];
+}
+
+/**
+ * Represents the result of a batch request item
+ */
+export interface BatchResult {
+  success: boolean;
+  result?: string;
+  error?: {
+    code: number;
+    message: string;
+  };
+}
+
+/**
+ * Execute a batch JSON-RPC request without retry logic
+ * This function performs one attempt at making a batch RPC call
+ */
+async function makeBatchJsonRpcRequest(
+  requests: BatchRequest[],
+  timeoutMs: number
+): Promise<BatchResult[]> {
+  // Build batch request body according to JSON-RPC 2.0 spec
+  const body = requests.map((req, index) => ({
+    jsonrpc: "2.0",
+    method: req.method,
+    params: req.params,
+    id: index + 1 // Use sequential IDs starting from 1
+  }));
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(NODE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ctrl.signal
+    });
+
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch (parseErr) {
+      // Non-JSON or empty response
+      if (isRetryable(parseErr, res.status)) {
+        throw new RetryableError(`Non-JSON response (status ${res.status})`);
+      }
+      throw new Error(`Failed to parse JSON (status ${res.status})`);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      if (isRetryable(null, res.status, json)) {
+        throw new RetryableError(`HTTP ${res.status}`);
+      }
+      throw new Error(`HTTP ${res.status}: ${JSON.stringify(json)}`);
+    }
+
+    // Handle batch response - it should be an array
+    if (!Array.isArray(json)) {
+      throw new Error(`Expected array response for batch request, got: ${typeof json}`);
+    }
+
+    // Map responses back to results, preserving order by ID
+    const results: BatchResult[] = new Array(requests.length);
+    
+    for (const item of json) {
+      const index = (item.id as number) - 1; // Convert back to 0-based index
+      
+      if (index < 0 || index >= requests.length) {
+        console.warn(`Received response with unexpected id: ${item.id}`);
+        continue;
+      }
+
+      if (item.error) {
+        results[index] = {
+          success: false,
+          error: {
+            code: item.error.code,
+            message: item.error.message
+          }
+        };
+      } else {
+        results[index] = {
+          success: true,
+          result: item.result || ""
+        };
+      }
+    }
+
+    // Fill in any missing results (in case server didn't respond for some)
+    for (let i = 0; i < results.length; i++) {
+      if (!results[i]) {
+        results[i] = {
+          success: false,
+          error: {
+            code: -1,
+            message: "No response received for this request"
+          }
+        };
+      }
+    }
+
+    return results;
+
+  } catch (err: any) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+/**
+ * Make a batch JSON-RPC call with retry logic
+ * Returns an array of results, one for each request
+ */
+export async function makeBatchJsonRpcCall(
+  requests: BatchRequest[],
+  retryOrOpts?: number | RetryOptions
+): Promise<BatchResult[]> {
+  if (!requests || requests.length === 0) {
+    return [];
+  }
+
+  const { retries, baseDelayMs, timeoutMs, jitterMin, jitterMax, maxDelayMs } = toOptions(retryOrOpts);
+
+  const attempts = Math.max(1, retries);
+  let lastError: any;
+
+  // Create a queue with concurrency 1 for sequential retry attempts
+  const queue = new PQueue({ concurrency: 1 });
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      // Use p-queue to manage the request
+      const results = await queue.add(async () => {
+        return await makeBatchJsonRpcRequest(requests, timeoutMs);
+      });
+      
+      return results as BatchResult[];
+
+    } catch (err: any) {
+      lastError = err;
+
+      const retryable = err instanceof RetryableError || isRetryable(err);
+      if (!retryable || attempt === attempts) {
+        // Bubble up final error or non-retryable error
+        throw err;
+      }
+
+      // Exponential backoff with jitter
+      const backoffMs = Math.floor(baseDelayMs * Math.pow(2, attempt - 1));
+      const jitterRange = jitterMax - jitterMin;
+      const jitter = Math.floor(backoffMs * (jitterMin + Math.random() * jitterRange));
+      const delay = Math.min(maxDelayMs, jitter);
+      await sleep(delay);
+      continue;
+    }
+  }
+
+  // Shouldn't reach here
+  throw lastError ?? new Error(`Unknown error in batch JSON-RPC call`);
+}
+
+/** -----------------------------------------------------------------------
  *  callContract (now supports args, but stays backward compatible)
  *  ---------------------------------------------------------------------*/
 
@@ -366,4 +542,150 @@ export async function getNativeBalance(
 
   // Keep the 0x prefix in the returned hex value
   return hexValue;
+}
+
+/** -----------------------------------------------------------------------
+ *  Batch contract call helpers
+ *  ---------------------------------------------------------------------*/
+
+/**
+ * Represents a single contract call request for batch processing
+ */
+export interface ContractCallRequest {
+  contract: string;
+  signature: string;
+  args?: any[];
+}
+
+/**
+ * Represents the result of a batch contract call
+ */
+export interface ContractCallResult {
+  success: boolean;
+  result?: string;
+  error?: string;
+}
+
+/**
+ * Call multiple contracts in a single batch request
+ * This is useful for fetching multiple contract values efficiently
+ * 
+ * @param calls Array of contract calls to make
+ * @param retryOrOpts Retry options or retry count
+ * @returns Array of results, one for each call in the same order
+ */
+export async function batchCallContracts(
+  calls: ContractCallRequest[],
+  retryOrOpts?: RetryOpts
+): Promise<ContractCallResult[]> {
+  if (!calls || calls.length === 0) {
+    return [];
+  }
+
+  // Build batch requests
+  const batchRequests: BatchRequest[] = calls.map(call => {
+    // 4-byte selector
+    const selector = "0x" + keccak256(toUtf8Bytes(call.signature)).slice(2, 10);
+
+    // Contract address: EVM base58/hex conversion (strip 41 prefix if present)
+    const to = `0x${TronWeb.address.toHex(call.contract).replace(/^41/i, "")}`;
+
+    // ABI-encode args (if any)
+    const types = parseTypesFromSignature(call.signature);
+    const args = call.args || [];
+    
+    if (types.length !== args.length) {
+      throw new Error(`Arg count mismatch for ${call.signature}: expected ${types.length}, got ${args.length}`);
+    }
+
+    const normArgs = args.map((v, i) => normalizeForType(types[i], v));
+    const encodedArgs = types.length ? abi.encode(types, normArgs) : "0x";
+    const data = selector + encodedArgs.replace(/^0x/, "");
+
+    return {
+      method: "eth_call",
+      params: [{ to, data }, "latest"]
+    };
+  });
+
+  // Execute batch request
+  const batchResults = await makeBatchJsonRpcCall(batchRequests, retryOrOpts);
+
+  // Map batch results to contract call results
+  return batchResults.map((result, index) => {
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error ? `RPC error ${result.error.code}: ${result.error.message}` : "Unknown error"
+      };
+    }
+
+    const hexValue = result.result || "";
+    
+    // Treat "0x" (empty) as empty result
+    if (!hexValue || hexValue.toLowerCase() === "0x") {
+      return {
+        success: true,
+        result: ""
+      };
+    }
+
+    return {
+      success: true,
+      result: hexValue
+    };
+  });
+}
+
+/**
+ * Call multiple native balance requests in a single batch
+ * 
+ * @param accounts Array of account addresses
+ * @param retryOrOpts Retry options or retry count
+ * @returns Array of results, one for each account in the same order
+ */
+export async function batchGetNativeBalances(
+  accounts: string[],
+  retryOrOpts?: RetryOpts
+): Promise<ContractCallResult[]> {
+  if (!accounts || accounts.length === 0) {
+    return [];
+  }
+
+  // Build batch requests
+  const batchRequests: BatchRequest[] = accounts.map(account => {
+    const address = toEvmHexAddress(account);
+    return {
+      method: "eth_getBalance",
+      params: [address, "latest"]
+    };
+  });
+
+  // Execute batch request
+  const batchResults = await makeBatchJsonRpcCall(batchRequests, retryOrOpts);
+
+  // Map batch results to contract call results
+  return batchResults.map(result => {
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error ? `RPC error ${result.error.code}: ${result.error.message}` : "Unknown error"
+      };
+    }
+
+    const hexValue = result.result || "";
+    
+    // Treat "0x" (empty) or "0x0" as zero balance
+    if (!hexValue || hexValue.toLowerCase() === "0x" || hexValue.toLowerCase() === "0x0") {
+      return {
+        success: true,
+        result: "0x0"
+      };
+    }
+
+    return {
+      success: true,
+      result: hexValue
+    };
+  });
 }
