@@ -158,7 +158,7 @@ function runService(serviceName: string, options: any) {
         JITTER_MAX: options.jitterMax,
         MAX_DELAY_MS: options.maxDelayMs,
         TIMEOUT_MS: options.timeoutMs,
-        ENABLE_PROMETHEUS: options.enablePrometheus ? 'true' : (process.env.ENABLE_PROMETHEUS || 'false'),
+        ENABLE_PROMETHEUS: options.enablePrometheus ? 'true' : (process.env.ENABLE_PROMETHEUS || 'true'),
         PROMETHEUS_PORT: options.prometheusPort
     };
 
