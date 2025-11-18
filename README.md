@@ -9,6 +9,7 @@ A specialized tool for scraping and indexing TRC-20 token data on the TRON block
 - **Efficient Processing**: Only queries new or updated transfers, avoiding redundant RPC calls
 - **Progress Monitoring**: Real-time progress tracking with Prometheus metrics support
 - **Concurrent Processing**: Configurable concurrency for optimal RPC throughput
+- **RPC Batch Requests**: Optional batching of multiple RPC calls for improved performance
 
 ## Quick Start
 
@@ -125,6 +126,7 @@ Target URL: http://localhost:8123
 - [Docker Guide](docs/DOCKER.md) - Docker and container orchestration
 - [Continuous Queries](docs/CONTINUOUS_QUERIES.md) - Incremental processing implementation
 - [Backfill Services](docs/BACKFILL.md) - Historical data processing
+- [RPC Batch Requests](docs/RPC_BATCH.md) - Batching multiple RPC calls for better performance
 - [Proto Fix](docs/PROTO_FIX.md) - TronWeb compatibility workaround
 
 ## Known Issues
