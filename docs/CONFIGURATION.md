@@ -110,6 +110,49 @@ ENABLE_PROMETHEUS=true PROMETHEUS_PORT=8080 npm run start
 
 Access metrics at: `http://localhost:9090/metrics` (or your configured port)
 
+#### Batch Insert Configuration
+
+The batch insert mechanism improves ClickHouse insert performance by accumulating rows and inserting them in batches instead of one-by-one. This significantly reduces database overhead and improves throughput.
+
+- **`BATCH_INSERT_ENABLED`** - Enable batch insert mechanism
+  - Default: `false` (disabled for backward compatibility)
+  - Set to `true` to enable batch inserts
+  - When enabled, inserts are queued and flushed periodically or when reaching max size
+
+- **`BATCH_INSERT_INTERVAL_MS`** - Flush interval in milliseconds
+  - Default: `1000` (1 second)
+  - How often to flush accumulated inserts to ClickHouse
+  - Lower values: More frequent inserts, lower latency
+  - Higher values: Larger batches, better throughput
+
+- **`BATCH_INSERT_MAX_SIZE`** - Maximum batch size before forcing a flush
+  - Default: `10000` rows
+  - Flush immediately when this many rows are accumulated
+  - Prevents memory issues with large queues
+  - Adjust based on available memory and row size
+
+Example:
+```bash
+# Enable batch inserts with default settings (1 second, 10000 rows)
+BATCH_INSERT_ENABLED=true npm run start
+
+# Custom batch settings for high-throughput scenarios
+BATCH_INSERT_ENABLED=true BATCH_INSERT_INTERVAL_MS=5000 BATCH_INSERT_MAX_SIZE=50000 npm run start
+
+# Lower latency configuration (more frequent flushes)
+BATCH_INSERT_ENABLED=true BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 npm run start
+```
+
+**When to use batch inserts:**
+- Processing large volumes of data where insert throughput is a bottleneck
+- When you can tolerate a small delay (up to BATCH_INSERT_INTERVAL_MS) before data appears in ClickHouse
+- High-concurrency scenarios where many inserts happen simultaneously
+
+**When NOT to use batch inserts:**
+- Real-time applications requiring immediate data visibility
+- Low-volume processing where batching overhead isn't beneficial
+- When debugging insert issues (direct inserts make troubleshooting easier)
+
 ## Configuration Priority
 
 Configuration values are applied in the following order (later values override earlier ones):
@@ -178,6 +221,9 @@ BASE_DELAY_MS=500
 MAX_DELAY_MS=60000
 ENABLE_PROMETHEUS=true
 PROMETHEUS_PORT=9090
+BATCH_INSERT_ENABLED=true
+BATCH_INSERT_INTERVAL_MS=1000
+BATCH_INSERT_MAX_SIZE=10000
 ```
 
 ## Performance Tuning
