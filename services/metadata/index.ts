@@ -2,8 +2,7 @@ import PQueue from 'p-queue';
 import { callContract, batchCallContracts, ContractCallRequest } from '../../lib/rpc';
 import { insert_error_metadata, insert_metadata } from '../../src/insert';
 import { ProgressTracker } from '../../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE } from '../../lib/config';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_ENABLED, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_ENABLED, RPC_BATCH_SIZE } from '../../lib/config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_ENABLED, RPC_BATCH_SIZE } from '../../lib/config';
 import { query } from '../../lib/clickhouse';
 import { initBatchInsertQueue, shutdownBatchInsertQueue } from '../../lib/batch-insert';
 
