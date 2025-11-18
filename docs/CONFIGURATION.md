@@ -85,8 +85,8 @@ MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 npm run start
 #### Prometheus Metrics
 
 - **`ENABLE_PROMETHEUS`** - Enable Prometheus metrics endpoint
-  - Default: `false`
-  - Set to `true` to enable metrics collection
+  - Default: `true`
+  - Set to `false` to disable metrics collection
 
 - **`PROMETHEUS_PORT`** - Prometheus metrics HTTP port
   - Default: `9090`
@@ -94,11 +94,14 @@ MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 npm run start
 
 Example:
 ```bash
-# Enable Prometheus metrics on default port 9090
-ENABLE_PROMETHEUS=true npm run start
+# Prometheus metrics are enabled by default on port 9090
+npm run start
+
+# Disable Prometheus metrics if not needed
+ENABLE_PROMETHEUS=false npm run start
 
 # Or specify a custom port
-ENABLE_PROMETHEUS=true PROMETHEUS_PORT=8080 npm run start
+PROMETHEUS_PORT=8080 npm run start
 ```
 
 **Available Metrics:**
@@ -197,7 +200,7 @@ CLICKHOUSE_PASSWORD=
 CLICKHOUSE_DATABASE=default
 NODE_URL=https://tron-evm-rpc.publicnode.com
 CONCURRENCY=5
-ENABLE_PROMETHEUS=false
+# ENABLE_PROMETHEUS=false  # Uncomment to disable metrics
 ```
 
 #### Production Setup
@@ -211,7 +214,7 @@ CONCURRENCY=20
 MAX_RETRIES=5
 BASE_DELAY_MS=500
 MAX_DELAY_MS=60000
-ENABLE_PROMETHEUS=true
+# ENABLE_PROMETHEUS=true  # Already enabled by default
 PROMETHEUS_PORT=9090
 BATCH_INSERT_INTERVAL_MS=1000
 BATCH_INSERT_MAX_SIZE=10000

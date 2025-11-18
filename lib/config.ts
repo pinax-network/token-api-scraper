@@ -11,9 +11,9 @@ export const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
 
 /**
  * Enable Prometheus metrics endpoint
- * Default: false
+ * Default: true
  */
-export const ENABLE_PROMETHEUS = process.env.ENABLE_PROMETHEUS === 'true';
+export const ENABLE_PROMETHEUS = process.env.ENABLE_PROMETHEUS !== 'false';
 
 /**
  * HTTP port for Prometheus metrics endpoint
