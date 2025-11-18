@@ -1,6 +1,5 @@
 import { client } from "../lib/clickhouse";
 import { getBatchInsertQueue } from "../lib/batch-insert";
-import { BATCH_INSERT_ENABLED } from "../lib/config";
 
 /**
  * Interface for ClickHouse client errors
@@ -24,22 +23,13 @@ function handleInsertError(error: unknown, context: string): void {
 }
 
 /**
- * Insert a row into ClickHouse, using batch insert if enabled
+ * Insert a row into ClickHouse using batch insert
  */
 async function insertRow<T>(table: string, value: T, context: string): Promise<void> {
     try {
-        if (BATCH_INSERT_ENABLED) {
-            // Use batch insert queue
-            const batchQueue = getBatchInsertQueue();
-            await batchQueue.add(table, value);
-        } else {
-            // Direct insert (legacy behavior)
-            await client.insert({
-                table,
-                format: 'JSONEachRow',
-                values: [value],
-            });
-        }
+        // Use batch insert queue
+        const batchQueue = getBatchInsertQueue();
+        await batchQueue.add(table, value);
     } catch (error) {
         // Log error but don't throw - allows service to continue processing other items
         handleInsertError(error, context);

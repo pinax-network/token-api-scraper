@@ -3,9 +3,17 @@ import { getNativeBalance } from '../lib/rpc';
 import { insert_native_balances, insert_error_native_balances } from '../src/insert';
 import { get_accounts_for_native_balances } from '../src/queries';
 import { ProgressTracker } from '../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../lib/config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE } from '../lib/config';
+import { initBatchInsertQueue, shutdownBatchInsertQueue } from '../lib/batch-insert';
 
 const queue = new PQueue({ concurrency: CONCURRENCY });
+
+// Initialize batch insert queue
+initBatchInsertQueue({
+    intervalMs: BATCH_INSERT_INTERVAL_MS,
+    maxSize: BATCH_INSERT_MAX_SIZE,
+});
+console.log(`⚡ Batch insert enabled: flush every ${BATCH_INSERT_INTERVAL_MS}ms or ${BATCH_INSERT_MAX_SIZE} rows`);
 
 console.log(`🚀 Starting Native balances RPC service with concurrency: ${CONCURRENCY}`);
 if (ENABLE_PROMETHEUS) {
@@ -54,3 +62,8 @@ for (const account of accounts) {
 // Wait for all tasks to complete
 await queue.onIdle();
 tracker.complete();
+
+// Shutdown batch insert queue
+console.log('⏳ Flushing remaining batch inserts...');
+await shutdownBatchInsertQueue();
+console.log('✅ Batch inserts flushed successfully');
