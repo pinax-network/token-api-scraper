@@ -2,23 +2,15 @@ import PQueue from 'p-queue';
 import { callContract } from '../../lib/rpc';
 import { insert_error_metadata, insert_metadata } from '../../src/insert';
 import { ProgressTracker } from '../../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE } from '../../lib/config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../../lib/config';
 import { query } from '../../lib/clickhouse';
-import { initBatchInsertQueue, shutdownBatchInsertQueue } from '../../lib/batch-insert';
+import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
+import { initService } from '../../lib/service-init';
+
+// Initialize service
+initService({ serviceName: 'metadata RPC service' });
 
 const queue = new PQueue({ concurrency: CONCURRENCY });
-
-// Initialize batch insert queue
-initBatchInsertQueue({
-    intervalMs: BATCH_INSERT_INTERVAL_MS,
-    maxSize: BATCH_INSERT_MAX_SIZE,
-});
-console.log(`⚡ Batch insert enabled: flush every ${BATCH_INSERT_INTERVAL_MS}ms or ${BATCH_INSERT_MAX_SIZE} rows`);
-
-console.log(`🚀 Starting metadata RPC service with concurrency: ${CONCURRENCY}`);
-if (ENABLE_PROMETHEUS) {
-    console.log(`📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`);
-}
 
 const contracts_by_transfers = await query<{ contract: string, block_num: number }>(
     await Bun.file(__dirname + "/get_contracts_by_transfers.sql").text()
@@ -43,17 +35,14 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
                 name_hex,
                 symbol_hex,
                 decimals_hex,
-            });
-            tracker.incrementSuccess();
+            }, tracker);
         } else {
-            await insert_error_metadata({contract, block_num}, "missing decimals()");
-            tracker.incrementError();
+            await insert_error_metadata({contract, block_num}, "missing decimals()", tracker);
         }
 
     } catch (err) {
         const message = (err as Error).message || String(err);
-        await insert_error_metadata({contract, block_num}, message);
-        tracker.incrementError();
+        await insert_error_metadata({contract, block_num}, message, tracker);
     }
 };
 

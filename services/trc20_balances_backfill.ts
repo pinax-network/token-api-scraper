@@ -1,26 +1,19 @@
 import PQueue from 'p-queue';
-import { callContract, decodeUint256 } from '../lib/rpc';
+import { callContract } from '../lib/rpc';
 import { insert_balances, insert_error_balances } from '../src/insert';
 import { get_trc20_backfill_transfers } from '../src/queries';
 import { ProgressTracker } from '../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE } from '../lib/config';
-import { initBatchInsertQueue, shutdownBatchInsertQueue } from '../lib/batch-insert';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../lib/config';
+import { shutdownBatchInsertQueue } from '../lib/batch-insert';
+import { initService } from '../lib/service-init';
 
-const queue = new PQueue({ concurrency: CONCURRENCY });
+// Initialize service
+initService({ serviceName: 'TRC20 balances BACKFILL service' });
 
-// Initialize batch insert queue
-initBatchInsertQueue({
-    intervalMs: BATCH_INSERT_INTERVAL_MS,
-    maxSize: BATCH_INSERT_MAX_SIZE,
-});
-console.log(`⚡ Batch insert enabled: flush every ${BATCH_INSERT_INTERVAL_MS}ms or ${BATCH_INSERT_MAX_SIZE} rows`);
-
-console.log(`🚀 Starting TRC20 balances BACKFILL service with concurrency: ${CONCURRENCY}`);
 console.log(`📝 This service processes transfers from highest to lowest block number`);
 console.log(`📝 It continues non-stop until the beginning of the chain`);
-if (ENABLE_PROMETHEUS) {
-    console.log(`📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`);
-}
+
+const queue = new PQueue({ concurrency: CONCURRENCY });
 
 const transfers = await get_trc20_backfill_transfers();
 
@@ -28,7 +21,6 @@ async function processBalanceOf(account: string, contract: string, block_num: nu
     // get `balanceOf` RPC call for the account
     try {
         const balance_hex = await callContract(contract, `balanceOf(address)`, [account]); // 70a08231
-        const balance = decodeUint256(balance_hex);
 
         if (balance_hex) {
             await insert_balances({
@@ -36,17 +28,14 @@ async function processBalanceOf(account: string, contract: string, block_num: nu
                 contract,
                 balance_hex,
                 block_num
-            });
-            tracker.incrementSuccess();
+            }, tracker);
         } else {
-            await insert_error_balances({block_num, contract, account}, "zero balance");
-            tracker.incrementError();
+            await insert_error_balances({block_num, contract, account}, "zero balance", tracker);
         }
 
     } catch (err) {
         const message = (err as Error).message || String(err);
-        await insert_error_balances({block_num, contract, account}, message);
-        tracker.incrementError();
+        await insert_error_balances({block_num, contract, account}, message, tracker);
     }
 };
 
@@ -59,7 +48,7 @@ const uniqueContracts = new Set<string>();
 const uniqueAccounts = new Set<string>();
 let totalTasks = 0;
 
-for (const {log_address, from, to, block_num} of transfers) {
+for (const {log_address, from, to} of transfers) {
     uniqueContracts.add(log_address);
     if (!isBlackHoleAddress(from)) {
         uniqueAccounts.add(from);
