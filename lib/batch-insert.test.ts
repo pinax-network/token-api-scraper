@@ -19,38 +19,9 @@ describe('BatchInsertQueue', () => {
         mockInsert.mockClear();
     });
 
-    describe('disabled batch mode', () => {
+    describe('batch mode', () => {
         beforeEach(() => {
             queue = new BatchInsertQueue({
-                enabled: false,
-                intervalMs: 1000,
-                maxSize: 10000,
-            });
-        });
-
-        test('should insert immediately when batch mode is disabled', async () => {
-            await queue.add('test_table', { id: 1, value: 'test' });
-            
-            expect(mockInsert).toHaveBeenCalledTimes(1);
-            expect(mockInsert).toHaveBeenCalledWith({
-                table: 'test_table',
-                format: 'JSONEachRow',
-                values: [{ id: 1, value: 'test' }],
-            });
-        });
-
-        test('should insert each row immediately', async () => {
-            await queue.add('test_table', { id: 1, value: 'test1' });
-            await queue.add('test_table', { id: 2, value: 'test2' });
-            
-            expect(mockInsert).toHaveBeenCalledTimes(2);
-        });
-    });
-
-    describe('enabled batch mode', () => {
-        beforeEach(() => {
-            queue = new BatchInsertQueue({
-                enabled: true,
                 intervalMs: 1000,
                 maxSize: 10000,
             });
@@ -74,7 +45,6 @@ describe('BatchInsertQueue', () => {
 
         test('should flush when max size is reached', async () => {
             const smallQueue = new BatchInsertQueue({
-                enabled: true,
                 intervalMs: 1000,
                 maxSize: 3,
             });
@@ -140,7 +110,6 @@ describe('BatchInsertQueue', () => {
 
         test('should flush periodically after interval', async () => {
             const fastQueue = new BatchInsertQueue({
-                enabled: true,
                 intervalMs: 100, // 100ms for faster test
                 maxSize: 10000,
             });
@@ -169,7 +138,6 @@ describe('BatchInsertQueue', () => {
     describe('configuration', () => {
         test('should accept custom interval', () => {
             const customQueue = new BatchInsertQueue({
-                enabled: true,
                 intervalMs: 5000,
                 maxSize: 10000,
             });
@@ -179,7 +147,6 @@ describe('BatchInsertQueue', () => {
 
         test('should accept custom max size', () => {
             const customQueue = new BatchInsertQueue({
-                enabled: true,
                 intervalMs: 1000,
                 maxSize: 500,
             });
@@ -193,7 +160,6 @@ describe('BatchInsertQueue', () => {
             mockInsert.mockRejectedValueOnce(new Error('Insert failed'));
             
             const errorQueue = new BatchInsertQueue({
-                enabled: true,
                 intervalMs: 1000,
                 maxSize: 2,
             });
@@ -216,7 +182,6 @@ describe('BatchInsertQueue', () => {
 describe('batch insert configuration validation', () => {
     test('should accept valid configuration', () => {
         const queue = new BatchInsertQueue({
-            enabled: true,
             intervalMs: 1000,
             maxSize: 10000,
         });
@@ -226,7 +191,6 @@ describe('batch insert configuration validation', () => {
 
     test('should work with minimum values', () => {
         const queue = new BatchInsertQueue({
-            enabled: true,
             intervalMs: 1,
             maxSize: 1,
         });
@@ -236,7 +200,6 @@ describe('batch insert configuration validation', () => {
 
     test('should work with large values', () => {
         const queue = new BatchInsertQueue({
-            enabled: true,
             intervalMs: 60000,
             maxSize: 100000,
         });

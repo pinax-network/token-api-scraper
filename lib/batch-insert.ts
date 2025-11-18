@@ -4,8 +4,6 @@ import { client } from './clickhouse';
  * Interface for batch insert configuration
  */
 export interface BatchInsertConfig {
-    /** Enable batch insert mechanism (default: false) */
-    enabled: boolean;
     /** Interval in milliseconds to flush batches (default: 1000ms) */
     intervalMs: number;
     /** Maximum number of rows before forcing a flush (default: 10000) */
@@ -34,22 +32,13 @@ export class BatchInsertQueue {
 
     constructor(config: BatchInsertConfig) {
         this.config = config;
-        
-        if (this.config.enabled) {
-            this.startTimer();
-        }
+        this.startTimer();
     }
 
     /**
      * Add a row to the batch queue for a specific table
      */
     public async add<T>(table: string, value: T): Promise<void> {
-        if (!this.config.enabled) {
-            // If batching is disabled, insert immediately
-            await this.insertImmediate(table, [value]);
-            return;
-        }
-
         // Get or create queue for this table
         if (!this.queues.has(table)) {
             this.queues.set(table, []);

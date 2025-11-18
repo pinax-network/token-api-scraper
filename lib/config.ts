@@ -22,13 +22,6 @@ export const ENABLE_PROMETHEUS = process.env.ENABLE_PROMETHEUS === 'true';
 export const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090', 10);
 
 /**
- * Enable batch insert mechanism for ClickHouse inserts
- * When enabled, inserts are queued and flushed periodically or when reaching max size
- * Default: false (disabled for backward compatibility)
- */
-export const BATCH_INSERT_ENABLED = process.env.BATCH_INSERT_ENABLED === 'true';
-
-/**
  * Interval in milliseconds to flush batch inserts
  * Default: 1000ms (1 second)
  */
