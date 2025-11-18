@@ -39,3 +39,15 @@ export const BATCH_INSERT_INTERVAL_MS = parseInt(process.env.BATCH_INSERT_INTERV
  * Default: 10000
  */
 export const BATCH_INSERT_MAX_SIZE = parseInt(process.env.BATCH_INSERT_MAX_SIZE || '10000', 10);
+
+/**
+ * Enable RPC batch requests
+ * Default: false (for backward compatibility)
+ */
+export const RPC_BATCH_ENABLED = process.env.RPC_BATCH_ENABLED === 'true';
+
+/**
+ * Maximum number of requests per RPC batch
+ * Default: 10
+ */
+export const RPC_BATCH_SIZE = parseInt(process.env.RPC_BATCH_SIZE || '10', 10);
