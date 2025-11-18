@@ -9,7 +9,7 @@ A specialized tool for scraping and indexing TRC-20 token data on the TRON block
 - **Efficient Processing**: Only queries new or updated transfers, avoiding redundant RPC calls
 - **Progress Monitoring**: Real-time progress tracking with Prometheus metrics support
 - **Concurrent Processing**: Configurable concurrency for optimal RPC throughput
-- **RPC Batch Requests**: Optional batching of multiple RPC calls for improved performance
+- **RPC Batch Requests**: Batching of multiple RPC calls for improved performance
 
 ## Quick Start
 

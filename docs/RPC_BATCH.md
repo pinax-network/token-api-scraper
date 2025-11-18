@@ -8,12 +8,9 @@ The RPC batch request feature implements the JSON-RPC 2.0 batch specification, a
 
 ## Configuration
 
-Enable batch requests using environment variables:
+RPC batch requests are always enabled for better performance. Configure the batch size using environment variables:
 
 ```bash
-# Enable RPC batch requests (default: false)
-RPC_BATCH_ENABLED=true
-
 # Maximum number of requests per batch (default: 10)
 RPC_BATCH_SIZE=10
 ```
@@ -160,31 +157,17 @@ const results = await batchCallContracts(calls, {
 
 ## Service Integration
 
-The metadata service demonstrates batch request integration:
-
-### Default Behavior (Batch Disabled)
-
-```bash
-# Process contracts one at a time
-RPC_BATCH_ENABLED=false
-npm run start
-```
-
-Each contract makes 3 separate RPC calls:
-1. `decimals()`
-2. `symbol()`
-3. `name()`
-
-### Batch Mode (Batch Enabled)
+The metadata service uses batch requests to efficiently fetch contract metadata:
 
 ```bash
 # Process contracts in batches
-RPC_BATCH_ENABLED=true
 RPC_BATCH_SIZE=10
 npm run start
 ```
 
-Groups contracts into batches of 10 and makes 30 RPC calls (3 per contract) in a single request.
+Groups contracts into batches and makes 3 RPC calls per contract (decimals, symbol, name) in a single batch request.
+
+For example, with `RPC_BATCH_SIZE=10`, the service processes 10 contracts at a time, making 30 RPC calls in a single batched request.
 
 ## Performance Considerations
 
@@ -202,16 +185,16 @@ Groups contracts into batches of 10 and makes 30 RPC calls (3 per contract) in a
 - Start with batch size of 10-20 requests
 - Monitor RPC endpoint response times
 - Adjust batch size based on endpoint capabilities
-- Use batch mode for metadata/balance queries where latency is important
+- Batch requests are used for metadata queries to reduce latency
 
-## Backward Compatibility
+## Design Philosophy
 
-The batch request feature is fully backward compatible:
+The batch request feature is designed for optimal performance:
 
-1. **Opt-in**: Disabled by default (`RPC_BATCH_ENABLED=false`)
-2. **Existing Functions**: `callContract()` and `getNativeBalance()` unchanged
-3. **New Functions**: Batch functions are additive, don't replace existing ones
-4. **Services**: Services work with or without batch mode
+1. **Always Enabled**: RPC batching is always active for better performance
+2. **Existing Functions**: `callContract()` and `getNativeBalance()` remain unchanged
+3. **Batch Functions**: `batchCallContracts()` and `batchGetNativeBalances()` provide batch capabilities
+4. **Services**: Services use batch mode by default for efficient RPC usage
 
 ## Testing
 

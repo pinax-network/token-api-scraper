@@ -1,8 +1,8 @@
 import PQueue from 'p-queue';
-import { callContract, batchCallContracts, ContractCallRequest } from '../../lib/rpc';
+import { batchCallContracts, ContractCallRequest } from '../../lib/rpc';
 import { insert_error_metadata, insert_metadata } from '../../src/insert';
 import { ProgressTracker } from '../../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_ENABLED, RPC_BATCH_SIZE } from '../../lib/config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_SIZE } from '../../lib/config';
 import { query } from '../../lib/clickhouse';
 import { initBatchInsertQueue, shutdownBatchInsertQueue } from '../../lib/batch-insert';
 
@@ -19,9 +19,7 @@ console.log(`🚀 Starting metadata RPC service with concurrency: ${CONCURRENCY}
 if (ENABLE_PROMETHEUS) {
     console.log(`📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`);
 }
-if (RPC_BATCH_ENABLED) {
-    console.log(`⚡ RPC batch requests enabled with batch size: ${RPC_BATCH_SIZE}`);
-}
+console.log(`⚡ RPC batch requests with batch size: ${RPC_BATCH_SIZE}`);
 
 const contracts_by_transfers = await query<{ contract: string, block_num: number }>(
     await Bun.file(__dirname + "/get_contracts_by_transfers.sql").text()
@@ -30,35 +28,6 @@ const contracts_by_swaps = await query<{ contract: string, block_num: number }>(
     await Bun.file(__dirname + "/get_contracts_by_swaps.sql").text()
 );
 const contracts = contracts_by_transfers.data.concat(contracts_by_swaps.data);
-
-async function processMetadata(contract: string, block_num: number, tracker: ProgressTracker) {
-    try {
-        // Fetch decimals (required)
-        const decimals_hex = await callContract(contract, "decimals()"); // 313ce567
-
-        // Fetch symbol & name only if decimals exists
-        if (decimals_hex) {
-            const symbol_hex = await callContract(contract, "symbol()"); // 95d89b41
-            const name_hex = await callContract(contract, "name()"); // 06fdde03
-            await insert_metadata({
-                contract,
-                block_num,
-                name_hex,
-                symbol_hex,
-                decimals_hex,
-            });
-            tracker.incrementSuccess();
-        } else {
-            await insert_error_metadata({contract, block_num}, "missing decimals()");
-            tracker.incrementError();
-        }
-
-    } catch (err) {
-        const message = (err as Error).message || String(err);
-        await insert_error_metadata({contract, block_num}, message);
-        tracker.incrementError();
-    }
-};
 
 async function processMetadataBatch(contractItems: Array<{ contract: string, block_num: number }>, tracker: ProgressTracker) {
     try {
@@ -142,21 +111,13 @@ const tracker = new ProgressTracker({
     prometheusPort: PROMETHEUS_PORT
 });
 
-// Process contracts with or without batching
-if (RPC_BATCH_ENABLED) {
-    // Batch processing mode
-    console.log(`⚡ Using batch processing mode`);
-    
-    // Group contracts into batches
-    for (let i = 0; i < contracts.length; i += RPC_BATCH_SIZE) {
-        const batch = contracts.slice(i, i + RPC_BATCH_SIZE);
-        queue.add(() => processMetadataBatch(batch, tracker));
-    }
-} else {
-    // Single request mode (default)
-    for (const {contract, block_num} of contracts) {
-        queue.add(() => processMetadata(contract, block_num, tracker));
-    }
+// Process contracts using batch mode
+console.log(`⚡ Using batch processing mode`);
+
+// Group contracts into batches
+for (let i = 0; i < contracts.length; i += RPC_BATCH_SIZE) {
+    const batch = contracts.slice(i, i + RPC_BATCH_SIZE);
+    queue.add(() => processMetadataBatch(batch, tracker));
 }
 
 // Wait for all tasks to complete
