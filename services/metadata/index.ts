@@ -2,10 +2,21 @@ import PQueue from 'p-queue';
 import { callContract, batchCallContracts, ContractCallRequest } from '../../lib/rpc';
 import { insert_error_metadata, insert_metadata } from '../../src/insert';
 import { ProgressTracker } from '../../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, RPC_BATCH_ENABLED, RPC_BATCH_SIZE } from '../../lib/config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_ENABLED, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_ENABLED, RPC_BATCH_SIZE } from '../../lib/config';
 import { query } from '../../lib/clickhouse';
+import { initBatchInsertQueue, shutdownBatchInsertQueue } from '../../lib/batch-insert';
 
 const queue = new PQueue({ concurrency: CONCURRENCY });
+
+// Initialize batch insert queue if enabled
+if (BATCH_INSERT_ENABLED) {
+    initBatchInsertQueue({
+        enabled: true,
+        intervalMs: BATCH_INSERT_INTERVAL_MS,
+        maxSize: BATCH_INSERT_MAX_SIZE,
+    });
+    console.log(`⚡ Batch insert enabled: flush every ${BATCH_INSERT_INTERVAL_MS}ms or ${BATCH_INSERT_MAX_SIZE} rows`);
+}
 
 console.log(`🚀 Starting metadata RPC service with concurrency: ${CONCURRENCY}`);
 if (ENABLE_PROMETHEUS) {
@@ -154,3 +165,10 @@ if (RPC_BATCH_ENABLED) {
 // Wait for all tasks to complete
 await queue.onIdle();
 tracker.complete();
+
+// Shutdown batch insert queue if enabled
+if (BATCH_INSERT_ENABLED) {
+    console.log('⏳ Flushing remaining batch inserts...');
+    await shutdownBatchInsertQueue();
+    console.log('✅ Batch inserts flushed successfully');
+}
