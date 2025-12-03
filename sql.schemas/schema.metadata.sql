@@ -1,77 +1,29 @@
 -- Raw Token Metadata from RPC
-CREATE TABLE IF NOT EXISTS metadata_rpc (
-    -- block --
-    block_num                   UInt32 DEFAULT 0 COMMENT 'block number',
-    block_hash                  String DEFAULT '' COMMENT 'block hash',
-    timestamp                   DateTime('UTC') DEFAULT now() COMMENT 'block timestamp',
-    minute                      UInt32 DEFAULT toRelativeMinuteNum(timestamp),
-
-    -- token metadata --
-    contract                    String,
-    decimals_hex                String DEFAULT '',
-    name_hex                    String DEFAULT '',
-    symbol_hex                  String DEFAULT '',
-
-    -- decoded, with error-tolerant defaults --
-    decimals                    UInt8 MATERIALIZED hex_to_uint8(decimals_hex),
-    name                        String MATERIALIZED hex_to_string(name_hex),
-    symbol                      String MATERIALIZED hex_to_string(symbol_hex),
-
-    -- error handling --
-    created_at                  DateTime('UTC') DEFAULT now(),
-    error_msg                   LowCardinality(String) DEFAULT '',
-    is_ok                       UInt8 DEFAULT error_msg = '' AND decimals_hex != '',
-
-    -- PROJECTIONS --
-    PROJECTION prj_contract_error_stats (
-        SELECT contract, is_ok, count(), min(timestamp), max(timestamp)
-        GROUP BY contract, is_ok
-    )
-)
-ENGINE = MergeTree
-ORDER BY (
-    contract, block_num
-);
-
--- Insert Native TRX
-INSERT INTO metadata_rpc (
-    contract,
-    decimals_hex,
-    name_hex,
-    symbol_hex
-)
--- 6/Tron/TRX
-VALUES (
-    'T0000000000000000000000000000000000000001',
-    '0x0000000000000000000000000000000000000000000000000000000000000006',
-    '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000454726f6e00000000000000000000000000000000000000000000000000000000',
-    '0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000035452580000000000000000000000000000000000000000000000000000000000',
-);
-
-
--- Final Token Metadata from RPC
 CREATE TABLE IF NOT EXISTS metadata (
     -- block --
-    block_num                   UInt32,
+    block_num                   UInt32 COMMENT 'block number from last successful transfer/swap involving this token',
 
     -- token metadata --
     contract                    String,
     decimals                    UInt8,
     name                        String,
     symbol                      String,
+
+    -- inserter details --
+    created_at                  DateTime('UTC') DEFAULT now(),
 )
 ENGINE = ReplacingMergeTree(block_num)
 ORDER BY (
     contract
 );
 
--- Materialized View to keep latest token metadata --
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_metadata TO metadata AS
-SELECT
-    block_num,
-    contract,
-    decimals,
-    name,
-    symbol
-FROM metadata_rpc
-WHERE is_ok = 1
+-- RPC error handling for metadata --
+CREATE TABLE IF NOT EXISTS metadata_errors (
+    contract                    String,
+    error                       LowCardinality(String) DEFAULT '',
+    created_at                  DateTime('UTC') DEFAULT now(),
+)
+ENGINE = MergeTree
+ORDER BY (
+    contract
+);

@@ -1,11 +1,11 @@
 import PQueue from 'p-queue';
 import { callContract } from '../../lib/rpc';
-import { insert_error_metadata, insert_metadata } from '../../src/insert';
 import { ProgressTracker } from '../../lib/progress';
 import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../../lib/config';
 import { query } from '../../lib/clickhouse';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { initService } from '../../lib/service-init';
+import { insertRow } from '../../src/insert';
 
 // Initialize service
 initService({ serviceName: 'metadata RPC service' });
@@ -25,22 +25,44 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
         if (decimals_hex) {
             const symbol_hex = await callContract(contract, "symbol()"); // 95d89b41
             const name_hex = await callContract(contract, "name()"); // 06fdde03
+
             await insert_metadata({
                 contract,
                 block_num,
-                name_hex,
-                symbol_hex,
-                decimals_hex,
+                name: name_hex,
+                symbol: symbol_hex,
+                decimals: decimals_hex,
             }, tracker);
         } else {
-            await insert_error_metadata({contract, block_num}, "missing decimals()", tracker);
+            await insert_error_metadata(contract, "missing decimals()", tracker);
         }
 
     } catch (err) {
         const message = (err as Error).message || String(err);
-        await insert_error_metadata({contract, block_num}, message, tracker);
+        await insert_error_metadata(contract, message, tracker);
     }
 };
+
+export async function insert_metadata(row: {
+    contract: string;
+    block_num: number;
+    symbol: string;
+    name: string;
+    decimals: string;
+}, tracker?: ProgressTracker) {
+    const success = await insertRow('metadata', row, `Failed to insert metadata for contract ${row.contract}`);
+    if (tracker) {
+        if (success) tracker.incrementSuccess();
+        else tracker.incrementError();
+    }
+}
+
+export async function insert_error_metadata(contract: string, error: string, tracker?: ProgressTracker) {
+    await insertRow('metadata_errors', { contract, error }, `Failed to insert error metadata for contract ${contract}`);
+    if (tracker) {
+        tracker.incrementError();
+    }
+}
 
 console.log(`\n📋 Task Overview:`);
 console.log(`   Unique contracts by transfers: ${contracts.data.length}`);
