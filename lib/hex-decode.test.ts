@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test';
 import { abi, decodeUint256 } from "./rpc";
-import { decodeHexString, decodeSymbolHex, decodeNameHex } from "./hex-decode";
+import { decodeHexString, decodeSymbolHex, decodeNameHex, decodeNumberHex } from "./hex-decode";
 
 /**
  * Tests for hex decoding functions to ensure alignment with SQL functions
@@ -364,5 +364,33 @@ describe('Hex decoding - decodeNameHex function', () => {
     test('should handle undefined name', () => {
         const decoded = decodeNameHex(undefined);
         expect(decoded).toBe("");
+    });
+});
+
+describe('Hex decoding - decodeNumberHex function', () => {
+    test('should decode number hex - 18', () => {
+        const numberHex = "0x0000000000000000000000000000000000000000000000000000000000000012";
+        const decoded = decodeNumberHex(numberHex);
+        expect(decoded).toBe(18);
+    });
+
+    test('should decode number hex - 6', () => {
+        const numberHex = "0x0000000000000000000000000000000000000000000000000000000000000006";
+        const decoded = decodeNumberHex(numberHex);
+        expect(decoded).toBe(6);
+    });
+
+    test('should return null for invalid hex', () => {
+        const decoded = decodeNumberHex("0xinvalid");
+        expect(decoded).toBeNull();
+    });
+
+    test('should return null for null input', () => {
+        const decoded = decodeNumberHex(null);
+        expect(decoded).toBeNull();
+    });
+    test('should return null for undefined input', () => {
+        const decoded = decodeNumberHex(undefined);
+        expect(decoded).toBeNull();
     });
 });

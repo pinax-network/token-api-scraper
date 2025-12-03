@@ -15,11 +15,11 @@ describe('RPC decoders', () => {
             // decimals()
             const decHex = await callContract(log_address, "decimals()");
             const decimals = Number(decodeUint256(decHex));
-            
+
             // name()
             const nameHex = await callContract(log_address, "name()");
             const [name] = abi.decode(["string"], "0x" + nameHex.replace(/^0x/, ""));
-            
+
             // symbol()
             const symbolHex = await callContract(log_address, "symbol()");
             const [symbol] = abi.decode(["string"], "0x" + symbolHex.replace(/^0x/, ""));

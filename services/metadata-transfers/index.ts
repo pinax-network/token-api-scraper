@@ -6,7 +6,7 @@ import { query } from '../../lib/clickhouse';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { initService } from '../../lib/service-init';
 import { insertRow } from '../../src/insert';
-import { decodeNameHex, decodeSymbolHex } from '../../lib/hex-decode';
+import { decodeNameHex, decodeNumberHex, decodeSymbolHex } from '../../lib/hex-decode';
 
 // Initialize service
 initService({ serviceName: 'metadata RPC service' });
@@ -26,19 +26,22 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
     try {
         // Fetch decimals (required)
         const decimals_hex = await callContract(contract, "decimals()"); // 313ce567
+        const decimals = decodeNumberHex(decimals_hex);
 
         // Fetch symbol & name only if decimals exists
-        if (decimals_hex) {
+        if (decimals) {
             const symbol_hex = await callContract(contract, "symbol()"); // 95d89b41
+            const symbol = decodeSymbolHex(symbol_hex);
             const name_hex = await callContract(contract, "name()"); // 06fdde03
+            const name = decodeNameHex(name_hex);
 
             await insert_metadata({
                 network,
                 contract,
                 block_num,
-                name: decodeNameHex(name_hex),
-                symbol: decodeSymbolHex(symbol_hex),
-                decimals: Number(decimals_hex),
+                name,
+                symbol,
+                decimals,
             }, tracker);
         } else {
             await insert_error_metadata(contract, "missing decimals()", tracker);
