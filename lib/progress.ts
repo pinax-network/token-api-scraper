@@ -60,6 +60,9 @@ export class ProgressTracker {
     private startTime: number;
     private progressBar: cliProgress.SingleBar;
     private prometheusServer?: http.Server;
+    // Track completed tasks with timestamps for normalized rate calculation
+    private taskTimestamps: number[] = [];
+    private readonly RATE_WINDOW_MS = 60000; // 1 minute window for rate calculation
 
     constructor(options: ProgressTrackerOptions) {
         this.serviceName = options.serviceName;
@@ -126,8 +129,43 @@ export class ProgressTracker {
     }
 
     private updateProgress() {
-        const elapsed = (Date.now() - this.startTime) / 1000; // seconds
-        const rate = elapsed > 0 ? this.completedTasks / elapsed : 0;
+        const now = Date.now();
+        const elapsed = (now - this.startTime) / 1000; // seconds
+        
+        // Add current timestamp to the buffer
+        this.taskTimestamps.push(now);
+        
+        // Remove timestamps older than the rate window (1 minute)
+        // Use a more efficient approach: find the first valid index and slice once
+        const cutoffTime = now - this.RATE_WINDOW_MS;
+        let firstValidIndex = 0;
+        while (firstValidIndex < this.taskTimestamps.length && 
+               this.taskTimestamps[firstValidIndex] < cutoffTime) {
+            firstValidIndex++;
+        }
+        if (firstValidIndex > 0) {
+            this.taskTimestamps = this.taskTimestamps.slice(firstValidIndex);
+        }
+        
+        // Calculate rate based on tasks completed within the window
+        let rate: number;
+        if (this.taskTimestamps.length > 1) {
+            // Use the time span of tasks within the window
+            const windowStartTime = this.taskTimestamps[0];
+            const windowElapsedMs = now - windowStartTime;
+            
+            if (windowElapsedMs > 0) {
+                // Rate is tasks in window divided by time span in seconds
+                rate = (this.taskTimestamps.length / windowElapsedMs) * 1000;
+            } else {
+                // Fallback to instantaneous calculation
+                rate = 0;
+            }
+        } else {
+            // Not enough data for window calculation, use total elapsed time
+            rate = elapsed > 0 ? this.completedTasks / elapsed : 0;
+        }
+        
         const percentage = (this.completedTasks / this.totalTasks) * 100;
 
         this.progressBar.update(this.completedTasks, {
@@ -157,6 +195,7 @@ export class ProgressTracker {
     public complete() {
         this.progressBar.stop();
         const elapsed = (Date.now() - this.startTime) / 1000;
+        // Use average rate over entire duration for final statistics
         const rate = elapsed > 0 ? this.completedTasks / elapsed : 0;
         const successRate = this.totalTasks > 0 ? (this.successfulTasks / this.totalTasks) * 100 : 0;
 
