@@ -71,7 +71,7 @@ export class ProgressTracker {
 
         // Initialize progress bar
         this.progressBar = new cliProgress.SingleBar({
-            format: `${this.serviceName} |{bar}| {percentage}% | ETA: {eta_formatted} | {value}/{total} | Rate: {rate} req/s | Elapsed: {elapsed}`,
+            format: `${this.serviceName} |{bar}| {percentage}% | ETA: {custom_eta} | {value}/{total} | Rate: {rate} req/s | Elapsed: {elapsed}`,
             barCompleteChar: '\u2588',
             barIncompleteChar: '\u2591',
             hideCursor: true
@@ -79,7 +79,8 @@ export class ProgressTracker {
 
         this.progressBar.start(this.totalTasks, 0, {
             rate: '0.00',
-            elapsed: '0s'
+            elapsed: '0s',
+            custom_eta: '0s'
         });
 
         // Initialize Prometheus metrics
@@ -167,10 +168,22 @@ export class ProgressTracker {
         }
         
         const percentage = (this.completedTasks / this.totalTasks) * 100;
+        
+        // Calculate custom ETA based on our smoothed rate
+        // ETA = (Total - Completed) / Rate per second
+        const remainingTasks = this.totalTasks - this.completedTasks;
+        let customEta: string;
+        if (rate > 0 && remainingTasks > 0) {
+            const etaSeconds = remainingTasks / rate;
+            customEta = this.formatElapsed(etaSeconds);
+        } else {
+            customEta = remainingTasks > 0 ? '∞' : '0s';
+        }
 
         this.progressBar.update(this.completedTasks, {
             rate: rate.toFixed(2),
-            elapsed: this.formatElapsed(elapsed)
+            elapsed: this.formatElapsed(elapsed),
+            custom_eta: customEta
         });
 
         // Update Prometheus metrics
