@@ -32,6 +32,7 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
             const name_hex = await callContract(contract, "name()"); // 06fdde03
 
             await insert_metadata({
+                network,
                 contract,
                 block_num,
                 name: name_hex,
@@ -49,6 +50,7 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
 };
 
 export async function insert_metadata(row: {
+    network: string;
     contract: string;
     block_num: number;
     symbol: string;

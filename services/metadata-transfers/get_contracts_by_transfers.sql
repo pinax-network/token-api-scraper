@@ -1,6 +1,11 @@
 WITH metadata_contracts AS (
     SELECT contract
-    FROM metadata_rpc
+    FROM metadata
+
+    UNION ALL
+
+    SELECT contract
+    FROM metadata_errors
 ),
 contracts AS (
     SELECT
