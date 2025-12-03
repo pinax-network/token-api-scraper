@@ -13,9 +13,13 @@ const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf
  * Each service corresponds to a TypeScript file in the services directory
  */
 const SERVICES = {
-    'metadata': {
-        path: './services/metadata/index.ts',
-        description: 'Fetch and store TRC-20 token metadata (name, symbol, decimals) from `trc20-transfers` & `swaps`'
+    'metadata-transfers': {
+        path: './services/metadata-transfers/index.ts',
+        description: 'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `transfers`'
+    },
+    'metadata-swaps': {
+        path: './services/metadata-swaps/index.ts',
+        description: 'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `swaps`'
     },
     'trc20-balances': {
         path: './services/trc20_balances_rpc.ts',
@@ -191,19 +195,19 @@ const runCommand = program
     .addHelpText('after', `
 
 Services:
-  metadata          ${SERVICES['metadata'].description}
+  metadata-transfers          ${SERVICES['metadata-transfers'].description}
+  metadata-swaps              ${SERVICES['metadata-swaps'].description}
   trc20-balances    ${SERVICES['trc20-balances'].description}
   native-balances   ${SERVICES['native-balances'].description}
   trc20-backfill    ${SERVICES['trc20-backfill'].description}
   native-backfill   ${SERVICES['native-backfill'].description}
 
 Examples:
-  $ npm run cli run metadata
+  $ npm run cli run metadata-transfers
+  $ npm run cli run metadata-swaps
   $ npm run cli run trc20-balances --concurrency 20
   $ npm run cli run native-balances --enable-prometheus --prometheus-port 8080
   $ npm run cli run trc20-backfill --concurrency 15
-  $ npm run cli run native-backfill --enable-prometheus
-  $ npm run cli run metadata --clickhouse-url http://db:8123 --node-url https://api.trongrid.io
     `)
     .action((service: string, options: any) => {
         runService(service, options);
@@ -249,7 +253,7 @@ Cluster Support:
   - Adds 'ON CLUSTER <name>' to CREATE MATERIALIZED VIEW statements
   - Converts MergeTree engines to ReplicatedMergeTree
   - Converts ReplacingMergeTree to ReplicatedReplacingMergeTree
-  
+
   If --cluster is provided without a name, the tool will query available
   clusters using "SHOW CLUSTERS" and prompt you to select one.
 
@@ -265,7 +269,7 @@ Examples:
 
   # Deploy to a cluster
   $ npm run cli setup sql/schema.0.functions.sql --cluster my_cluster
-  
+
   # Interactively select a cluster
   $ npm run cli setup sql/schema.0.functions.sql --cluster
 
@@ -287,7 +291,7 @@ Examples:
 
         // Handle cluster option
         let clusterName = options.cluster;
-        
+
         // If --cluster flag is provided without a value (true), prompt for selection
         if (clusterName === true) {
             try {

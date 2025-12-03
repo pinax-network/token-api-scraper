@@ -4,13 +4,13 @@ WITH metadata_contracts AS (
 ),
 contracts AS (
     SELECT input_contract AS contract, max(s.block_num) AS block_num
-    FROM `tron:tvm-dex@v0.1.5`.swaps s
+    FROM swaps s
     GROUP BY input_contract
 
     UNION ALL
 
     SELECT output_contract AS contract, max(s.block_num) AS block_num
-    FROM `tron:tvm-dex@v0.1.5`.swaps s
+    FROM swaps s
     GROUP BY output_contract
 )
 SELECT contract, max(c.block_num) AS block_num

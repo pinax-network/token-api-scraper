@@ -6,7 +6,7 @@ contracts AS (
     SELECT
         log_address AS contract,
         max(block_num) as block_num
-    FROM trc20_transfer
+    FROM transfers
     GROUP BY log_address
 )
 SELECT *

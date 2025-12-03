@@ -12,13 +12,9 @@ initService({ serviceName: 'metadata RPC service' });
 
 const queue = new PQueue({ concurrency: CONCURRENCY });
 
-const contracts_by_transfers = await query<{ contract: string, block_num: number }>(
+const contracts = await query<{ contract: string, block_num: number }>(
     await Bun.file(__dirname + "/get_contracts_by_transfers.sql").text()
 );
-const contracts_by_swaps = await query<{ contract: string, block_num: number }>(
-    await Bun.file(__dirname + "/get_contracts_by_swaps.sql").text()
-);
-const contracts = contracts_by_transfers.data.concat(contracts_by_swaps.data);
 
 async function processMetadata(contract: string, block_num: number, tracker: ProgressTracker) {
     try {
@@ -47,21 +43,19 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
 };
 
 console.log(`\n📋 Task Overview:`);
-console.log(`   Unique contracts by transfers: ${contracts_by_transfers.data.length}`);
-console.log(`   Unique contracts by swaps: ${contracts_by_swaps.data.length}`);
-console.log(`   Total tasks to process: ${contracts_by_transfers.data.length + contracts_by_swaps.data.length}`);
+console.log(`   Unique contracts by transfers: ${contracts.data.length}`);
 console.log(``);
 
 // Initialize progress tracker
 const tracker = new ProgressTracker({
     serviceName: 'Metadata',
-    totalTasks: contracts.length,
+    totalTasks: contracts.data.length,
     enablePrometheus: ENABLE_PROMETHEUS,
     prometheusPort: PROMETHEUS_PORT
 });
 
 // Single request mode (default)
-for (const {contract, block_num} of contracts) {
+for (const {contract, block_num} of contracts.data) {
     queue.add(() => processMetadata(contract, block_num, tracker));
 }
 
