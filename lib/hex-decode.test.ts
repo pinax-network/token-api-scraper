@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'bun:test';
 import { abi, decodeUint256 } from "./rpc";
+import { decodeHexString, decodeSymbolHex, decodeNameHex } from "./hex-decode";
 
 /**
  * Tests for hex decoding functions to ensure alignment with SQL functions
@@ -248,5 +249,120 @@ describe('Hex decoding - whitespace handling', () => {
         const [decoded] = abi.decode(["string"], hex);
         expect(decoded).toBe("   \n\t  ");
         // After SQL processing: "" (all whitespace trimmed/normalized to empty)
+    });
+});
+
+describe('Hex decoding - decodeHexString function', () => {
+    test('should decode sample data from issue - name "Michi"', () => {
+        const nameHex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000054d69636869000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeHexString(nameHex);
+        expect(decoded).toBe("Michi");
+    });
+
+    test('should decode sample data from issue - symbol "SDAI"', () => {
+        const symbolHex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000045344414900000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeHexString(symbolHex);
+        expect(decoded).toBe("SDAI");
+    });
+
+    test('should decode sample data from issue - name "Quick 86"', () => {
+        const nameHex = "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000008517569636b203836000000000000000000000000000000000000000000000000";
+        const decoded = decodeHexString(nameHex);
+        expect(decoded).toBe("Quick 86");
+    });
+
+    test('should decode sample data from issue - symbol "MICHI"', () => {
+        const symbolHex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000054d49434849000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeHexString(symbolHex);
+        expect(decoded).toBe("MICHI");
+    });
+
+    test('should decode sample data from issue - name "Elastic 37"', () => {
+        const nameHex = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000a456c617374696320333700000000000000000000000000000000000000000000";
+        const decoded = decodeHexString(nameHex);
+        expect(decoded).toBe("Elastic 37");
+    });
+
+    test('should decode sample data from issue - symbol "Smart"', () => {
+        const symbolHex = "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000005536d617274000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeHexString(symbolHex);
+        expect(decoded).toBe("Smart");
+    });
+
+    test('should decode sample data from issue - name "Sign-in engine"', () => {
+        const nameHex = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000e5369676e2d696e20656e67696e65000000000000000000000000000000000000";
+        const decoded = decodeHexString(nameHex);
+        expect(decoded).toBe("Sign-in engine");
+    });
+
+    test('should decode sample data from issue - symbol "Inter Elastic"', () => {
+        const symbolHex = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d496e74657220456c617374696300000000000000000000000000000000000000";
+        const decoded = decodeHexString(symbolHex);
+        expect(decoded).toBe("Inter Elastic");
+    });
+
+    test('should handle hex string without 0x prefix', () => {
+        const hexWithoutPrefix = "000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000045553445400000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeHexString(hexWithoutPrefix);
+        expect(decoded).toBe("USDT");
+    });
+
+    test('should handle empty string', () => {
+        const hexEmpty = "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeHexString(hexEmpty);
+        expect(decoded).toBe("");
+    });
+
+    test('should handle null value', () => {
+        const decoded = decodeHexString(null);
+        expect(decoded).toBe("");
+    });
+
+    test('should handle undefined value', () => {
+        const decoded = decodeHexString(undefined);
+        expect(decoded).toBe("");
+    });
+
+    test('should handle invalid hex gracefully', () => {
+        const decoded = decodeHexString("0xinvalid");
+        expect(decoded).toBe("");
+    });
+});
+
+describe('Hex decoding - decodeSymbolHex function', () => {
+    test('should decode symbol hex - "SDAI"', () => {
+        const symbolHex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000045344414900000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeSymbolHex(symbolHex);
+        expect(decoded).toBe("SDAI");
+    });
+
+    test('should decode symbol hex - "MICHI"', () => {
+        const symbolHex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000054d49434849000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeSymbolHex(symbolHex);
+        expect(decoded).toBe("MICHI");
+    });
+
+    test('should handle null symbol', () => {
+        const decoded = decodeSymbolHex(null);
+        expect(decoded).toBe("");
+    });
+});
+
+describe('Hex decoding - decodeNameHex function', () => {
+    test('should decode name hex - "Michi"', () => {
+        const nameHex = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000054d69636869000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeNameHex(nameHex);
+        expect(decoded).toBe("Michi");
+    });
+
+    test('should decode name hex - "Quick 86"', () => {
+        const nameHex = "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000008517569636b203836000000000000000000000000000000000000000000000000";
+        const decoded = decodeNameHex(nameHex);
+        expect(decoded).toBe("Quick 86");
+    });
+
+    test('should handle undefined name', () => {
+        const decoded = decodeNameHex(undefined);
+        expect(decoded).toBe("");
     });
 });
