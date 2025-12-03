@@ -6,6 +6,7 @@ import { query } from '../../lib/clickhouse';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { initService } from '../../lib/service-init';
 import { insertRow } from '../../src/insert';
+import { decodeNameHex, decodeSymbolHex } from '../../lib/hex-decode';
 
 // Initialize service
 initService({ serviceName: 'metadata RPC service' });
@@ -35,8 +36,8 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
                 network,
                 contract,
                 block_num,
-                name: name_hex,
-                symbol: symbol_hex,
+                name: decodeNameHex(name_hex),
+                symbol: decodeSymbolHex(symbol_hex),
                 decimals: Number(decimals_hex),
             }, tracker);
         } else {
