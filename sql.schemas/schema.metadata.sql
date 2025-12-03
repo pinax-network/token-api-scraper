@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS metadata (
     block_num                   UInt32 COMMENT 'block number from last successful transfer/swap involving this token',
 
     -- token metadata --
+    network                     String,
     contract                    String,
     decimals                    UInt8,
     name                        String,
@@ -14,7 +15,7 @@ CREATE TABLE IF NOT EXISTS metadata (
 )
 ENGINE = ReplacingMergeTree(block_num)
 ORDER BY (
-    contract
+    network, contract
 );
 
 -- RPC error handling for metadata --
@@ -27,3 +28,24 @@ ENGINE = MergeTree
 ORDER BY (
     contract
 );
+
+-- base,avalanche,unichain,tron,bsc,polygon,mainnet,arbitrum-one,optimism
+INSERT INTO metadata (network, contract, decimals, name, symbol) VALUES
+    ('tron', 'T0000000000000000000000000000000000000001', 6, 'Tron', 'TRX'),
+    ('tron', '', 6, 'Tron', 'TRX'),
+    ('mainnet', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 18, 'Ethereum', 'ETH'),
+    ('mainnet', '', 18, 'Ethereum', 'ETH'),
+    ('bsc', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 18, 'BNB', 'BNB'),
+    ('bsc', '', 18, 'BNB', 'BNB'),
+    ('polygon', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 18, 'MATIC', 'MATIC'),
+    ('polygon', '', 18, 'MATIC', 'MATIC'),
+    ('avalanche', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 18, 'AVAX', 'AVAX'),
+    ('avalanche', '', 18, 'AVAX', 'AVAX'),
+    ('optimism', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 18, 'ETH', 'ETH'),
+    ('optimism', '', 18, 'ETH', 'ETH'),
+    ('arbitrum-one', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 18, 'ETH', 'ETH'),
+    ('arbitrum-one', '', 18, 'ETH', 'ETH'),
+    ('unichain', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 18, 'UNI', 'UNI'),
+    ('unichain', '', 18, 'UNI', 'UNI'),
+    ('base', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 18, 'ETH', 'ETH'),
+    ('base', '', 18, 'ETH', 'ETH');

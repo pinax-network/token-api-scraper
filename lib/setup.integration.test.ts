@@ -74,7 +74,7 @@ describe('Setup CLI Integration Tests', () => {
     });
 
     test('should have expected table names', () => {
-        const expectedTables = ['metadata_rpc', 'trc20_balances_rpc'];
+        const expectedTables = ['metadata', 'metadata_errors', 'trc20_balances'];
         const allContent = schemaFiles.map(f => readFileSync(f, 'utf8')).join('\n');
 
         for (const table of expectedTables) {
@@ -94,11 +94,11 @@ describe('Setup CLI Integration Tests', () => {
     test('functions schema should transform correctly with cluster', () => {
         const functionsContent = readFileSync('sql.schemas/schema.functions.sql', 'utf8');
         const transformed = transformSqlForCluster(functionsContent, 'test_cluster');
-        
+
         // Count CREATE FUNCTION statements
         const functionMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION/gi);
         const clusterMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+\S+\s+ON\s+CLUSTER/gi);
-        
+
         // All CREATE FUNCTION statements should have ON CLUSTER
         expect(functionMatches).toBeTruthy();
         expect(clusterMatches).toBeTruthy();

@@ -15,6 +15,11 @@ const queue = new PQueue({ concurrency: CONCURRENCY });
 const contracts = await query<{ contract: string, block_num: number }>(
     await Bun.file(__dirname + "/get_contracts_by_transfers.sql").text()
 );
+const network = process.env.CLICKHOUSE_DATABASE?.split(":")[0] || '';
+if (!network) {
+    throw new Error("CLICKHOUSE_DATABASE environment variable is not set properly.");
+}
+console.log(`\n🌐 Processing metadata for network: ${network}`);
 
 async function processMetadata(contract: string, block_num: number, tracker: ProgressTracker) {
     try {
