@@ -37,7 +37,7 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
                 block_num,
                 name: name_hex,
                 symbol: symbol_hex,
-                decimals: decimals_hex,
+                decimals: Number(decimals_hex),
             }, tracker);
         } else {
             await insert_error_metadata(contract, "missing decimals()", tracker);
@@ -55,7 +55,7 @@ export async function insert_metadata(row: {
     block_num: number;
     symbol: string;
     name: string;
-    decimals: string;
+    decimals: number;
 }, tracker?: ProgressTracker) {
     const success = await insertRow('metadata', row, `Failed to insert metadata for contract ${row.contract}`);
     if (tracker) {
