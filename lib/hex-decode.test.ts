@@ -393,4 +393,24 @@ describe('Hex decoding - decodeNumberHex function', () => {
         const decoded = decodeNumberHex(undefined);
         expect(decoded).toBeNull();
     });
+
+    test('should handle 0 decimals correctly in conditional checks', () => {
+        // Test case to ensure 0 decimals is not treated as missing
+        const hex = "0x0000000000000000000000000000000000000000000000000000000000000000";
+        const decoded = decodeNumberHex(hex);
+        
+        // Verify 0 is returned
+        expect(decoded).toBe(0);
+        
+        // Verify the correct way to check for null (not falsy)
+        // This simulates how the service should check for valid decimals
+        expect(decoded !== null).toBe(true);
+        
+        // Show the incorrect check that would fail
+        // if (decoded) would be false for 0, which is wrong
+        expect(!!decoded).toBe(false); // 0 is falsy
+        
+        // But checking for null/undefined is correct
+        expect(decoded !== null && decoded !== undefined).toBe(true);
+    });
 });
