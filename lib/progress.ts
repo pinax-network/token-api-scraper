@@ -136,8 +136,16 @@ export class ProgressTracker {
         this.taskTimestamps.push(now);
         
         // Remove timestamps older than the rate window (1 minute)
+        // Use a more efficient approach: find the first valid index and slice once
         const cutoffTime = now - this.RATE_WINDOW_MS;
-        this.taskTimestamps = this.taskTimestamps.filter(ts => ts >= cutoffTime);
+        let firstValidIndex = 0;
+        while (firstValidIndex < this.taskTimestamps.length && 
+               this.taskTimestamps[firstValidIndex] < cutoffTime) {
+            firstValidIndex++;
+        }
+        if (firstValidIndex > 0) {
+            this.taskTimestamps = this.taskTimestamps.slice(firstValidIndex);
+        }
         
         // Calculate rate based on tasks completed within the window
         let rate: number;
