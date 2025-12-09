@@ -28,8 +28,8 @@ async function processMetadata(contract: string, block_num: number, tracker: Pro
         const decimals_hex = await callContract(contract, "decimals()"); // 313ce567
         const decimals = decodeNumberHex(decimals_hex);
 
-        // Fetch symbol & name only if decimals exists
-        if (decimals) {
+        // Fetch symbol & name only if decimals exists (including 0)
+        if (decimals !== null) {
             const symbol_hex = await callContract(contract, "symbol()"); // 95d89b41
             const symbol = decodeSymbolHex(symbol_hex);
             const name_hex = await callContract(contract, "name()"); // 06fdde03
