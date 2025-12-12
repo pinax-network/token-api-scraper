@@ -1,17 +1,10 @@
-WITH metadata_contracts AS (
-    SELECT contract
-    FROM metadata
-
+SELECT
+    token AS contract,
+    0 as block_num
+FROM state_pools_tokens
+WHERE contract NOT IN (
+    SELECT DISTINCT contract FROM metadata
     UNION ALL
-
-    SELECT contract
-    FROM metadata_errors
-),
-contracts AS (
-    SELECT token AS contract, 0 as block_num
-    FROM state_pools_tokens
-    GROUP BY token
+    SELECT DISTINCT contract FROM metadata_errors
 )
-SELECT *
-FROM contracts
-WHERE contract NOT IN metadata_contracts
+GROUP BY token
