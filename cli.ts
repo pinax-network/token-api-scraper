@@ -75,7 +75,7 @@ function addCommonOptions(command: Command): Command {
         .option(
             '--concurrency <number>',
             'Number of concurrent RPC requests. Higher values = faster but may hit rate limits. Range: 1-50.',
-            process.env.CONCURRENCY || '10'
+            process.env.CONCURRENCY || '40'
         )
         // Retry Configuration Options
         .option(
