@@ -1,19 +1,17 @@
 WITH metadata_contracts AS (
     SELECT contract
-    FROM metadata_rpc
-),
-contracts AS (
-    SELECT input_contract AS contract, max(s.block_num) AS block_num
-    FROM swaps s
-    GROUP BY input_contract
+    FROM metadata
 
     UNION ALL
 
-    SELECT output_contract AS contract, max(s.block_num) AS block_num
-    FROM swaps s
-    GROUP BY output_contract
+    SELECT contract
+    FROM metadata_errors
+),
+contracts AS (
+    SELECT token AS contract, 0 as block_num
+    FROM state_pools_tokens
+    GROUP BY token
 )
-SELECT contract, max(c.block_num) AS block_num
-FROM contracts as c
+SELECT *
+FROM contracts
 WHERE contract NOT IN metadata_contracts
-GROUP BY contract

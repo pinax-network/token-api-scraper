@@ -1,12 +1,10 @@
 import PQueue from 'p-queue';
-import { callContract } from '../../lib/rpc';
 import { ProgressTracker } from '../../lib/progress';
 import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../../lib/config';
 import { query } from '../../lib/clickhouse';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { initService } from '../../lib/service-init';
-import { insertRow } from '../../src/insert';
-import { decodeNameHex, decodeNumberHex, decodeSymbolHex } from '../../lib/hex-decode';
+import { processMetadata } from '../metadata';
 
 // Initialize service
 initService({ serviceName: 'metadata RPC service' });
@@ -21,60 +19,6 @@ if (!network) {
     throw new Error("CLICKHOUSE_DATABASE environment variable is not set properly.");
 }
 console.log(`\n🌐 Processing metadata for network: ${network}`);
-
-async function processMetadata(contract: string, block_num: number, tracker: ProgressTracker) {
-    try {
-        // Fetch decimals (required)
-        const decimals_hex = await callContract(contract, "decimals()"); // 313ce567
-        const decimals = decodeNumberHex(decimals_hex);
-
-        // Fetch symbol & name only if decimals exists (including 0)
-        if (decimals !== null) {
-            const symbol_hex = await callContract(contract, "symbol()"); // 95d89b41
-            const symbol = decodeSymbolHex(symbol_hex);
-            const name_hex = await callContract(contract, "name()"); // 06fdde03
-            const name = decodeNameHex(name_hex);
-
-            await insert_metadata({
-                network,
-                contract,
-                block_num,
-                name,
-                symbol,
-                decimals,
-            }, tracker);
-        } else {
-            await insert_error_metadata(contract, "missing decimals()", tracker);
-        }
-
-    } catch (err) {
-        const message = (err as Error).message || String(err);
-        await insert_error_metadata(contract, message, tracker);
-    }
-};
-
-export async function insert_metadata(row: {
-    network: string;
-    contract: string;
-    block_num: number;
-    symbol: string;
-    name: string;
-    decimals: number;
-}, tracker?: ProgressTracker) {
-    const success = await insertRow('metadata', row, `Failed to insert metadata for contract ${row.contract}`);
-    if (tracker) {
-        if (success) tracker.incrementSuccess();
-        else tracker.incrementError();
-    }
-}
-
-export async function insert_error_metadata(contract: string, error: string, tracker?: ProgressTracker) {
-    await insertRow('metadata_errors', { contract, error }, `Failed to insert error metadata for contract ${contract}`);
-    if (tracker) {
-        tracker.incrementError();
-    }
-}
-
 console.log(`\n📋 Task Overview:`);
 console.log(`   Unique contracts by transfers: ${contracts.data.length}`);
 console.log(``);
@@ -88,8 +32,8 @@ const tracker = new ProgressTracker({
 });
 
 // Single request mode (default)
-for (const {contract, block_num} of contracts.data) {
-    queue.add(() => processMetadata(contract, block_num, tracker));
+for (const { contract, block_num } of contracts.data) {
+    queue.add(() => processMetadata(network, contract, block_num, tracker));
 }
 
 // Wait for all tasks to complete
