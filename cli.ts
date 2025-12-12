@@ -14,28 +14,20 @@ const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf
  */
 const SERVICES = {
     'metadata-transfers': {
-        path: './services/metadata-transfers/index.ts',
+        path: './services/metadata/transfers.ts',
         description: 'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `transfers`'
     },
     'metadata-swaps': {
-        path: './services/metadata-swaps/index.ts',
+        path: './services/metadata/swaps.ts',
         description: 'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `swaps`'
     },
-    'trc20-balances': {
-        path: './services/trc20_balances_rpc.ts',
+    'balances-erc20': {
+        path: './services/balances/erc20.ts',
         description: 'Query and update TRC-20 token balances for accounts using the balanceOf() function'
     },
-    'native-balances': {
-        path: './services/native_balances_rpc.ts',
+    'balances-native': {
+        path: './services/balances/native.ts',
         description: 'Query and update native token balances for accounts on the TRON network'
-    },
-    'trc20-backfill': {
-        path: './services/trc20_balances_backfill.ts',
-        description: 'Backfill historical TRC-20 token balances from highest to lowest block number'
-    },
-    'native-backfill': {
-        path: './services/native_balances_backfill.ts',
-        description: 'Backfill historical native token balances from highest to lowest block number'
     }
 };
 
@@ -197,17 +189,14 @@ const runCommand = program
 Services:
   metadata-transfers          ${SERVICES['metadata-transfers'].description}
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
-  trc20-balances    ${SERVICES['trc20-balances'].description}
-  native-balances   ${SERVICES['native-balances'].description}
-  trc20-backfill    ${SERVICES['trc20-backfill'].description}
-  native-backfill   ${SERVICES['native-backfill'].description}
+  balances-erc20    ${SERVICES['balances-erc20'].description}
+  balances-native   ${SERVICES['balances-native'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
-  $ npm run cli run trc20-balances --concurrency 20
-  $ npm run cli run native-balances --enable-prometheus --prometheus-port 8080
-  $ npm run cli run trc20-backfill --concurrency 15
+  $ npm run cli run balances-erc20 --concurrency 20
+  $ npm run cli run balances-native --enable-prometheus --prometheus-port 8080
     `)
     .action((service: string, options: any) => {
         runService(service, options);

@@ -1,11 +1,11 @@
 import PQueue from 'p-queue';
-import { getNativeBalance } from '../lib/rpc';
-import { insert_native_balances, insert_error_native_balances } from '../src/insert';
-import { get_accounts_for_native_balances } from '../src/queries';
-import { ProgressTracker } from '../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../lib/config';
-import { shutdownBatchInsertQueue } from '../lib/batch-insert';
-import { initService } from '../lib/service-init';
+import { getNativeBalance } from '../../lib/rpc';
+import { insert_native_balances, insert_error_native_balances } from '../../src/insert';
+import { get_accounts_for_native_balances } from '../../src/queries';
+import { ProgressTracker } from '../../lib/progress';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../../lib/config';
+import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
+import { initService } from '../../lib/service-init';
 
 // Initialize service
 initService({ serviceName: 'Native balances RPC service' });

@@ -4,7 +4,7 @@ import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../../lib/confi
 import { query } from '../../lib/clickhouse';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { initService } from '../../lib/service-init';
-import { processMetadata } from '../metadata';
+import { processMetadata } from '.';
 
 // Initialize service
 initService({ serviceName: 'metadata RPC service' });
@@ -12,7 +12,7 @@ initService({ serviceName: 'metadata RPC service' });
 const queue = new PQueue({ concurrency: CONCURRENCY });
 
 const contracts = await query<{ contract: string, block_num: number }>(
-    await Bun.file(__dirname + "/get_contracts_by_transfers.sql").text()
+    await Bun.file(__dirname + "/get_contracts_by_swaps.sql").text()
 );
 const network = process.env.CLICKHOUSE_DATABASE?.split(":")[0] || '';
 if (!network) {
