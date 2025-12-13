@@ -69,7 +69,16 @@ export class ProgressTracker {
         this.totalTasks = options.totalTasks;
         this.startTime = Date.now();
 
-        // Initialize progress bar
+        // Initialize Prometheus metrics
+        totalTasksGauge.labels(this.serviceName).set(this.totalTasks);
+        progressGauge.labels(this.serviceName).set(0);
+
+        // Start Prometheus server if enabled (before progress bar to avoid interference)
+        if (options.enablePrometheus) {
+            this.startPrometheusServer(options.prometheusPort || 9090);
+        }
+
+        // Initialize progress bar (after Prometheus to prevent log message interference)
         this.progressBar = new cliProgress.SingleBar({
             format: `${this.serviceName} |{bar}| {percentage}% | ETA: {custom_eta} | {value}/{total} | Rate: {rate} req/s | Elapsed: {elapsed}`,
             barCompleteChar: '\u2588',
@@ -82,15 +91,6 @@ export class ProgressTracker {
             elapsed: '0s',
             custom_eta: '0s'
         });
-
-        // Initialize Prometheus metrics
-        totalTasksGauge.labels(this.serviceName).set(this.totalTasks);
-        progressGauge.labels(this.serviceName).set(0);
-
-        // Start Prometheus server if enabled
-        if (options.enablePrometheus) {
-            this.startPrometheusServer(options.prometheusPort || 9090);
-        }
     }
 
     private startPrometheusServer(port: number) {
