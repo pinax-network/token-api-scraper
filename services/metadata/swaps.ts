@@ -25,7 +25,7 @@ console.log(``);
 
 // Initialize progress tracker
 const tracker = new ProgressTracker({
-    serviceName: 'Metadata',
+    serviceName: 'Metadata Swaps',
     totalTasks: contracts.data.length,
     enablePrometheus: ENABLE_PROMETHEUS,
     prometheusPort: PROMETHEUS_PORT

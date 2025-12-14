@@ -104,17 +104,13 @@ export class ProgressTracker {
                 res.end('Not Found');
             }
         });
-
-        this.prometheusServer.listen(port, () => {
-            console.log(`📊 Prometheus metrics available at http://localhost:${port}/metrics`);
-        });
     }
 
     public incrementSuccess() {
         this.completedTasks++;
         this.successfulTasks++;
         this.updateProgress();
-        
+
         // Update Prometheus metrics
         completedTasksCounter.labels(this.serviceName, 'success').inc();
     }
@@ -123,7 +119,7 @@ export class ProgressTracker {
         this.completedTasks++;
         this.errorTasks++;
         this.updateProgress();
-        
+
         // Update Prometheus metrics
         completedTasksCounter.labels(this.serviceName, 'error').inc();
         errorTasksCounter.labels(this.serviceName).inc();
@@ -132,29 +128,29 @@ export class ProgressTracker {
     private updateProgress() {
         const now = Date.now();
         const elapsed = (now - this.startTime) / 1000; // seconds
-        
+
         // Add current timestamp to the buffer
         this.taskTimestamps.push(now);
-        
+
         // Remove timestamps older than the rate window (1 minute)
         // Use a more efficient approach: find the first valid index and slice once
         const cutoffTime = now - this.RATE_WINDOW_MS;
         let firstValidIndex = 0;
-        while (firstValidIndex < this.taskTimestamps.length && 
-               this.taskTimestamps[firstValidIndex] < cutoffTime) {
+        while (firstValidIndex < this.taskTimestamps.length &&
+            this.taskTimestamps[firstValidIndex] < cutoffTime) {
             firstValidIndex++;
         }
         if (firstValidIndex > 0) {
             this.taskTimestamps = this.taskTimestamps.slice(firstValidIndex);
         }
-        
+
         // Calculate rate based on tasks completed within the window
         let rate: number;
         if (this.taskTimestamps.length > 1) {
             // Use the time span of tasks within the window
             const windowStartTime = this.taskTimestamps[0];
             const windowElapsedMs = now - windowStartTime;
-            
+
             if (windowElapsedMs > 0) {
                 // Rate is tasks in window divided by time span in seconds
                 rate = (this.taskTimestamps.length / windowElapsedMs) * 1000;
@@ -166,9 +162,9 @@ export class ProgressTracker {
             // Not enough data for window calculation, use total elapsed time
             rate = elapsed > 0 ? this.completedTasks / elapsed : 0;
         }
-        
+
         const percentage = (this.completedTasks / this.totalTasks) * 100;
-        
+
         // Calculate custom ETA based on our smoothed rate
         // ETA = (Total - Completed) / Rate per second
         const remainingTasks = this.totalTasks - this.completedTasks;
@@ -219,7 +215,7 @@ export class ProgressTracker {
         console.log(`   Failed: ${this.errorTasks}`);
         console.log(`   Time elapsed: ${this.formatElapsed(elapsed)}`);
         console.log(`   Average rate: ${rate.toFixed(2)} req/s`);
-        
+
         if (this.prometheusServer) {
             console.log(`\n📊 Prometheus metrics still available at the metrics endpoint`);
             console.log(`   Press Ctrl+C to stop the Prometheus server`);
