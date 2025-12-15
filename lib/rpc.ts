@@ -240,7 +240,7 @@ async function makeJsonRpcCall(
       const result = await queue.add(async () => {
         return await makeJsonRpcRequest(method, params, timeoutMs);
       });
-      
+
       return result as string;
 
     } catch (err: any) {
@@ -344,10 +344,10 @@ async function makeBatchJsonRpcRequest(
 
     // Map responses back to results, preserving order by ID
     const results: BatchResult[] = new Array(requests.length);
-    
+
     for (const item of json) {
       const index = (item.id as number) - 1; // Convert back to 0-based index
-      
+
       if (index < 0 || index >= requests.length) {
         console.warn(`Received response with unexpected id: ${item.id}`);
         continue;
@@ -416,7 +416,7 @@ export async function makeBatchJsonRpcCall(
       const results = await queue.add(async () => {
         return await makeBatchJsonRpcRequest(requests, timeoutMs);
       });
-      
+
       return results as BatchResult[];
 
     } catch (err: any) {
@@ -593,7 +593,7 @@ export async function batchCallContracts(
     // ABI-encode args (if any)
     const types = parseTypesFromSignature(call.signature);
     const args = call.args || [];
-    
+
     if (types.length !== args.length) {
       throw new Error(`Arg count mismatch for ${call.signature}: expected ${types.length}, got ${args.length}`);
     }
@@ -621,7 +621,7 @@ export async function batchCallContracts(
     }
 
     const hexValue = result.result || "";
-    
+
     // Treat "0x" (empty) as empty result
     if (!hexValue || hexValue.toLowerCase() === "0x") {
       return {
@@ -674,7 +674,7 @@ export async function batchGetNativeBalances(
     }
 
     const hexValue = result.result || "";
-    
+
     // Treat "0x" (empty) or "0x0" as zero balance
     if (!hexValue || hexValue.toLowerCase() === "0x" || hexValue.toLowerCase() === "0x0") {
       return {

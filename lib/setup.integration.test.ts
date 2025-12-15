@@ -12,9 +12,8 @@ import { resolve } from 'path';
 
 describe('Setup CLI Integration Tests', () => {
     const schemaFiles = [
-        'sql.schemas/schema.functions.sql',
         'sql.schemas/schema.metadata.sql',
-        'sql.schemas/schema.trc20_balances.sql'
+        'sql.schemas/schema.balances.sql'
     ];
 
     test('all schema files should exist', () => {
@@ -74,34 +73,11 @@ describe('Setup CLI Integration Tests', () => {
     });
 
     test('should have expected table names', () => {
-        const expectedTables = ['metadata', 'metadata_errors', 'trc20_balances'];
+        const expectedTables = ['metadata', 'metadata_errors', 'balances'];
         const allContent = schemaFiles.map(f => readFileSync(f, 'utf8')).join('\n');
 
         for (const table of expectedTables) {
             expect(allContent).toContain(table);
         }
-    });
-
-    test('should have expected helper functions', () => {
-        const allContent = schemaFiles.map(f => readFileSync(f, 'utf8')).join('\n');
-        const expectedFunctions = ['hex_to_string', 'hex_to_uint256', 'hex_to_uint8'];
-
-        for (const func of expectedFunctions) {
-            expect(allContent).toContain(func);
-        }
-    });
-
-    test('functions schema should transform correctly with cluster', () => {
-        const functionsContent = readFileSync('sql.schemas/schema.functions.sql', 'utf8');
-        const transformed = transformSqlForCluster(functionsContent, 'test_cluster');
-
-        // Count CREATE FUNCTION statements
-        const functionMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION/gi);
-        const clusterMatches = transformed.match(/CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+\S+\s+ON\s+CLUSTER/gi);
-
-        // All CREATE FUNCTION statements should have ON CLUSTER
-        expect(functionMatches).toBeTruthy();
-        expect(clusterMatches).toBeTruthy();
-        expect(functionMatches?.length).toBe(clusterMatches?.length);
     });
 });

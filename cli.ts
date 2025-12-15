@@ -126,15 +126,16 @@ function addCommonOptions(command: Command): Command {
             '--auto-restart',
             'Automatically restart the service after it completes successfully.'
         )
-        .option(
-            '--auto-restart-delay <seconds>',
-            `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
-            String(DEFAULT_AUTO_RESTART_DELAY)
         // Logging Options
         .option(
             '--verbose',
             'Enable verbose logging output. When disabled, only errors are shown. Prometheus metrics are still computed.'
         )
+        .option(
+            '--auto-restart-delay <seconds>',
+            `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
+            String(DEFAULT_AUTO_RESTART_DELAY)
+        );
 }
 
 /**
@@ -153,7 +154,7 @@ function runService(serviceName: string, options: any) {
 
     const autoRestart = options.autoRestart || false;
     const autoRestartDelay = parseInt(options.autoRestartDelay || String(DEFAULT_AUTO_RESTART_DELAY), 10);
-    
+
     // Validate autoRestartDelay
     if (isNaN(autoRestartDelay) || autoRestartDelay < 1) {
         console.error(`❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number (minimum 1 second).`);
@@ -202,7 +203,7 @@ function runService(serviceName: string, options: any) {
     child.on('exit', (code) => {
         if (code === 0) {
             console.log(`\n✅ Service '${serviceName}' completed successfully`);
-            
+
             // Auto-restart logic
             if (autoRestart) {
                 console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
@@ -299,22 +300,22 @@ Cluster Support:
 
 Examples:
   # Deploy single schema file
-  $ npm run cli setup sql/schema.0.functions.sql
+  $ npm run cli setup sql.schemas/schema.metadata.sql
 
   # Deploy multiple schema files
-  $ npm run cli setup sql/schema.0.functions.sql sql/schema.0.offchain.metadata.sql
+  $ npm run cli setup sql.schemas/schema.metadata.sql sql.schemas/schema.balances.sql
 
   # Deploy all schema files
-  $ npm run cli setup sql/schema.*.sql
+  $ npm run cli setup sql.schemas/schema.*.sql
 
   # Deploy to a cluster
-  $ npm run cli setup sql/schema.0.functions.sql --cluster my_cluster
+  $ npm run cli setup sql.schemas/schema.metadata.sql --cluster my_cluster
 
   # Interactively select a cluster
-  $ npm run cli setup sql/schema.0.functions.sql --cluster
+  $ npm run cli setup sql.schemas/schema.metadata.sql --cluster
 
   # Deploy all schemas with custom database
-  $ npm run cli setup sql/schema.*.sql \\
+  $ npm run cli setup sql.schemas/schema.*.sql \\
       --clickhouse-url http://localhost:8123 \\
       --clickhouse-database my_database \\
       --cluster production_cluster
