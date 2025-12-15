@@ -483,7 +483,7 @@ export async function callContract(
   const selector = "0x" + keccak256(toUtf8Bytes(signature)).slice(2, 10);
 
   // Contract address: EVM base58/hex conversion (strip 41 prefix if present)
-  const to = `0x${TronWeb.address.toHex(contract).replace(/^41/i, "")}`;
+  const to = toEvmHexAddress(contract);
 
   // ABI-encode args (if any)
   const types = parseTypesFromSignature(signature);
@@ -588,7 +588,7 @@ export async function batchCallContracts(
     const selector = "0x" + keccak256(toUtf8Bytes(call.signature)).slice(2, 10);
 
     // Contract address: EVM base58/hex conversion (strip 41 prefix if present)
-    const to = `0x${TronWeb.address.toHex(call.contract).replace(/^41/i, "")}`;
+    const to = toEvmHexAddress(call.contract);
 
     // ABI-encode args (if any)
     const types = parseTypesFromSignature(call.signature);
