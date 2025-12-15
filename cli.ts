@@ -148,8 +148,8 @@ function runService(serviceName: string, options: any) {
     const autoRestartDelay = parseInt(options.autoRestartDelay || '10', 10);
     
     // Validate autoRestartDelay
-    if (isNaN(autoRestartDelay) || autoRestartDelay < 0) {
-        console.error(`❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number.`);
+    if (isNaN(autoRestartDelay) || autoRestartDelay < 1) {
+        console.error(`❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number (minimum 1 second).`);
         process.exit(1);
     }
 
@@ -199,7 +199,10 @@ function runService(serviceName: string, options: any) {
             if (autoRestart) {
                 console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
                 // Use setTimeout to schedule the restart asynchronously
-                // This doesn't cause stack overflow as each call completes before the next starts
+                // This is safe for long-running scenarios because:
+                // 1. Each setTimeout call is async and doesn't add to the call stack
+                // 2. The service process completes and exits before the next one starts
+                // 3. This is the standard pattern for service restart managers
                 setTimeout(() => {
                     console.log(''); // Add blank line for readability
                     runService(serviceName, options);
