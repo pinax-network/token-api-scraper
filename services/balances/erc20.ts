@@ -3,7 +3,7 @@ import { callContract } from '../../lib/rpc';
 import { insert_balances, insert_error_balances } from '../../src/insert';
 import { get_latest_transfers } from '../../src/queries';
 import { ProgressTracker } from '../../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../../lib/config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, VERBOSE } from '../../lib/config';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { initService } from '../../lib/service-init';
 
@@ -55,11 +55,13 @@ for (const { log_address, from, to } of transfers) {
     totalTasks++;
 }
 
-console.log(`\n📋 Task Overview:`);
-console.log(`   Unique contracts: ${uniqueContracts.size}`);
-console.log(`   Unique accounts: ${uniqueAccounts.size}`);
-console.log(`   Total tasks to process: ${totalTasks}`);
-console.log(``);
+if (VERBOSE) {
+    console.log(`\n📋 Task Overview:`);
+    console.log(`   Unique contracts: ${uniqueContracts.size}`);
+    console.log(`   Unique accounts: ${uniqueAccounts.size}`);
+    console.log(`   Total tasks to process: ${totalTasks}`);
+    console.log(``);
+}
 
 // Initialize progress tracker
 const tracker = new ProgressTracker({
@@ -82,6 +84,10 @@ await queue.onIdle();
 tracker.complete();
 
 // Shutdown batch insert queue
-console.log('⏳ Flushing remaining batch inserts...');
+if (VERBOSE) {
+    console.log('⏳ Flushing remaining batch inserts...');
+}
 await shutdownBatchInsertQueue();
-console.log('✅ Batch inserts flushed successfully');
+if (VERBOSE) {
+    console.log('✅ Batch inserts flushed successfully');
+}

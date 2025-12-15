@@ -118,6 +118,11 @@ function addCommonOptions(command: Command): Command {
             'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
             process.env.PROMETHEUS_PORT || '9090'
         )
+        // Logging Options
+        .option(
+            '--verbose',
+            'Enable verbose logging output. When disabled, only errors are shown. Prometheus metrics are still computed.'
+        )
 }
 
 /**
@@ -155,7 +160,8 @@ function runService(serviceName: string, options: any) {
         MAX_DELAY_MS: options.maxDelayMs,
         TIMEOUT_MS: options.timeoutMs,
         ENABLE_PROMETHEUS: options.enablePrometheus ? 'true' : (process.env.ENABLE_PROMETHEUS || 'true'),
-        PROMETHEUS_PORT: options.prometheusPort
+        PROMETHEUS_PORT: options.prometheusPort,
+        VERBOSE: options.verbose ? 'true' : 'false'
     };
 
     // Spawn the service as a child process
