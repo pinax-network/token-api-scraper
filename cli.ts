@@ -146,6 +146,12 @@ function runService(serviceName: string, options: any) {
 
     const autoRestart = options.autoRestart || false;
     const autoRestartDelay = parseInt(options.autoRestartDelay || '10', 10);
+    
+    // Validate autoRestartDelay
+    if (isNaN(autoRestartDelay) || autoRestartDelay < 0) {
+        console.error(`❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number.`);
+        process.exit(1);
+    }
 
     console.log(`🚀 Starting service: ${serviceName}\n`);
     if (autoRestart) {
@@ -192,6 +198,8 @@ function runService(serviceName: string, options: any) {
             // Auto-restart logic
             if (autoRestart) {
                 console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
+                // Use setTimeout to schedule the restart asynchronously
+                // This doesn't cause stack overflow as each call completes before the next starts
                 setTimeout(() => {
                     console.log(''); // Add blank line for readability
                     runService(serviceName, options);
@@ -200,8 +208,8 @@ function runService(serviceName: string, options: any) {
                 process.exit(0);
             }
         } else {
-            // Exit silently without logging error message for non-zero exit codes
-            process.exit(code || 0);
+            // Exit with the actual error code (null becomes 1)
+            process.exit(code ?? 1);
         }
     });
 }
