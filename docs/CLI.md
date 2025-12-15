@@ -196,6 +196,9 @@ All flags override environment variables. Available for `setup` and `run` comman
 |------|-------------|---------|
 | `--enable-prometheus` | Enable Prometheus metrics endpoint | `false` |
 | `--prometheus-port <port>` | Prometheus metrics HTTP port | `9090` |
+| `--verbose` | Enable verbose logging output | `false` |
+
+**Note**: When `--verbose` is disabled (default), all console logging is suppressed. Prometheus metrics continue to be computed regardless of verbose setting.
 
 ### Service-Specific Options
 
@@ -228,8 +231,15 @@ npm run cli run native-backfill --concurrency 15
 ### Custom Configuration
 
 ```bash
-# Run with custom database and RPC settings
+# Run with verbose logging enabled
+npm run cli run metadata --verbose
+
+# Run silently (default - no verbose output)
+npm run cli run metadata
+
+# Run with custom database and RPC settings with verbose output
 npm run cli run metadata \
+  --verbose \
   --clickhouse-url http://clickhouse.example.com:8123 \
   --clickhouse-username scraper \
   --clickhouse-password secret123 \
@@ -237,8 +247,9 @@ npm run cli run metadata \
   --node-url https://your-tron-node.example.com \
   --concurrency 20
 
-# Run backfill with monitoring
+# Run backfill with monitoring and verbose logs
 npm run cli run trc20-backfill \
+  --verbose \
   --concurrency 15 \
   --enable-prometheus \
   --prometheus-port 8080 \
@@ -298,7 +309,11 @@ npm run test
 
 ## Progress Monitoring
 
-All services include comprehensive progress monitoring:
+All services include comprehensive progress monitoring when `--verbose` is enabled (disabled by default).
+
+### Verbose Mode
+
+When `--verbose` is enabled, you'll see detailed progress information:
 
 ### Real-time Progress Bar
 
@@ -343,6 +358,15 @@ Example:
    Elapsed: 656s
    Avg Rate: 15.2 req/s
 ```
+
+### Silent Mode (Default)
+
+When `--verbose` is not specified (default behavior), the service runs silently with no console output except for errors. This is useful for:
+- Automated/scheduled tasks
+- Running services in the background
+- Reducing log verbosity in production
+
+Prometheus metrics continue to be collected and available regardless of verbose setting.
 
 ## Exit Codes
 

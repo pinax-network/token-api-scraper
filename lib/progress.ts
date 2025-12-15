@@ -1,6 +1,7 @@
 import cliProgress from 'cli-progress';
 import * as promClient from 'prom-client';
 import * as http from 'http';
+import { VERBOSE } from './config';
 
 // Prometheus metrics
 const register = new promClient.Registry();
@@ -49,6 +50,7 @@ export interface ProgressTrackerOptions {
     totalTasks: number;
     enablePrometheus?: boolean;
     prometheusPort?: number;
+    verbose?: boolean;  // Optional override for verbose setting
 }
 
 export class ProgressTracker {
@@ -58,8 +60,9 @@ export class ProgressTracker {
     private successfulTasks: number = 0;
     private errorTasks: number = 0;
     private startTime: number;
-    private progressBar: cliProgress.SingleBar;
+    private progressBar?: cliProgress.SingleBar;
     private prometheusServer?: http.Server;
+    private verbose: boolean;
     // Track completed tasks with timestamps for normalized rate calculation
     private taskTimestamps: number[] = [];
     private readonly RATE_WINDOW_MS = 60000; // 1 minute window for rate calculation
@@ -68,6 +71,7 @@ export class ProgressTracker {
         this.serviceName = options.serviceName;
         this.totalTasks = options.totalTasks;
         this.startTime = Date.now();
+        this.verbose = options.verbose !== undefined ? options.verbose : VERBOSE;
 
         // Initialize Prometheus metrics
         totalTasksGauge.labels(this.serviceName).set(this.totalTasks);
@@ -78,19 +82,22 @@ export class ProgressTracker {
             this.startPrometheusServer(options.prometheusPort || 9090);
         }
 
-        // Initialize progress bar (after Prometheus to prevent log message interference)
-        this.progressBar = new cliProgress.SingleBar({
-            format: `${this.serviceName} |{bar}| {percentage}% | ETA: {custom_eta} | {value}/{total} | Rate: {rate} req/s | Elapsed: {elapsed}`,
-            barCompleteChar: '\u2588',
-            barIncompleteChar: '\u2591',
-            hideCursor: true
-        });
+        // Initialize progress bar only if verbose mode is enabled
+        if (this.verbose) {
+            // Initialize progress bar (after Prometheus to prevent log message interference)
+            this.progressBar = new cliProgress.SingleBar({
+                format: `${this.serviceName} |{bar}| {percentage}% | ETA: {custom_eta} | {value}/{total} | Rate: {rate} req/s | Elapsed: {elapsed}`,
+                barCompleteChar: '\u2588',
+                barIncompleteChar: '\u2591',
+                hideCursor: true
+            });
 
-        this.progressBar.start(this.totalTasks, 0, {
-            rate: '0.00',
-            elapsed: '0s',
-            custom_eta: '0s'
-        });
+            this.progressBar.start(this.totalTasks, 0, {
+                rate: '0.00',
+                elapsed: '0s',
+                custom_eta: '0s'
+            });
+        }
     }
 
     private startPrometheusServer(port: number) {
@@ -176,11 +183,13 @@ export class ProgressTracker {
             customEta = remainingTasks > 0 ? '∞' : '0s';
         }
 
-        this.progressBar.update(this.completedTasks, {
-            rate: rate.toFixed(2),
-            elapsed: this.formatElapsed(elapsed),
-            custom_eta: customEta
-        });
+        if (this.progressBar) {
+            this.progressBar.update(this.completedTasks, {
+                rate: rate.toFixed(2),
+                elapsed: this.formatElapsed(elapsed),
+                custom_eta: customEta
+            });
+        }
 
         // Update Prometheus metrics
         requestRateGauge.labels(this.serviceName).set(rate);
@@ -202,28 +211,35 @@ export class ProgressTracker {
     }
 
     public complete() {
-        this.progressBar.stop();
+        if (this.progressBar) {
+            this.progressBar.stop();
+        }
+        
         const elapsed = (Date.now() - this.startTime) / 1000;
         // Use average rate over entire duration for final statistics
         const rate = elapsed > 0 ? this.completedTasks / elapsed : 0;
         const successRate = this.totalTasks > 0 ? (this.successfulTasks / this.totalTasks) * 100 : 0;
 
-        console.log(`\n✨ ${this.serviceName} completed!`);
-        console.log(`📊 Statistics:`);
-        console.log(`   Total tasks: ${this.totalTasks}`);
-        console.log(`   Successful: ${this.successfulTasks} (${successRate.toFixed(1)}%)`);
-        console.log(`   Failed: ${this.errorTasks}`);
-        console.log(`   Time elapsed: ${this.formatElapsed(elapsed)}`);
-        console.log(`   Average rate: ${rate.toFixed(2)} req/s`);
+        if (this.verbose) {
+            console.log(`\n✨ ${this.serviceName} completed!`);
+            console.log(`📊 Statistics:`);
+            console.log(`   Total tasks: ${this.totalTasks}`);
+            console.log(`   Successful: ${this.successfulTasks} (${successRate.toFixed(1)}%)`);
+            console.log(`   Failed: ${this.errorTasks}`);
+            console.log(`   Time elapsed: ${this.formatElapsed(elapsed)}`);
+            console.log(`   Average rate: ${rate.toFixed(2)} req/s`);
 
-        if (this.prometheusServer) {
-            console.log(`\n📊 Prometheus metrics still available at the metrics endpoint`);
-            console.log(`   Press Ctrl+C to stop the Prometheus server`);
+            if (this.prometheusServer) {
+                console.log(`\n📊 Prometheus metrics still available at the metrics endpoint`);
+                console.log(`   Press Ctrl+C to stop the Prometheus server`);
+            }
         }
     }
 
     public stop() {
-        this.progressBar.stop();
+        if (this.progressBar) {
+            this.progressBar.stop();
+        }
         if (this.prometheusServer) {
             this.prometheusServer.close();
         }

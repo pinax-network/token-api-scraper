@@ -4,6 +4,12 @@
  */
 
 /**
+ * Enable verbose logging output
+ * Default: false
+ */
+export const VERBOSE = process.env.VERBOSE === 'true';
+
+/**
  * Number of concurrent RPC requests
  * Default: 10
  */
