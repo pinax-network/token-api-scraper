@@ -8,6 +8,9 @@ import { executeSqlSetup, promptClusterSelection } from './lib/setup';
 // Read version from package.json
 const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
 
+// Default auto-restart delay in seconds
+const DEFAULT_AUTO_RESTART_DELAY = 10;
+
 /**
  * Available services that can be run via the CLI
  * Each service corresponds to a TypeScript file in the services directory
@@ -118,6 +121,15 @@ function addCommonOptions(command: Command): Command {
             'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
             process.env.PROMETHEUS_PORT || '9090'
         )
+        // Auto-restart Options
+        .option(
+            '--auto-restart',
+            'Automatically restart the service after it completes successfully.'
+        )
+        .option(
+            '--auto-restart-delay <seconds>',
+            `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
+            String(DEFAULT_AUTO_RESTART_DELAY)
         // Logging Options
         .option(
             '--verbose',
@@ -139,7 +151,19 @@ function runService(serviceName: string, options: any) {
         process.exit(1);
     }
 
+    const autoRestart = options.autoRestart || false;
+    const autoRestartDelay = parseInt(options.autoRestartDelay || String(DEFAULT_AUTO_RESTART_DELAY), 10);
+    
+    // Validate autoRestartDelay
+    if (isNaN(autoRestartDelay) || autoRestartDelay < 1) {
+        console.error(`❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number (minimum 1 second).`);
+        process.exit(1);
+    }
+
     console.log(`🚀 Starting service: ${serviceName}\n`);
+    if (autoRestart) {
+        console.log(`🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`);
+    }
 
     const servicePath = resolve(__dirname, service.path);
 
@@ -178,9 +202,26 @@ function runService(serviceName: string, options: any) {
     child.on('exit', (code) => {
         if (code === 0) {
             console.log(`\n✅ Service '${serviceName}' completed successfully`);
+            
+            // Auto-restart logic
+            if (autoRestart) {
+                console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
+                // Use setTimeout to schedule the restart asynchronously
+                // This is safe for long-running scenarios because:
+                // 1. Each setTimeout call is async and doesn't add to the call stack
+                // 2. The service process completes and exits before the next one starts
+                // 3. This is the standard pattern for service restart managers
+                setTimeout(() => {
+                    console.log(''); // Add blank line for readability
+                    runService(serviceName, options);
+                }, autoRestartDelay * 1000);
+            } else {
+                process.exit(0);
+            }
+        } else {
+            // Exit with the actual error code (null becomes 1)
+            process.exit(code ?? 1);
         }
-        // Exit silently without logging error message for non-zero exit codes
-        process.exit(code || 0);
     });
 }
 
@@ -203,6 +244,10 @@ Examples:
   $ npm run cli run metadata-swaps
   $ npm run cli run balances-erc20 --concurrency 20
   $ npm run cli run balances-native --enable-prometheus --prometheus-port 8080
+  
+  # Auto-restart examples
+  $ npm run cli run metadata-transfers --auto-restart
+  $ npm run cli run metadata-swaps --auto-restart --auto-restart-delay 30
     `)
     .action((service: string, options: any) => {
         runService(service, options);
