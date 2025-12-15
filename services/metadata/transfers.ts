@@ -1,6 +1,6 @@
 import PQueue from 'p-queue';
 import { ProgressTracker } from '../../lib/progress';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT } from '../../lib/config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, VERBOSE } from '../../lib/config';
 import { query } from '../../lib/clickhouse';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { initService } from '../../lib/service-init';
@@ -18,10 +18,13 @@ const network = process.env.CLICKHOUSE_DATABASE?.split(":")[0] || '';
 if (!network) {
     throw new Error("CLICKHOUSE_DATABASE environment variable is not set properly.");
 }
-console.log(`\n🌐 Processing metadata for network: ${network}`);
-console.log(`\n📋 Task Overview:`);
-console.log(`   Unique contracts by transfers: ${contracts.data.length}`);
-console.log(``);
+
+if (VERBOSE) {
+    console.log(`\n🌐 Processing metadata for network: ${network}`);
+    console.log(`\n📋 Task Overview:`);
+    console.log(`   Unique contracts by transfers: ${contracts.data.length}`);
+    console.log(``);
+}
 
 // Initialize progress tracker
 const tracker = new ProgressTracker({
@@ -41,6 +44,10 @@ await queue.onIdle();
 tracker.complete();
 
 // Shutdown batch insert queue
-console.log('⏳ Flushing remaining batch inserts...');
+if (VERBOSE) {
+    console.log('⏳ Flushing remaining batch inserts...');
+}
 await shutdownBatchInsertQueue();
-console.log('✅ Batch inserts flushed successfully');
+if (VERBOSE) {
+    console.log('✅ Batch inserts flushed successfully');
+}
