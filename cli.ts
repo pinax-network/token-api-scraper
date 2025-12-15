@@ -161,9 +161,11 @@ function runService(serviceName: string, options: any) {
         process.exit(1);
     }
 
-    console.log(`🚀 Starting service: ${serviceName}\n`);
-    if (autoRestart) {
-        console.log(`🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`);
+    if (options.verbose) {
+        console.log(`🚀 Starting service: ${serviceName}\n`);
+        if (autoRestart) {
+            console.log(`🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`);
+        }
     }
 
     const servicePath = resolve(__dirname, service.path);
@@ -202,18 +204,24 @@ function runService(serviceName: string, options: any) {
 
     child.on('exit', (code) => {
         if (code === 0) {
-            console.log(`\n✅ Service '${serviceName}' completed successfully`);
+            if (options.verbose) {
+                console.log(`\n✅ Service '${serviceName}' completed successfully`);
+            }
 
             // Auto-restart logic
             if (autoRestart) {
-                console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
+                if (options.verbose) {
+                    console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
+                }
                 // Use setTimeout to schedule the restart asynchronously
                 // This is safe for long-running scenarios because:
                 // 1. Each setTimeout call is async and doesn't add to the call stack
                 // 2. The service process completes and exits before the next one starts
                 // 3. This is the standard pattern for service restart managers
                 setTimeout(() => {
-                    console.log(''); // Add blank line for readability
+                    if (options.verbose) {
+                        console.log(''); // Add blank line for readability
+                    }
                     runService(serviceName, options);
                 }, autoRestartDelay * 1000);
             } else {
