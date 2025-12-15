@@ -22,7 +22,7 @@ if (!network) {
 if (VERBOSE) {
     console.log(`\n🌐 Processing metadata for network: ${network}`);
     console.log(`\n📋 Task Overview:`);
-    console.log(`   Unique contracts by transfers: ${contracts.data.length}`);
+    console.log(`   Unique contracts by swaps: ${contracts.data.length}`);
     console.log(``);
 }
 
