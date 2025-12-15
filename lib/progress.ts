@@ -86,7 +86,7 @@ export class ProgressTracker {
         if (this.verbose) {
             // Initialize progress bar (after Prometheus to prevent log message interference)
             this.progressBar = new cliProgress.SingleBar({
-                format: `${this.serviceName} |{bar}| {percentage}% | ETA: {custom_eta} | {value}/{total} | Rate: {rate} req/s | Elapsed: {elapsed}`,
+                format: `${this.serviceName} |{bar}| {percentage}% | ETA: {custom_eta} | {value}/{total}{errors} | Rate: {rate} req/s | Elapsed: {elapsed}`,
                 barCompleteChar: '\u2588',
                 barIncompleteChar: '\u2591',
                 hideCursor: true
@@ -95,7 +95,8 @@ export class ProgressTracker {
             this.progressBar.start(this.totalTasks, 0, {
                 rate: '0.00',
                 elapsed: '0s',
-                custom_eta: '0s'
+                custom_eta: '0s',
+                errors: ''
             });
         }
     }
@@ -187,7 +188,8 @@ export class ProgressTracker {
             this.progressBar.update(this.completedTasks, {
                 rate: rate.toFixed(2),
                 elapsed: this.formatElapsed(elapsed),
-                custom_eta: customEta
+                custom_eta: customEta,
+                errors: this.errorTasks > 0 ? ` | ❌ ${this.errorTasks}` : ''
             });
         }
 
