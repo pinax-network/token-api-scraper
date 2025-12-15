@@ -118,6 +118,16 @@ function addCommonOptions(command: Command): Command {
             'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
             process.env.PROMETHEUS_PORT || '9090'
         )
+        // Auto-restart Options
+        .option(
+            '--auto-restart',
+            'Automatically restart the service after it completes successfully.'
+        )
+        .option(
+            '--auto-restart-delay <seconds>',
+            'Delay in seconds before restarting the service (default: 10).',
+            '10'
+        )
 }
 
 /**
@@ -134,7 +144,13 @@ function runService(serviceName: string, options: any) {
         process.exit(1);
     }
 
+    const autoRestart = options.autoRestart || false;
+    const autoRestartDelay = parseInt(options.autoRestartDelay || '10', 10);
+
     console.log(`🚀 Starting service: ${serviceName}\n`);
+    if (autoRestart) {
+        console.log(`🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`);
+    }
 
     const servicePath = resolve(__dirname, service.path);
 
@@ -172,9 +188,21 @@ function runService(serviceName: string, options: any) {
     child.on('exit', (code) => {
         if (code === 0) {
             console.log(`\n✅ Service '${serviceName}' completed successfully`);
+            
+            // Auto-restart logic
+            if (autoRestart) {
+                console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
+                setTimeout(() => {
+                    console.log(''); // Add blank line for readability
+                    runService(serviceName, options);
+                }, autoRestartDelay * 1000);
+            } else {
+                process.exit(0);
+            }
+        } else {
+            // Exit silently without logging error message for non-zero exit codes
+            process.exit(code || 0);
         }
-        // Exit silently without logging error message for non-zero exit codes
-        process.exit(code || 0);
     });
 }
 
@@ -197,6 +225,10 @@ Examples:
   $ npm run cli run metadata-swaps
   $ npm run cli run balances-erc20 --concurrency 20
   $ npm run cli run balances-native --enable-prometheus --prometheus-port 8080
+  
+  # Auto-restart examples
+  $ npm run cli run metadata-transfers --auto-restart
+  $ npm run cli run metadata-swaps --auto-restart --auto-restart-delay 30
     `)
     .action((service: string, options: any) => {
         runService(service, options);
