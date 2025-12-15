@@ -197,6 +197,13 @@ All flags override environment variables. Available for `setup` and `run` comman
 | `--enable-prometheus` | Enable Prometheus metrics endpoint | `false` |
 | `--prometheus-port <port>` | Prometheus metrics HTTP port | `9090` |
 
+### Auto-restart Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--auto-restart` | Automatically restart service after completion | `false` |
+| `--auto-restart-delay <seconds>` | Delay in seconds before restarting | `10` |
+
 ### Service-Specific Options
 
 | Flag | Description | Default |
@@ -427,6 +434,27 @@ Set up cron jobs for periodic updates:
 # Run every hour
 0 * * * * cd /path/to/token-api-scraper && npm run cli run trc20-balances
 ```
+
+### Auto-restart for Continuous Operation
+
+Services can be configured to automatically restart after completion, useful for continuous monitoring:
+
+```bash
+# Auto-restart with default 10 second delay
+npm run cli run metadata-transfers --auto-restart
+
+# Auto-restart with custom delay (30 seconds)
+npm run cli run metadata-swaps --auto-restart --auto-restart-delay 30
+
+# Combine with other options
+npm run cli run metadata-transfers \
+  --auto-restart \
+  --auto-restart-delay 60 \
+  --concurrency 20 \
+  --enable-prometheus
+```
+
+**Note:** The service only restarts after successful completion (exit code 0). Failures will not trigger a restart.
 
 ### Docker Integration
 
