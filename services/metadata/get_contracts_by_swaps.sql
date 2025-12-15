@@ -1,7 +1,7 @@
 SELECT
-    token AS contract,
-    0 as block_num
-FROM state_pools_tokens
+    token as contract,
+    max(max_block_num) AS block_num
+FROM state_pools_aggregating_by_token
 WHERE contract NOT IN (
     SELECT DISTINCT contract FROM metadata
     UNION ALL
