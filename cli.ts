@@ -8,6 +8,9 @@ import { executeSqlSetup, promptClusterSelection } from './lib/setup';
 // Read version from package.json
 const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
 
+// Default auto-restart delay in seconds
+const DEFAULT_AUTO_RESTART_DELAY = 10;
+
 /**
  * Available services that can be run via the CLI
  * Each service corresponds to a TypeScript file in the services directory
@@ -125,8 +128,8 @@ function addCommonOptions(command: Command): Command {
         )
         .option(
             '--auto-restart-delay <seconds>',
-            'Delay in seconds before restarting the service (default: 10).',
-            '10'
+            `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
+            String(DEFAULT_AUTO_RESTART_DELAY)
         )
 }
 
@@ -145,7 +148,7 @@ function runService(serviceName: string, options: any) {
     }
 
     const autoRestart = options.autoRestart || false;
-    const autoRestartDelay = parseInt(options.autoRestartDelay || '10', 10);
+    const autoRestartDelay = parseInt(options.autoRestartDelay || String(DEFAULT_AUTO_RESTART_DELAY), 10);
     
     // Validate autoRestartDelay
     if (isNaN(autoRestartDelay) || autoRestartDelay < 1) {
