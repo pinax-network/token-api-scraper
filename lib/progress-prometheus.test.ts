@@ -10,6 +10,18 @@ describe('ProgressTracker with Prometheus', () => {
             prometheusPort: 19090 // Use a different port to avoid conflicts
         });
 
+        // Wait for server to start
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Verify the Prometheus metrics endpoint is accessible
+        const response = await fetch('http://localhost:19090/metrics');
+        expect(response.ok).toBe(true);
+        
+        const metricsText = await response.text();
+        expect(metricsText.length).toBeGreaterThan(0);
+        expect(metricsText).toContain('scraper_total_tasks');
+        expect(metricsText).toContain('scraper_progress_percentage');
+
         // Simulate processing tasks
         for (let i = 0; i < 40; i++) {
             tracker.incrementSuccess();
@@ -24,12 +36,20 @@ describe('ProgressTracker with Prometheus', () => {
 
         tracker.complete();
         
-        // Give a moment to check the metrics endpoint
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Verify metrics are still accessible after completion
+        const response2 = await fetch('http://localhost:19090/metrics');
+        expect(response2.ok).toBe(true);
         
         tracker.stop();
         
-        // If we got here without errors, the test passed
-        expect(true).toBe(true);
+        // Verify server is closed after stop
+        await new Promise(resolve => setTimeout(resolve, 100));
+        try {
+            await fetch('http://localhost:19090/metrics');
+            expect(false).toBe(true); // Should not reach here
+        } catch (err) {
+            // Expected to fail after stop
+            expect(true).toBe(true);
+        }
     });
 });

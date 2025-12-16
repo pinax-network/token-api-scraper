@@ -112,6 +112,12 @@ export class ProgressTracker {
                 res.end('Not Found');
             }
         });
+        
+        this.prometheusServer.listen(port, () => {
+            if (this.verbose) {
+                console.log(`📊 Prometheus metrics server listening on port ${port}`);
+            }
+        });
     }
 
     public incrementSuccess() {
