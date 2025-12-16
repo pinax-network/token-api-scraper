@@ -41,7 +41,7 @@ describe('ProgressTracker with Prometheus', () => {
         try {
             await fetch('http://localhost:19090/metrics');
             expect(false).toBe(true); // Should not reach here
-        } catch (err) {
+        } catch (_err) {
             // Expected to fail after complete
             expect(true).toBe(true);
         }
