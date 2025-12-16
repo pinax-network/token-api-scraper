@@ -17,7 +17,7 @@ A specialized tool for scraping and indexing TRC-20 token data on the TRON block
 
 ```bash
 # Deploy database schema to ClickHouse
-npm run cli setup sql/schema.metadata.sql sql/schema.trc20_balances.sql
+npm run cli setup sql/schema.metadata.sql sql/schema.balances.sql
 ```
 
 See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and cluster deployment.
@@ -25,18 +25,13 @@ See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and
 ### 2. Run Services
 
 ```bash
-# Fetch token metadata
-npm run cli run metadata
+# Fetch token metadata Transfers/Swaps
+npm run cli run metadata-transfers
+npm run cli run metadata-swaps
 
-# Process TRC-20 balances (incremental)
-npm run cli run trc20-balances
-
-# Process native balances (incremental)
-npm run cli run native-balances
-
-# Backfill historical data (optional)
-npm run cli run trc20-backfill --concurrency 15
-npm run cli run native-backfill --concurrency 15
+# Process ERC-20/Native balances
+npm run cli run balances-erc20
+npm run cli run balances-native
 ```
 
 See [CLI Reference](docs/CLI.md) for all available commands and options.
@@ -54,6 +49,7 @@ cp .env.example .env
 ```
 
 Key environment variables:
+
 - `CLICKHOUSE_URL` - ClickHouse database URL (default: `http://localhost:8123`)
 - `NODE_URL` - EVM RPC node URL (default: `https://tron-evm-rpc.publicnode.com`)
 - `CONCURRENCY` - Number of concurrent RPC requests (default: `10`)
@@ -63,22 +59,11 @@ See [Configuration Guide](docs/CONFIGURATION.md) for detailed information.
 ## Services Overview
 
 ### Incremental Services
+
 Process only new data since the last run:
-- **metadata** - Fetch token metadata (name, symbol, decimals)
-- **trc20-balances** - Process new TRC-20 transfers
-- **native-balances** - Process new accounts without balances
 
-### Backfill Services
-Process all historical data from newest to oldest:
-- **trc20-backfill** - Backfill all TRC-20 historical transfers
-- **native-backfill** - Backfill all historical accounts
-
-**When to use backfill:**
-- Initial setup: Fill in all historical balance data
-- Gap filling: Process accounts missed in previous runs
-- Parallel operation: Run alongside incremental services for maximum throughput
-
-See [Backfill Documentation](docs/BACKFILL.md) and [Continuous Queries Documentation](docs/CONTINUOUS_QUERIES.md) for implementation details.
+- **metadata** - Fetch token metadata (name, symbol, decimals) from swaps & transfers
+- **balances** - Process balances from ERC-20 transfers & native transfers
 
 ## Docker
 
@@ -91,8 +76,8 @@ docker build -t token-api-scraper .
 # Run service
 docker run \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e NODE_URL=https://tron-evm-rpc.publicnode.com \
-  token-api-scraper run metadata
+  -e NODE_URL=https://bsc.rpc.pinax.network/v1/***/jsonrpc \
+  token-api-scraper run metadata-transfers
 ```
 
 See [Docker Guide](docs/DOCKER.md) for Docker Compose examples and production deployment.
@@ -104,6 +89,7 @@ npm run test
 ```
 
 Example output:
+
 ```
 === ClickHouse Database Health Check ===
 
