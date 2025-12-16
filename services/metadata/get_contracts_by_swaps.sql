@@ -8,3 +8,4 @@ WHERE contract NOT IN (
     SELECT DISTINCT contract FROM metadata_errors
 )
 GROUP BY token
+ORDER BY block_num DESC;

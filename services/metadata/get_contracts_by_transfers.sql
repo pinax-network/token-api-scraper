@@ -17,3 +17,4 @@ contracts AS (
 SELECT *
 FROM contracts
 WHERE contract NOT IN metadata_contracts
+ORDER BY block_num DESC;
