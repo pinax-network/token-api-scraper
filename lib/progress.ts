@@ -236,11 +236,11 @@ export class ProgressTracker {
             console.log(`   Failed: ${this.errorTasks}`);
             console.log(`   Time elapsed: ${this.formatElapsed(elapsed)}`);
             console.log(`   Average rate: ${rate.toFixed(2)} req/s`);
+        }
 
-            if (this.prometheusServer) {
-                console.log(`\n📊 Prometheus metrics still available at the metrics endpoint`);
-                console.log(`   Press Ctrl+C to stop the Prometheus server`);
-            }
+        // Close Prometheus server to allow process to exit
+        if (this.prometheusServer) {
+            this.prometheusServer.close();
         }
     }
 
