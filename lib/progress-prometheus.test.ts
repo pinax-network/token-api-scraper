@@ -36,19 +36,13 @@ describe('ProgressTracker with Prometheus', () => {
 
         tracker.complete();
         
-        // Verify metrics are still accessible after completion
-        const response2 = await fetch('http://localhost:19090/metrics');
-        expect(response2.ok).toBe(true);
-        
-        tracker.stop();
-        
-        // Verify server is closed after stop
+        // Verify server is closed after complete
         await new Promise(resolve => setTimeout(resolve, 100));
         try {
             await fetch('http://localhost:19090/metrics');
             expect(false).toBe(true); // Should not reach here
-        } catch (err) {
-            // Expected to fail after stop
+        } catch (_err) {
+            // Expected to fail after complete
             expect(true).toBe(true);
         }
     });
