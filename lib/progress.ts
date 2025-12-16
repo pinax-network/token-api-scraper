@@ -240,7 +240,11 @@ export class ProgressTracker {
 
         // Close Prometheus server to allow process to exit
         if (this.prometheusServer) {
-            this.prometheusServer.close();
+            this.prometheusServer.close((err) => {
+                if (err && this.verbose) {
+                    console.error('Failed to close Prometheus server:', err);
+                }
+            });
         }
     }
 
