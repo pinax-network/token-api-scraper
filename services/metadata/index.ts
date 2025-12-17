@@ -1,9 +1,19 @@
 import { callContract } from '../../lib/rpc';
-import { ProgressTracker } from '../../lib/progress';
+import type { ProgressTracker } from '../../lib/progress';
 import { insertRow } from '../../src/insert';
 import { decodeNameHex, decodeNumberHex, decodeSymbolHex } from '../../lib/hex-decode';
+import { VERBOSE } from '../../lib/config';
+
+let isFirstCall = true;
 
 export async function processMetadata(network: string, contract: string, block_num: number, tracker: ProgressTracker) {
+    if (VERBOSE && isFirstCall) {
+        console.log(`\n🌐 Processing metadata for network: ${network}`);
+        console.log(`\n📋 Task Overview:`);
+        console.log(``);
+        isFirstCall = false;
+    }
+
     try {
         // Fetch decimals (required)
         const decimals_hex = await callContract(contract, "decimals()"); // 313ce567

@@ -1,4 +1,5 @@
 import { client } from './clickhouse';
+import { VERBOSE } from './config';
 
 /**
  * Interface for batch insert configuration
@@ -183,7 +184,13 @@ export function getBatchInsertQueue(): BatchInsertQueue {
  */
 export async function shutdownBatchInsertQueue(): Promise<void> {
     if (globalBatchQueue) {
+        if (VERBOSE) {
+            console.log('⏳ Flushing remaining batch inserts...');
+        }
         await globalBatchQueue.shutdown();
+        if (VERBOSE) {
+            console.log('✅ Batch inserts flushed successfully');
+        }
         globalBatchQueue = null;
     }
 }
