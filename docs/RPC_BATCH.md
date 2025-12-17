@@ -6,18 +6,6 @@ This document describes the RPC batch request feature that allows multiple JSON-
 
 The RPC batch request feature implements the JSON-RPC 2.0 batch specification, allowing multiple RPC calls to be bundled together. This can significantly improve performance by reducing network overhead and latency when making multiple RPC calls.
 
-## Configuration
-
-Enable batch requests using environment variables:
-
-```bash
-# Enable RPC batch requests (default: false)
-RPC_BATCH_ENABLED=true
-
-# Maximum number of requests per batch (default: 10)
-RPC_BATCH_SIZE=10
-```
-
 ## Usage
 
 ### Low-Level API
@@ -158,34 +146,6 @@ const results = await batchCallContracts(calls, {
 });
 ```
 
-## Service Integration
-
-The metadata service demonstrates batch request integration:
-
-### Default Behavior (Batch Disabled)
-
-```bash
-# Process contracts one at a time
-RPC_BATCH_ENABLED=false
-npm run start
-```
-
-Each contract makes 3 separate RPC calls:
-1. `decimals()`
-2. `symbol()`
-3. `name()`
-
-### Batch Mode (Batch Enabled)
-
-```bash
-# Process contracts in batches
-RPC_BATCH_ENABLED=true
-RPC_BATCH_SIZE=10
-npm run start
-```
-
-Groups contracts into batches of 10 and makes 30 RPC calls (3 per contract) in a single request.
-
 ## Performance Considerations
 
 ### Benefits
@@ -202,16 +162,7 @@ Groups contracts into batches of 10 and makes 30 RPC calls (3 per contract) in a
 - Start with batch size of 10-20 requests
 - Monitor RPC endpoint response times
 - Adjust batch size based on endpoint capabilities
-- Use batch mode for metadata/balance queries where latency is important
-
-## Backward Compatibility
-
-The batch request feature is fully backward compatible:
-
-1. **Opt-in**: Disabled by default (`RPC_BATCH_ENABLED=false`)
-2. **Existing Functions**: `callContract()` and `getNativeBalance()` unchanged
-3. **New Functions**: Batch functions are additive, don't replace existing ones
-4. **Services**: Services work with or without batch mode
+- Use batch functions for metadata/balance queries where latency is important
 
 ## Testing
 

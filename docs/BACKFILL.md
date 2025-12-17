@@ -177,7 +177,7 @@ Progress: [████████████████████] 100% | 
 
 ## Prometheus Metrics
 
-When enabled (`ENABLE_PROMETHEUS=true`), services expose metrics:
+Services always expose Prometheus metrics on the configured port (default: 9090):
 
 - `scraper_total_tasks` - Total tasks to process
 - `scraper_completed_tasks_total` - Completed tasks (by status)

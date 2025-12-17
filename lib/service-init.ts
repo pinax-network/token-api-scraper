@@ -8,7 +8,6 @@ import {
     BATCH_INSERT_INTERVAL_MS,
     BATCH_INSERT_MAX_SIZE,
     CONCURRENCY,
-    ENABLE_PROMETHEUS,
     PROMETHEUS_PORT,
     VERBOSE,
 } from './config';
@@ -36,10 +35,8 @@ export function initService(options: ServiceInitOptions): void {
         console.log(
             `🚀 Starting ${options.serviceName} with concurrency: ${CONCURRENCY}`,
         );
-        if (ENABLE_PROMETHEUS) {
-            console.log(
-                `📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`,
-            );
-        }
+        console.log(
+            `📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`,
+        );
     }
 }

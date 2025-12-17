@@ -163,10 +163,13 @@ let globalBatchQueue: BatchInsertQueue | null = null;
 
 /**
  * Initialize the global batch insert queue
+ * If already initialized, this is a no-op to prevent errors when services are restarted
  */
 export function initBatchInsertQueue(config: BatchInsertConfig): void {
     if (globalBatchQueue) {
-        throw new Error('Batch insert queue already initialized');
+        // Already initialized - this can happen when services are restarted
+        // or when multiple services are loaded
+        return;
     }
     globalBatchQueue = new BatchInsertQueue(config);
 }

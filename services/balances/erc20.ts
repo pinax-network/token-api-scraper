@@ -2,7 +2,6 @@ import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import {
     CONCURRENCY,
-    ENABLE_PROMETHEUS,
     PROMETHEUS_PORT,
     VERBOSE,
 } from '../../lib/config';
@@ -11,9 +10,6 @@ import { callContract } from '../../lib/rpc';
 import { initService } from '../../lib/service-init';
 import { insert_balances, insert_error_balances } from '../../src/insert';
 import { get_latest_transfers } from '../../src/queries';
-
-// Initialize service
-initService({ serviceName: 'TRC20 balances RPC service' });
 
 async function processBalanceOf(
     account: string,
@@ -59,6 +55,9 @@ function isBlackHoleAddress(address: string): boolean {
 }
 
 export async function run(tracker?: ProgressTracker) {
+    // Initialize service (must be called before using batch insert queue)
+    initService({ serviceName: 'TRC20 balances RPC service' });
+
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const transfers = await get_latest_transfers();
@@ -92,7 +91,7 @@ export async function run(tracker?: ProgressTracker) {
         tracker = new ProgressTracker({
             serviceName: 'ERC20 Balances',
             totalTasks,
-            enablePrometheus: ENABLE_PROMETHEUS,
+            enablePrometheus: true,
             prometheusPort: PROMETHEUS_PORT,
         });
     } else {
