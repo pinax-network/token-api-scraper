@@ -234,8 +234,8 @@ export class ProgressTracker {
      * @private
      */
     private async closePrometheusServer() {
-        if (this.prometheusServer) {
-            await new Promise<void>((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
+            if (this.prometheusServer) {
                 this.prometheusServer.close((err) => {
                     if (err) {
                         if (this.verbose) {
@@ -249,8 +249,8 @@ export class ProgressTracker {
                         resolve();
                     }
                 });
-            });
-        }
+            }
+        });
     }
 
     public async complete() {
