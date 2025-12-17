@@ -293,6 +293,8 @@ export class ProgressTracker {
 
     /**
      * Reset the progress tracker for a new run while keeping the Prometheus server alive
+     * Resets all counters (completed tasks, successful tasks, error tasks), task timestamps,
+     * and Prometheus metrics. If verbose mode is enabled, reinitializes the progress bar.
      * @param totalTasks - The new total number of tasks
      */
     public reset(totalTasks: number) {

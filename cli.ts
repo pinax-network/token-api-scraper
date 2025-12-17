@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import type { ProgressTracker } from './lib/progress';
 import { executeSqlSetup, promptClusterSelection } from './lib/setup';
 
 // Read version from package.json
@@ -224,7 +225,7 @@ async function runServiceDirect(serviceName: string, options: any) {
     }
 
     // Run the service in a loop if auto-restart is enabled
-    let tracker: any;
+    let tracker: ProgressTracker | undefined;
     let iteration = 0;
 
     while (true) {
