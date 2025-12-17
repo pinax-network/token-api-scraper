@@ -50,3 +50,16 @@ export const RPC_BATCH_ENABLED = process.env.RPC_BATCH_ENABLED === 'true';
  * Default: 10
  */
 export const RPC_BATCH_SIZE = parseInt(process.env.RPC_BATCH_SIZE || '10', 10);
+
+/**
+ * Network name extracted from CLICKHOUSE_DATABASE
+ * The database format is expected to be "network:suffix"
+ * Throws error if CLICKHOUSE_DATABASE is not set properly
+ */
+export const NETWORK = (() => {
+    const network = process.env.CLICKHOUSE_DATABASE?.split(":")[0] || '';
+    if (!network) {
+        throw new Error("CLICKHOUSE_DATABASE environment variable is not set properly.");
+    }
+    return network;
+})();

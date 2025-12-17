@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_ENABLED, RPC_BATCH_SIZE } from './config';
+import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_ENABLED, RPC_BATCH_SIZE, NETWORK } from './config';
 
 describe('config module', () => {
     test('CONCURRENCY should be a valid number', () => {
@@ -54,5 +54,10 @@ describe('config module', () => {
 
     test('RPC_BATCH_SIZE should be positive', () => {
         expect(RPC_BATCH_SIZE).toBeGreaterThan(0);
+    });
+
+    test('NETWORK should be a non-empty string', () => {
+        expect(typeof NETWORK).toBe('string');
+        expect(NETWORK.length).toBeGreaterThan(0);
     });
 });
