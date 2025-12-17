@@ -249,6 +249,8 @@ export class ProgressTracker {
                         resolve();
                     }
                 });
+            } else {
+                resolve();
             }
         });
     }
