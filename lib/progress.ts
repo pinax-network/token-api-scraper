@@ -114,10 +114,10 @@ export class ProgressTracker {
             }
         });
 
-        this.prometheusServer.listen(port, () => {
+        this.prometheusServer.listen(port, '0.0.0.0', () => {
             if (this.verbose) {
                 console.log(
-                    `📊 Prometheus metrics server listening on port ${port}`,
+                    `📊 Prometheus metrics server listening on http://0.0.0.0:${port}`,
                 );
             }
         });
