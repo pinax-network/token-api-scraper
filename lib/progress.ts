@@ -229,6 +229,30 @@ export class ProgressTracker {
         }
     }
 
+    /**
+     * Close the Prometheus server and wait for the port to be released
+     * @private
+     */
+    private async closePrometheusServer() {
+        if (this.prometheusServer) {
+            await new Promise<void>((resolve, reject) => {
+                this.prometheusServer?.close((err) => {
+                    if (err) {
+                        if (this.verbose) {
+                            console.error(
+                                'Failed to close Prometheus server:',
+                                err,
+                            );
+                        }
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+        }
+    }
+
     public async complete() {
         if (this.progressBar) {
             this.progressBar.stop();
@@ -256,39 +280,13 @@ export class ProgressTracker {
 
         // Close Prometheus server to allow process to exit
         // Wait for the server to fully close to ensure port is released
-        if (this.prometheusServer) {
-            await new Promise<void>((resolve, reject) => {
-                this.prometheusServer?.close((err) => {
-                    if (err) {
-                        if (this.verbose) {
-                            console.error(
-                                'Failed to close Prometheus server:',
-                                err,
-                            );
-                        }
-                        reject(err);
-                    } else {
-                        resolve();
-                    }
-                });
-            });
-        }
+        await this.closePrometheusServer();
     }
 
     public async stop() {
         if (this.progressBar) {
             this.progressBar.stop();
         }
-        if (this.prometheusServer) {
-            await new Promise<void>((resolve, reject) => {
-                this.prometheusServer?.close((err) => {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve();
-                    }
-                });
-            });
-        }
+        await this.closePrometheusServer();
     }
 }
