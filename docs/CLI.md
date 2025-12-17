@@ -204,7 +204,7 @@ All flags override environment variables. Available for `setup` and `run` comman
 
 | Flag | Environment Variable | Description | Default |
 |------|---------------------|-------------|---------|
-| `--auto-restart` | `AUTO_RESTART` | Automatically restart service after completion | `false` |
+| `--auto-restart` | `AUTO_RESTART` | Automatically restart service after completion. When enabled, the service runs in the same process without exiting, preserving Prometheus metrics across runs. | `false` |
 | `--auto-restart-delay <seconds>` | `AUTO_RESTART_DELAY` | Delay in seconds before restarting | `10` |
 
 ### Service-Specific Options
@@ -461,7 +461,7 @@ Set up cron jobs for periodic updates:
 
 ### Auto-restart for Continuous Operation
 
-Services can be configured to automatically restart after completion, useful for continuous monitoring:
+Services can be configured to automatically restart after completion, useful for continuous monitoring. **Important**: When auto-restart is enabled, the service runs in the same process without exiting, preserving Prometheus metrics across runs.
 
 ```bash
 # Auto-restart with default 10 second delay
@@ -477,6 +477,12 @@ npm run cli run metadata-transfers \
   --concurrency 20 \
   --enable-prometheus
 ```
+
+**Benefits of auto-restart:**
+- Process stays alive, avoiding overhead of process restarts
+- Prometheus metrics are preserved and accumulated across runs
+- Better for long-running monitoring scenarios
+- Simplified deployment (no need for external process managers)
 
 **Note:** The service only restarts after successful completion (exit code 0). Failures will not trigger a restart.
 

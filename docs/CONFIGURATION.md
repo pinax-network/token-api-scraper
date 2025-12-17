@@ -150,11 +150,13 @@ BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 npm run start
 
 ### Auto-restart Options
 
-Services can be configured to automatically restart after successful completion, which is useful for continuous monitoring and incremental updates:
+Services can be configured to automatically restart after successful completion, which is useful for continuous monitoring and incremental updates. **Important**: When auto-restart is enabled, the service runs in the same process without exiting, preserving Prometheus metrics across runs.
 
 - **`AUTO_RESTART`** - Automatically restart the service after it completes successfully
   - Default: `false`
   - Set to `true` to enable auto-restart
+  - When enabled, the service runs in a continuous loop within the same process
+  - Prometheus metrics are preserved across service runs (the metrics server is not closed)
   - Only restarts after successful completion (exit code 0)
 
 - **`AUTO_RESTART_DELAY`** - Delay in seconds before restarting the service
@@ -173,6 +175,12 @@ AUTO_RESTART=true AUTO_RESTART_DELAY=30 npm run cli run metadata-swaps
 # Combine with other options
 AUTO_RESTART=true AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
 ```
+
+**Benefits of auto-restart:**
+- Process stays alive, avoiding overhead of process restarts
+- Prometheus metrics are preserved and accumulated across runs
+- Better for long-running monitoring scenarios
+- Simplified deployment (no need for external process managers)
 
 ### Logging Options
 
