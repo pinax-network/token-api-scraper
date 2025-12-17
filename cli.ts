@@ -224,9 +224,9 @@ async function runServiceDirect(serviceName: string, options: any) {
     }
 
     // Run the service in a loop if auto-restart is enabled
-    let tracker: any = undefined;
+    let tracker: any;
     let iteration = 0;
-    
+
     while (true) {
         iteration++;
         try {
@@ -238,7 +238,9 @@ async function runServiceDirect(serviceName: string, options: any) {
             tracker = await serviceModule.run(tracker, autoRestart);
 
             if (options.verbose) {
-                console.log(`\n✅ Service '${serviceName}' iteration ${iteration} completed successfully`);
+                console.log(
+                    `\n✅ Service '${serviceName}' iteration ${iteration} completed successfully`,
+                );
             }
 
             // If auto-restart is not enabled, exit after first run
@@ -254,8 +256,9 @@ async function runServiceDirect(serviceName: string, options: any) {
             if (options.verbose) {
                 console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
             }
-            await new Promise(resolve => setTimeout(resolve, autoRestartDelay * 1000));
-            
+            await new Promise((resolve) =>
+                setTimeout(resolve, autoRestartDelay * 1000),
+            );
         } catch (error) {
             console.error(`❌ Service error:`, error);
             // Close Prometheus server on error

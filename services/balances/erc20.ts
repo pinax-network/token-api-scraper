@@ -58,7 +58,10 @@ function isBlackHoleAddress(address: string): boolean {
     return address === 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 }
 
-export async function run(tracker?: ProgressTracker, keepPrometheusAlive = false) {
+export async function run(
+    tracker?: ProgressTracker,
+    keepPrometheusAlive = false,
+) {
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const transfers = await get_latest_transfers();

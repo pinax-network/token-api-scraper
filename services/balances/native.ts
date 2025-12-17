@@ -37,7 +37,10 @@ async function processNativeBalance(account: string, tracker: ProgressTracker) {
     }
 }
 
-export async function run(tracker?: ProgressTracker, keepPrometheusAlive = false) {
+export async function run(
+    tracker?: ProgressTracker,
+    keepPrometheusAlive = false,
+) {
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const accounts = await get_accounts_for_native_balances();

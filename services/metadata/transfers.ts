@@ -14,7 +14,10 @@ import { processMetadata } from '.';
 // Initialize service
 initService({ serviceName: 'metadata RPC service' });
 
-export async function run(tracker?: ProgressTracker, keepPrometheusAlive = false) {
+export async function run(
+    tracker?: ProgressTracker,
+    keepPrometheusAlive = false,
+) {
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const contracts = await query<{ contract: string; block_num: number }>(
@@ -36,7 +39,9 @@ export async function run(tracker?: ProgressTracker, keepPrometheusAlive = false
 
     // Single request mode (default)
     for (const { contract, block_num } of contracts.data) {
-        queue.add(() => processMetadata(NETWORK, contract, block_num, tracker!));
+        queue.add(() =>
+            processMetadata(NETWORK, contract, block_num, tracker!),
+        );
     }
 
     // Wait for all tasks to complete
