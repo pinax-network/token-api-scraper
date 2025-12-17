@@ -3,8 +3,8 @@ import {
   makeBatchJsonRpcCall, 
   batchCallContracts, 
   batchGetNativeBalances,
-  BatchRequest,
-  ContractCallRequest,
+  type BatchRequest,
+  type ContractCallRequest,
   decodeUint256,
   abi
 } from "./rpc";

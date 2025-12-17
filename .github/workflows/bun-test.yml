@@ -1,0 +1,29 @@
+name: Test
+
+on: push
+
+jobs:
+    bun-test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Install bun
+              uses: oven-sh/setup-bun@v2
+
+            - name: "Install Dependencies"
+              run: bun install
+
+            - name: "Run lint"
+              run: bun lint
+
+            - name: "Set Git date"
+              run: echo "GIT_DATE=$(git log -1 --format=%cd --date=short)" >> $GITHUB_ENV
+
+            - name: "Run test"
+              run: bun test
+              env:
+                  GIT_DATE: ${{ env.GIT_DATE }}
+                  GIT_COMMIT: ${{ github.sha }}
+                  GIT_REPOSITORY: ${{ github.repository }}

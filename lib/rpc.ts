@@ -253,12 +253,11 @@ async function makeJsonRpcCall(
       }
 
       // Exponential backoff with jitter
-      const backoffMs = Math.floor(baseDelayMs * Math.pow(2, attempt - 1));
+      const backoffMs = Math.floor(baseDelayMs * 2 ** (attempt - 1));
       const jitterRange = jitterMax - jitterMin;
       const jitter = Math.floor(backoffMs * (jitterMin + Math.random() * jitterRange));
       const delay = Math.min(maxDelayMs, jitter);
       await sleep(delay);
-      continue;
     }
   }
 
@@ -429,12 +428,11 @@ export async function makeBatchJsonRpcCall(
       }
 
       // Exponential backoff with jitter
-      const backoffMs = Math.floor(baseDelayMs * Math.pow(2, attempt - 1));
+      const backoffMs = Math.floor(baseDelayMs * 2 ** (attempt - 1));
       const jitterRange = jitterMax - jitterMin;
       const jitter = Math.floor(backoffMs * (jitterMin + Math.random() * jitterRange));
       const delay = Math.min(maxDelayMs, jitter);
       await sleep(delay);
-      continue;
     }
   }
 
