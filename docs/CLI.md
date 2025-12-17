@@ -192,20 +192,20 @@ All flags override environment variables. Available for `setup` and `run` comman
 
 ### Monitoring Options
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--enable-prometheus` | Enable Prometheus metrics endpoint | `false` |
-| `--prometheus-port <port>` | Prometheus metrics HTTP port | `9090` |
-| `--verbose` | Enable verbose logging output | `false` |
+| Flag | Environment Variable | Description | Default |
+|------|---------------------|-------------|---------|
+| `--enable-prometheus` | `ENABLE_PROMETHEUS` | Enable Prometheus metrics endpoint | `false` |
+| `--prometheus-port <port>` | `PROMETHEUS_PORT` | Prometheus metrics HTTP port | `9090` |
+| `--verbose` | `VERBOSE` | Enable verbose logging output | `false` |
 
 **Note**: When `--verbose` is disabled (default), all console logging is suppressed. Prometheus metrics continue to be computed regardless of verbose setting.
 
 ### Auto-restart Options
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--auto-restart` | Automatically restart service after completion | `false` |
-| `--auto-restart-delay <seconds>` | Delay in seconds before restarting | `10` |
+| Flag | Environment Variable | Description | Default |
+|------|---------------------|-------------|---------|
+| `--auto-restart` | `AUTO_RESTART` | Automatically restart service after completion | `false` |
+| `--auto-restart-delay <seconds>` | `AUTO_RESTART_DELAY` | Delay in seconds before restarting | `10` |
 
 ### Service-Specific Options
 

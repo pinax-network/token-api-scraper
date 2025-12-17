@@ -148,6 +148,49 @@ BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 npm run start
 - Reduced database overhead and network calls
 - Better resource utilization in high-concurrency scenarios
 
+### Auto-restart Options
+
+Services can be configured to automatically restart after successful completion, which is useful for continuous monitoring and incremental updates:
+
+- **`AUTO_RESTART`** - Automatically restart the service after it completes successfully
+  - Default: `false`
+  - Set to `true` to enable auto-restart
+  - Only restarts after successful completion (exit code 0)
+
+- **`AUTO_RESTART_DELAY`** - Delay in seconds before restarting the service
+  - Default: `10`
+  - Minimum: `1` second
+  - Time to wait before restarting the service
+
+Example:
+```bash
+# Enable auto-restart with default 10 second delay
+AUTO_RESTART=true npm run cli run metadata-transfers
+
+# Enable auto-restart with custom 30 second delay
+AUTO_RESTART=true AUTO_RESTART_DELAY=30 npm run cli run metadata-swaps
+
+# Combine with other options
+AUTO_RESTART=true AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
+```
+
+### Logging Options
+
+- **`VERBOSE`** - Enable verbose logging output
+  - Default: `false`
+  - Set to `true` to enable detailed console output
+  - When disabled, only errors are shown
+  - Prometheus metrics are still computed regardless of this setting
+
+Example:
+```bash
+# Run with verbose logging
+VERBOSE=true npm run cli run metadata-transfers
+
+# Run silently (default)
+npm run cli run metadata-transfers
+```
+
 ## Configuration Priority
 
 Configuration values are applied in the following order (later values override earlier ones):

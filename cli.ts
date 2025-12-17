@@ -134,16 +134,18 @@ function addCommonOptions(command: Command): Command {
             .option(
                 '--auto-restart',
                 'Automatically restart the service after it completes successfully.',
+                process.env.AUTO_RESTART === 'true',
             )
             // Logging Options
             .option(
                 '--verbose',
                 'Enable verbose logging output. When disabled, only errors are shown. Prometheus metrics are still computed.',
+                process.env.VERBOSE === 'true',
             )
             .option(
                 '--auto-restart-delay <seconds>',
                 `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
-                String(DEFAULT_AUTO_RESTART_DELAY),
+                process.env.AUTO_RESTART_DELAY || String(DEFAULT_AUTO_RESTART_DELAY),
             )
     );
 }
