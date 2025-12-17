@@ -1,58 +1,75 @@
 name: Docker Release
 
 on:
-    workflow_run:
-        workflows: ["Test"]
-        types: [completed]
-        branches: [main]
+  release:
+    types: [published] # published fires for both prerelease + stable; we filter below :contentReference[oaicite:5]{index=5}
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-release-${{ github.event.release.tag_name }}
+  cancel-in-progress: true # :contentReference[oaicite:6]{index=6}
 
 env:
-    REGISTRY: ghcr.io
+  REGISTRY: ghcr.io
 
 jobs:
-    docker:
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-            packages: write
+  docker:
+    # only stable releases (skip prereleases)
+    if: github.event.release.prerelease == false
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v6
-              with:
-                  ref: main
+    runs-on: ubuntu-latest
 
-            - name: Get version
-              id: version
-              run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@v6 # :contentReference[oaicite:7]{index=7}
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
-            - name: Log in to registry
-              uses: docker/login-action@v3
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to registry
+        uses: docker/login-action@v3
 
-            - name: Extract metadata
-              id: meta
-              uses: docker/metadata-action@v5
-              with:
-                  images: ${{ env.REGISTRY }}/${{ github.repository }}
-                  tags: |
-                      type=raw,value=v${{ steps.version.outputs.version }}
-                      type=raw,value=latest
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Set build date
-              run: echo "GIT_DATE=$(git log -1 --format=%cd --date=short)" >> $GITHUB_ENV
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3 # :contentReference[oaicite:8]{index=8}
 
-            - name: Build and push
-              uses: docker/build-push-action@v6
-              with:
-                  context: .
-                  push: true
-                  tags: ${{ steps.meta.outputs.tags }}
-                  labels: ${{ steps.meta.outputs.labels }}
-                  build-args: |
-                      GIT_COMMIT=${{ github.sha }}
-                      GIT_REPOSITORY=${{ github.repository }}
-                      GIT_DATE=${{ env.GIT_DATE }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ github.event.release.tag_name }}
+            type=raw,value=latest
+
+      - name: Set git vars
+        run: |
+          echo "GIT_DATE=$(git log -1 --format=%cd --date=short)" >> $GITHUB_ENV
+          echo "GIT_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+          # caching (speed) :contentReference[oaicite:9]{index=9}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+          # optional: supply-chain metadata :contentReference[oaicite:10]{index=10}
+          # provenance: mode=max
+          # sbom: true
+
+          build-args: |
+            GIT_COMMIT=${{ env.GIT_COMMIT }}
+            GIT_REPOSITORY=${{ github.repository }}
+            GIT_DATE=${{ env.GIT_DATE }}

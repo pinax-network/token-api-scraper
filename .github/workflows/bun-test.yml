@@ -1,29 +1,53 @@
 name: Test
 
-on: push
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    bun-test:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v6
+  bun-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-            - name: Install bun
-              uses: oven-sh/setup-bun@v2
+    env:
+      GIT_COMMIT: ${{ github.sha }}
+      GIT_REPOSITORY: ${{ github.repository }}
 
-            - name: "Install Dependencies"
-              run: bun install
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
 
-            - name: "Run lint"
-              run: bun lint
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+        # optional: pin bun to reduce surprise breakage
+        # with:
+        #   bun-version: 1.3.3  # or "latest" :contentReference[oaicite:4]{index=4}
 
-            - name: "Set Git date"
-              run: echo "GIT_DATE=$(git log -1 --format=%cd --date=short)" >> $GITHUB_ENV
+      - name: Cache Bun global cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-bun- :contentReference[oaicite:5]{index=5}
 
-            - name: "Run test"
-              run: bun test
-              env:
-                  GIT_DATE: ${{ env.GIT_DATE }}
-                  GIT_COMMIT: ${{ github.sha }}
-                  GIT_REPOSITORY: ${{ github.repository }}
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile :contentReference[oaicite:6]{index=6}
+
+      - name: Run lint
+        run: bun lint
+
+      - name: Set Git date
+        run: echo "GIT_DATE=$(git log -1 --format=%cd --date=short)" >> $GITHUB_ENV
+
+      - name: Run test
+        run: bun test
