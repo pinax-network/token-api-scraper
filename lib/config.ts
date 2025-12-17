@@ -51,13 +51,18 @@ export const RPC_BATCH_ENABLED = process.env.RPC_BATCH_ENABLED === 'true';
  */
 export const RPC_BATCH_SIZE = parseInt(process.env.RPC_BATCH_SIZE || '10', 10);
 
+export const CLICKHOUSE_URL = process.env.CLICKHOUSE_URL || 'http://localhost:8123';
+export const CLICKHOUSE_USERNAME = process.env.CLICKHOUSE_USERNAME || 'default';
+export const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_PASSWORD || '';
+export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || 'default';
+
 /**
  * Network name extracted from CLICKHOUSE_DATABASE
  * The database format is expected to be "network:suffix"
  * Throws error if CLICKHOUSE_DATABASE is not set properly
  */
 export const NETWORK = (() => {
-    const network = process.env.CLICKHOUSE_DATABASE?.split(":")[0] || '';
+    const network = CLICKHOUSE_DATABASE?.split(":")[0] || '';
     if (!network) {
         throw new Error("CLICKHOUSE_DATABASE environment variable is not set properly.");
     }
