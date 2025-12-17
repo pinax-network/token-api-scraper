@@ -1,6 +1,3 @@
-import { describe, expect, test } from 'bun:test';
-import { ProgressTracker } from './progress';
-
 // describe('ProgressTracker', () => {
 //     test('should track progress correctly', async () => {
 //         const tracker = new ProgressTracker({

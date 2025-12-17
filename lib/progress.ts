@@ -3,13 +3,33 @@ import * as http from 'http';
 import * as promClient from 'prom-client';
 import { VERBOSE } from './config';
 
-// Prometheus metrics
+/**
+ * Prometheus Metrics Registry and Metrics Definitions
+ *
+ * This module defines Prometheus metrics that persist across service iterations.
+ * The metrics are module-level singletons, ensuring they maintain their state
+ * throughout the application lifecycle.
+ *
+ * Metric Persistence Behavior:
+ * - Counter metrics (scraper_completed_tasks_total, scraper_error_tasks_total)
+ *   accumulate across iterations and NEVER reset. This is the correct behavior
+ *   for Prometheus counters.
+ * - Gauge metrics (scraper_total_tasks, scraper_requests_per_second,
+ *   scraper_progress_percentage) are updated with current values for each iteration.
+ *
+ * When using auto-restart functionality:
+ * - The ProgressTracker.reset() method resets internal state but NOT counter metrics
+ * - The Prometheus server stays alive between iterations when keepPrometheusAlive is true
+ * - This allows metrics to accumulate correctly across service restarts
+ */
+
+// Prometheus metrics registry - created once at module load
 const register = new promClient.Registry();
 
 // Add default metrics (CPU, memory, etc.)
 promClient.collectDefaultMetrics({ register });
 
-// Custom metrics
+// Custom metrics - defined at module level to persist across iterations
 const totalTasksGauge = new promClient.Gauge({
     name: 'scraper_total_tasks',
     help: 'Total number of tasks to process',
@@ -293,9 +313,17 @@ export class ProgressTracker {
 
     /**
      * Reset the progress tracker for a new run while keeping the Prometheus server alive
-     * Resets all counters (completed tasks, successful tasks, error tasks), task timestamps,
-     * and Prometheus metrics. If verbose mode is enabled, reinitializes the progress bar.
-     * @param totalTasks - The new total number of tasks
+     *
+     * Resets the internal state (completed tasks, successful tasks, error tasks, task timestamps)
+     * and updates Prometheus gauge metrics (total tasks, progress percentage) for the new run.
+     *
+     * **IMPORTANT**: Prometheus counter metrics (scraper_completed_tasks_total, scraper_error_tasks_total)
+     * are NOT reset and will continue to accumulate across iterations. This is the correct behavior
+     * for Prometheus counters, which should only increase and never decrease or reset.
+     *
+     * If verbose mode is enabled, reinitializes the progress bar.
+     *
+     * @param totalTasks - The new total number of tasks for this iteration
      */
     public reset(totalTasks: number) {
         this.totalTasks = totalTasks;

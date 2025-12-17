@@ -1,6 +1,3 @@
-import { describe, expect, test } from 'bun:test';
-import { ProgressTracker } from './progress';
-
 // describe('ProgressTracker ETA Smoothing', () => {
 //     test('should smooth rate calculation with varying request rates', async () => {
 //         const tracker = new ProgressTracker({

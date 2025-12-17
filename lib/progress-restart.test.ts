@@ -116,4 +116,116 @@ describe('ProgressTracker with auto-restart', () => {
         // Wait for server to close after final cycle
         await new Promise((resolve) => setTimeout(resolve, 200));
     });
+
+    test('should accumulate counter metrics across iterations without resetting', async () => {
+        const port = 19093;
+        const serviceName = 'Counter Accumulation Test';
+
+        const tracker = new ProgressTracker({
+            serviceName,
+            totalTasks: 10,
+            enablePrometheus: true,
+            prometheusPort: port,
+            verbose: false,
+        });
+
+        // Wait for server to start
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Iteration 1: 6 successes, 2 errors
+        for (let i = 0; i < 6; i++) {
+            tracker.incrementSuccess();
+        }
+        for (let i = 0; i < 2; i++) {
+            tracker.incrementError();
+        }
+
+        // Verify initial counter values
+        let response = await fetch(`http://localhost:${port}/metrics`);
+        let metrics = await response.text();
+        let successMatch = metrics.match(
+            new RegExp(
+                `scraper_completed_tasks_total{service="${serviceName}",status="success"} (\\d+)`,
+            ),
+        );
+        let errorMatch = metrics.match(
+            new RegExp(
+                `scraper_completed_tasks_total{service="${serviceName}",status="error"} (\\d+)`,
+            ),
+        );
+
+        expect(successMatch).not.toBeNull();
+        expect(errorMatch).not.toBeNull();
+        expect(parseInt(successMatch![1], 10)).toBe(6);
+        expect(parseInt(errorMatch![1], 10)).toBe(2);
+
+        // Complete but keep Prometheus alive
+        await tracker.complete({ keepPrometheusAlive: true });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Iteration 2: Reset and add 4 more successes, 3 more errors
+        tracker.reset(10);
+        for (let i = 0; i < 4; i++) {
+            tracker.incrementSuccess();
+        }
+        for (let i = 0; i < 3; i++) {
+            tracker.incrementError();
+        }
+
+        // Verify counters have accumulated (not reset)
+        response = await fetch(`http://localhost:${port}/metrics`);
+        metrics = await response.text();
+        successMatch = metrics.match(
+            new RegExp(
+                `scraper_completed_tasks_total{service="${serviceName}",status="success"} (\\d+)`,
+            ),
+        );
+        errorMatch = metrics.match(
+            new RegExp(
+                `scraper_completed_tasks_total{service="${serviceName}",status="error"} (\\d+)`,
+            ),
+        );
+
+        expect(successMatch).not.toBeNull();
+        expect(errorMatch).not.toBeNull();
+        // Counters should accumulate: 6+4=10 successes, 2+3=5 errors
+        expect(parseInt(successMatch![1], 10)).toBe(10);
+        expect(parseInt(errorMatch![1], 10)).toBe(5);
+
+        // Iteration 3: Add 7 more successes, 1 more error
+        await tracker.complete({ keepPrometheusAlive: true });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        tracker.reset(10);
+        for (let i = 0; i < 7; i++) {
+            tracker.incrementSuccess();
+        }
+        for (let i = 0; i < 1; i++) {
+            tracker.incrementError();
+        }
+
+        // Verify final accumulated values
+        response = await fetch(`http://localhost:${port}/metrics`);
+        metrics = await response.text();
+        successMatch = metrics.match(
+            new RegExp(
+                `scraper_completed_tasks_total{service="${serviceName}",status="success"} (\\d+)`,
+            ),
+        );
+        errorMatch = metrics.match(
+            new RegExp(
+                `scraper_completed_tasks_total{service="${serviceName}",status="error"} (\\d+)`,
+            ),
+        );
+
+        expect(successMatch).not.toBeNull();
+        expect(errorMatch).not.toBeNull();
+        // Final totals: 6+4+7=17 successes, 2+3+1=6 errors
+        expect(parseInt(successMatch![1], 10)).toBe(17);
+        expect(parseInt(errorMatch![1], 10)).toBe(6);
+
+        // Cleanup
+        await tracker.complete({ keepPrometheusAlive: false });
+        await new Promise((resolve) => setTimeout(resolve, 200));
+    });
 });
