@@ -34,7 +34,7 @@ describe('ProgressTracker with Prometheus', () => {
             await new Promise((resolve) => setTimeout(resolve, 20));
         }
 
-        tracker.complete();
+        await tracker.complete();
 
         // Verify server is closed after complete
         await new Promise((resolve) => setTimeout(resolve, 100));

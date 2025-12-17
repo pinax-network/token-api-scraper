@@ -124,10 +124,7 @@ export class ProgressTracker {
 
         this.prometheusServer.on('error', (err) => {
             if (this.verbose) {
-                console.error(
-                    '❌ Prometheus server error:',
-                    err,
-                );
+                console.error('❌ Prometheus server error:', err);
             }
         });
     }
@@ -232,7 +229,7 @@ export class ProgressTracker {
         }
     }
 
-    public complete() {
+    public async complete() {
         if (this.progressBar) {
             this.progressBar.stop();
         }
@@ -258,11 +255,22 @@ export class ProgressTracker {
         }
 
         // Close Prometheus server to allow process to exit
+        // Wait for the server to fully close to ensure port is released
         if (this.prometheusServer) {
-            this.prometheusServer.close((err) => {
-                if (err && this.verbose) {
-                    console.error('Failed to close Prometheus server:', err);
-                }
+            await new Promise<void>((resolve, reject) => {
+                this.prometheusServer?.close((err) => {
+                    if (err) {
+                        if (this.verbose) {
+                            console.error(
+                                'Failed to close Prometheus server:',
+                                err,
+                            );
+                        }
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
             });
         }
     }

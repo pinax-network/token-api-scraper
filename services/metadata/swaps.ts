@@ -35,7 +35,7 @@ for (const { contract, block_num } of contracts.data) {
 
 // Wait for all tasks to complete
 await queue.onIdle();
-tracker.complete();
+await tracker.complete();
 
 // Shutdown batch insert queue
 await shutdownBatchInsertQueue();

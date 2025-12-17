@@ -63,7 +63,7 @@ for (const account of accounts) {
 
 // Wait for all tasks to complete
 await queue.onIdle();
-tracker.complete();
+await tracker.complete();
 
 // Shutdown batch insert queue
 if (VERBOSE) {

@@ -21,7 +21,7 @@ describe('ProgressTracker', () => {
             await new Promise((resolve) => setTimeout(resolve, 10));
         }
 
-        tracker.complete();
+        await tracker.complete();
 
         // If we got here without errors, the test passed
         expect(true).toBe(true);
@@ -39,7 +39,7 @@ describe('ProgressTracker', () => {
         for (let i = 0; i < 10; i++) {
             trackerNoErrors.incrementSuccess();
         }
-        trackerNoErrors.complete();
+        await trackerNoErrors.complete();
 
         // Test 2: With errors - error count should be displayed
         const trackerWithErrors = new ProgressTracker({
@@ -55,7 +55,7 @@ describe('ProgressTracker', () => {
         for (let i = 0; i < 3; i++) {
             trackerWithErrors.incrementError();
         }
-        trackerWithErrors.complete();
+        await trackerWithErrors.complete();
 
         // If we got here without errors, the test passed
         expect(true).toBe(true);
