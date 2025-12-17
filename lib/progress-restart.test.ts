@@ -35,9 +35,16 @@ describe('ProgressTracker with auto-restart', () => {
         // Verify server is closed
         try {
             await fetch(`http://localhost:${port}/metrics`);
-            expect(false).toBe(true); // Should not reach here
-        } catch (_err) {
-            // Expected to fail after complete
+            throw new Error('Server should be closed but is still accessible');
+        } catch (err) {
+            // Expected to fail after complete - fetch should throw
+            if (
+                err instanceof Error &&
+                err.message.includes('should be closed')
+            ) {
+                throw err; // Re-throw if it's our error
+            }
+            // Otherwise it's the expected fetch error
             expect(true).toBe(true);
         }
 

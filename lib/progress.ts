@@ -236,7 +236,7 @@ export class ProgressTracker {
     private async closePrometheusServer() {
         if (this.prometheusServer) {
             await new Promise<void>((resolve, reject) => {
-                this.prometheusServer?.close((err) => {
+                this.prometheusServer.close((err) => {
                     if (err) {
                         if (this.verbose) {
                             console.error(
