@@ -74,7 +74,8 @@ Run in containerized environments:
 docker build -t token-api-scraper .
 
 # Run service
-docker run --env-file .env token-api-scraper run metadata-swaps --verbose --auto-restart
+docker run --env-file .env -p 9090:9090 token-api-scraper \
+    run metadata-swaps --verbose --auto-restart
 ```
 
 See [Docker Guide](docs/DOCKER.md) for Docker Compose examples and production deployment.
