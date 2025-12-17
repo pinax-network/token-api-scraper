@@ -28,7 +28,7 @@ if (VERBOSE) {
 
 // Initialize progress tracker
 const tracker = new ProgressTracker({
-    serviceName: 'Metadata Transfers',
+    serviceName: 'Token Metadata by Transfers',
     totalTasks: contracts.data.length,
     enablePrometheus: ENABLE_PROMETHEUS,
     prometheusPort: PROMETHEUS_PORT

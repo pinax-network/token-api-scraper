@@ -127,7 +127,7 @@ export class BatchInsertQueue {
      */
     public async shutdown(): Promise<void> {
         this.isShuttingDown = true;
-        
+
         if (this.timer) {
             clearInterval(this.timer);
             this.timer = null;

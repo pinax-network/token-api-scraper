@@ -112,7 +112,7 @@ export class ProgressTracker {
                 res.end('Not Found');
             }
         });
-        
+
         this.prometheusServer.listen(port, () => {
             if (this.verbose) {
                 console.log(`📊 Prometheus metrics server listening on port ${port}`);
@@ -222,7 +222,7 @@ export class ProgressTracker {
         if (this.progressBar) {
             this.progressBar.stop();
         }
-        
+
         const elapsed = (Date.now() - this.startTime) / 1000;
         // Use average rate over entire duration for final statistics
         const rate = elapsed > 0 ? this.completedTasks / elapsed : 0;
