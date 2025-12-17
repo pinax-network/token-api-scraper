@@ -253,7 +253,7 @@ export class ProgressTracker {
         });
     }
 
-    public async complete() {
+    public async complete(options?: { keepPrometheusAlive?: boolean }) {
         if (this.progressBar) {
             this.progressBar.stop();
         }
@@ -278,9 +278,10 @@ export class ProgressTracker {
             console.log(`   Average rate: ${rate.toFixed(2)} req/s`);
         }
 
-        // Close Prometheus server to allow process to exit
-        // Wait for the server to fully close to ensure port is released
-        await this.closePrometheusServer();
+        // Close Prometheus server only if not keeping it alive
+        if (!options?.keepPrometheusAlive) {
+            await this.closePrometheusServer();
+        }
     }
 
     public async stop() {
@@ -288,5 +289,46 @@ export class ProgressTracker {
             this.progressBar.stop();
         }
         await this.closePrometheusServer();
+    }
+
+    /**
+     * Reset the progress tracker for a new run while keeping the Prometheus server alive
+     * Resets all counters (completed tasks, successful tasks, error tasks), task timestamps,
+     * and Prometheus metrics. If verbose mode is enabled, reinitializes the progress bar.
+     * @param totalTasks - The new total number of tasks
+     */
+    public reset(totalTasks: number) {
+        this.totalTasks = totalTasks;
+        this.completedTasks = 0;
+        this.successfulTasks = 0;
+        this.errorTasks = 0;
+        this.startTime = Date.now();
+        this.taskTimestamps = [];
+
+        // Update Prometheus metrics for the new run
+        totalTasksGauge.labels(this.serviceName).set(this.totalTasks);
+        progressGauge.labels(this.serviceName).set(0);
+
+        // Reinitialize progress bar only if verbose mode is enabled
+        if (this.verbose) {
+            // Stop existing progress bar if it exists
+            if (this.progressBar) {
+                this.progressBar.stop();
+            }
+
+            this.progressBar = new cliProgress.SingleBar({
+                format: `${this.serviceName} |{bar}| {percentage}% | ETA: {custom_eta} | {value}/{total}{errors} | Rate: {rate} req/s | Elapsed: {elapsed}`,
+                barCompleteChar: '\u2588',
+                barIncompleteChar: '\u2591',
+                hideCursor: true,
+            });
+
+            this.progressBar.start(this.totalTasks, 0, {
+                rate: '0.00',
+                elapsed: '0s',
+                custom_eta: '0s',
+                errors: '',
+            });
+        }
     }
 }

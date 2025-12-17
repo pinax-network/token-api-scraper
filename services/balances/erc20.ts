@@ -15,10 +15,6 @@ import { get_latest_transfers } from '../../src/queries';
 // Initialize service
 initService({ serviceName: 'TRC20 balances RPC service' });
 
-const queue = new PQueue({ concurrency: CONCURRENCY });
-
-const transfers = await get_latest_transfers();
-
 async function processBalanceOf(
     account: string,
     contract: string,
@@ -62,56 +58,75 @@ function isBlackHoleAddress(address: string): boolean {
     return address === 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 }
 
-// Calculate total tasks and collect unique contracts
-const uniqueContracts = new Set<string>();
-const uniqueAccounts = new Set<string>();
-let totalTasks = 0;
+export async function run(tracker?: ProgressTracker) {
+    const queue = new PQueue({ concurrency: CONCURRENCY });
 
-for (const { log_address, from, to } of transfers) {
-    uniqueContracts.add(log_address);
-    if (!isBlackHoleAddress(from)) {
-        uniqueAccounts.add(from);
+    const transfers = await get_latest_transfers();
+
+    // Calculate total tasks and collect unique contracts
+    const uniqueContracts = new Set<string>();
+    const uniqueAccounts = new Set<string>();
+    let totalTasks = 0;
+
+    for (const { log_address, from, to } of transfers) {
+        uniqueContracts.add(log_address);
+        if (!isBlackHoleAddress(from)) {
+            uniqueAccounts.add(from);
+            totalTasks++;
+        }
+        uniqueAccounts.add(to);
         totalTasks++;
     }
-    uniqueAccounts.add(to);
-    totalTasks++;
-}
 
-if (VERBOSE) {
-    console.log(`\n📋 Task Overview:`);
-    console.log(`   Unique contracts: ${uniqueContracts.size}`);
-    console.log(`   Unique accounts: ${uniqueAccounts.size}`);
-    console.log(`   Total tasks to process: ${totalTasks}`);
-    console.log(``);
-}
-
-// Initialize progress tracker
-const tracker = new ProgressTracker({
-    serviceName: 'ERC20 Balances',
-    totalTasks,
-    enablePrometheus: ENABLE_PROMETHEUS,
-    prometheusPort: PROMETHEUS_PORT,
-});
-
-// Process all accounts and their contracts
-for (const { log_address, from, to, block_num } of transfers) {
-    if (!isBlackHoleAddress(from)) {
-        queue.add(() =>
-            processBalanceOf(from, log_address, block_num, tracker),
-        );
+    if (VERBOSE) {
+        console.log(`\n📋 Task Overview:`);
+        console.log(`   Unique contracts: ${uniqueContracts.size}`);
+        console.log(`   Unique accounts: ${uniqueAccounts.size}`);
+        console.log(`   Total tasks to process: ${totalTasks}`);
+        console.log(``);
     }
-    queue.add(() => processBalanceOf(to, log_address, block_num, tracker));
+
+    // Initialize or reset progress tracker
+    const shouldCreateTracker = !tracker;
+    if (shouldCreateTracker) {
+        tracker = new ProgressTracker({
+            serviceName: 'ERC20 Balances',
+            totalTasks,
+            enablePrometheus: ENABLE_PROMETHEUS,
+            prometheusPort: PROMETHEUS_PORT,
+        });
+    } else {
+        tracker.reset(totalTasks);
+    }
+
+    // Process all accounts and their contracts
+    for (const { log_address, from, to, block_num } of transfers) {
+        if (!isBlackHoleAddress(from)) {
+            queue.add(() =>
+                processBalanceOf(from, log_address, block_num, tracker!),
+            );
+        }
+        queue.add(() => processBalanceOf(to, log_address, block_num, tracker!));
+    }
+
+    // Wait for all tasks to complete
+    await queue.onIdle();
+    // Always keep Prometheus alive for auto-restart
+    await tracker.complete({ keepPrometheusAlive: true });
+
+    // Shutdown batch insert queue
+    if (VERBOSE) {
+        console.log('⏳ Flushing remaining batch inserts...');
+    }
+    await shutdownBatchInsertQueue();
+    if (VERBOSE) {
+        console.log('✅ Batch inserts flushed successfully');
+    }
+
+    return tracker;
 }
 
-// Wait for all tasks to complete
-await queue.onIdle();
-await tracker.complete();
-
-// Shutdown batch insert queue
-if (VERBOSE) {
-    console.log('⏳ Flushing remaining batch inserts...');
-}
-await shutdownBatchInsertQueue();
-if (VERBOSE) {
-    console.log('✅ Batch inserts flushed successfully');
+// Run the service if this is the main module
+if (import.meta.main) {
+    await run();
 }

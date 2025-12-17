@@ -18,10 +18,6 @@ import { get_accounts_for_native_balances } from '../../src/queries';
 // Initialize service
 initService({ serviceName: 'Native balances RPC service' });
 
-const queue = new PQueue({ concurrency: CONCURRENCY });
-
-const accounts = await get_accounts_for_native_balances();
-
 async function processNativeBalance(account: string, tracker: ProgressTracker) {
     // get native TRX balance for the account
     try {
@@ -41,35 +37,54 @@ async function processNativeBalance(account: string, tracker: ProgressTracker) {
     }
 }
 
-if (VERBOSE) {
-    console.log(`\n📋 Task Overview:`);
-    console.log(`   Unique accounts: ${accounts.length}`);
-    console.log(`   Total tasks to process: ${accounts.length}`);
-    console.log(``);
+export async function run(tracker?: ProgressTracker) {
+    const queue = new PQueue({ concurrency: CONCURRENCY });
+
+    const accounts = await get_accounts_for_native_balances();
+
+    if (VERBOSE) {
+        console.log(`\n📋 Task Overview:`);
+        console.log(`   Unique accounts: ${accounts.length}`);
+        console.log(`   Total tasks to process: ${accounts.length}`);
+        console.log(``);
+    }
+
+    // Initialize or reset progress tracker
+    const shouldCreateTracker = !tracker;
+    if (shouldCreateTracker) {
+        tracker = new ProgressTracker({
+            serviceName: 'Native Balances',
+            totalTasks: accounts.length,
+            enablePrometheus: ENABLE_PROMETHEUS,
+            prometheusPort: PROMETHEUS_PORT,
+        });
+    } else {
+        tracker.reset(accounts.length);
+    }
+
+    // Process all accounts
+    for (const account of accounts) {
+        queue.add(() => processNativeBalance(account, tracker!));
+    }
+
+    // Wait for all tasks to complete
+    await queue.onIdle();
+    // Always keep Prometheus alive for auto-restart
+    await tracker.complete({ keepPrometheusAlive: true });
+
+    // Shutdown batch insert queue
+    if (VERBOSE) {
+        console.log('⏳ Flushing remaining batch inserts...');
+    }
+    await shutdownBatchInsertQueue();
+    if (VERBOSE) {
+        console.log('✅ Batch inserts flushed successfully');
+    }
+
+    return tracker;
 }
 
-// Initialize progress tracker
-const tracker = new ProgressTracker({
-    serviceName: 'Native Balances',
-    totalTasks: accounts.length,
-    enablePrometheus: ENABLE_PROMETHEUS,
-    prometheusPort: PROMETHEUS_PORT,
-});
-
-// Process all accounts
-for (const account of accounts) {
-    queue.add(() => processNativeBalance(account, tracker));
-}
-
-// Wait for all tasks to complete
-await queue.onIdle();
-await tracker.complete();
-
-// Shutdown batch insert queue
-if (VERBOSE) {
-    console.log('⏳ Flushing remaining batch inserts...');
-}
-await shutdownBatchInsertQueue();
-if (VERBOSE) {
-    console.log('✅ Batch inserts flushed successfully');
+// Run the service if this is the main module
+if (import.meta.main) {
+    await run();
 }

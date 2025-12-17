@@ -150,29 +150,39 @@ BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 npm run start
 
 ### Auto-restart Options
 
-Services can be configured to automatically restart after successful completion, which is useful for continuous monitoring and incremental updates:
-
-- **`AUTO_RESTART`** - Automatically restart the service after it completes successfully
-  - Default: `false`
-  - Set to `true` to enable auto-restart
-  - Only restarts after successful completion (exit code 0)
+Services automatically restart after successful completion in a continuous loop. The service runs in the same process without exiting, preserving Prometheus metrics across runs.
 
 - **`AUTO_RESTART_DELAY`** - Delay in seconds before restarting the service
   - Default: `10`
   - Minimum: `1` second
-  - Time to wait before restarting the service
+  - Time to wait before restarting the service after completion
 
 Example:
 ```bash
-# Enable auto-restart with default 10 second delay
-AUTO_RESTART=true npm run cli run metadata-transfers
+# Use default 10 second delay between restarts
+npm run cli run metadata-transfers
 
-# Enable auto-restart with custom 30 second delay
-AUTO_RESTART=true AUTO_RESTART_DELAY=30 npm run cli run metadata-swaps
+# Custom 30 second delay between restarts
+AUTO_RESTART_DELAY=30 npm run cli run metadata-swaps
 
 # Combine with other options
-AUTO_RESTART=true AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
+AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
 ```
+
+**Benefits of continuous auto-restart:**
+- Process stays alive, avoiding overhead of process restarts
+- Prometheus metrics are preserved and accumulated across runs
+- Better for long-running monitoring scenarios
+- Simplified deployment (no need for external process managers)
+
+### Prometheus Metrics
+
+Prometheus metrics are always enabled and provide real-time monitoring of service performance.
+
+- **`PROMETHEUS_PORT`** - HTTP port for Prometheus metrics endpoint
+  - Default: `9090`
+  - Metrics available at `http://localhost:<port>/metrics`
+  - Metrics are preserved across service runs in auto-restart mode
 
 ### Logging Options
 

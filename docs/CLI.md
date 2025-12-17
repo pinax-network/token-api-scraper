@@ -194,17 +194,17 @@ All flags override environment variables. Available for `setup` and `run` comman
 
 | Flag | Environment Variable | Description | Default |
 |------|---------------------|-------------|---------|
-| `--enable-prometheus` | `ENABLE_PROMETHEUS` | Enable Prometheus metrics endpoint | `false` |
-| `--prometheus-port <port>` | `PROMETHEUS_PORT` | Prometheus metrics HTTP port | `9090` |
+| `--prometheus-port <port>` | `PROMETHEUS_PORT` | Prometheus metrics HTTP port (always enabled) | `9090` |
 | `--verbose` | `VERBOSE` | Enable verbose logging output | `false` |
 
-**Note**: When `--verbose` is disabled (default), all console logging is suppressed. Prometheus metrics continue to be computed regardless of verbose setting.
+**Note**: When `--verbose` is disabled (default), all console logging is suppressed. Prometheus metrics are always enabled and computed.
 
 ### Auto-restart Options
 
+Services automatically run in continuous mode, restarting after each completion to keep processing new data.
+
 | Flag | Environment Variable | Description | Default |
 |------|---------------------|-------------|---------|
-| `--auto-restart` | `AUTO_RESTART` | Automatically restart service after completion | `false` |
 | `--auto-restart-delay <seconds>` | `AUTO_RESTART_DELAY` | Delay in seconds before restarting | `10` |
 
 ### Service-Specific Options
@@ -459,24 +459,28 @@ Set up cron jobs for periodic updates:
 0 * * * * cd /path/to/token-api-scraper && npm run cli run trc20-balances
 ```
 
-### Auto-restart for Continuous Operation
+### Continuous Operation
 
-Services can be configured to automatically restart after completion, useful for continuous monitoring:
+Services automatically run in continuous mode, restarting after each completion to keep processing new data. The service runs in the same process without exiting, preserving Prometheus metrics across runs.
 
 ```bash
-# Auto-restart with default 10 second delay
-npm run cli run metadata-transfers --auto-restart
+# Run with default 10 second delay between restarts
+npm run cli run metadata-transfers
 
-# Auto-restart with custom delay (30 seconds)
-npm run cli run metadata-swaps --auto-restart --auto-restart-delay 30
+# Custom delay (30 seconds) between restarts
+npm run cli run metadata-swaps --auto-restart-delay 30
 
 # Combine with other options
 npm run cli run metadata-transfers \
-  --auto-restart \
   --auto-restart-delay 60 \
-  --concurrency 20 \
-  --enable-prometheus
+  --concurrency 20
 ```
+
+**Benefits of continuous operation:**
+- Process stays alive, avoiding overhead of process restarts
+- Prometheus metrics are preserved and accumulated across runs
+- Better for long-running monitoring scenarios
+- Simplified deployment (no need for external process managers)
 
 **Note:** The service only restarts after successful completion (exit code 0). Failures will not trigger a restart.
 
