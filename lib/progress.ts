@@ -121,6 +121,15 @@ export class ProgressTracker {
                 );
             }
         });
+
+        this.prometheusServer.on('error', (err) => {
+            if (this.verbose) {
+                console.error(
+                    '❌ Prometheus server error:',
+                    err,
+                );
+            }
+        });
     }
 
     public incrementSuccess() {
