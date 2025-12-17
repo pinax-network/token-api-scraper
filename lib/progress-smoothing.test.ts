@@ -34,7 +34,7 @@ describe('ProgressTracker ETA Smoothing', () => {
             await new Promise((resolve) => setTimeout(resolve, 4));
         }
 
-        tracker.complete();
+        await tracker.complete();
 
         // If we got here without errors, the test passed
         // The smoothing should prevent drastic ETA changes between phases
@@ -54,7 +54,7 @@ describe('ProgressTracker ETA Smoothing', () => {
             await new Promise((resolve) => setTimeout(resolve, 50));
         }
 
-        tracker.complete();
+        await tracker.complete();
 
         expect(true).toBe(true);
     });
@@ -72,7 +72,7 @@ describe('ProgressTracker ETA Smoothing', () => {
             await new Promise((resolve) => setTimeout(resolve, 5));
         }
 
-        tracker.complete();
+        await tracker.complete();
 
         // The rate should be calculated based on the rolling window
         expect(true).toBe(true);
@@ -92,7 +92,7 @@ describe('ProgressTracker ETA Smoothing', () => {
             await new Promise((resolve) => setTimeout(resolve, 10));
         }
 
-        tracker.complete();
+        await tracker.complete();
 
         // The custom ETA should be calculated as: (totalTasks - completedTasks) / rate
         // With a stable rate, ETA should not jump drastically

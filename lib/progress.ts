@@ -124,10 +124,7 @@ export class ProgressTracker {
 
         this.prometheusServer.on('error', (err) => {
             if (this.verbose) {
-                console.error(
-                    '❌ Prometheus server error:',
-                    err,
-                );
+                console.error('❌ Prometheus server error:', err);
             }
         });
     }
@@ -232,7 +229,31 @@ export class ProgressTracker {
         }
     }
 
-    public complete() {
+    /**
+     * Close the Prometheus server and wait for the port to be released
+     * @private
+     */
+    private async closePrometheusServer() {
+        if (this.prometheusServer) {
+            await new Promise<void>((resolve, reject) => {
+                this.prometheusServer.close((err) => {
+                    if (err) {
+                        if (this.verbose) {
+                            console.error(
+                                'Failed to close Prometheus server:',
+                                err,
+                            );
+                        }
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+        }
+    }
+
+    public async complete() {
         if (this.progressBar) {
             this.progressBar.stop();
         }
@@ -258,21 +279,14 @@ export class ProgressTracker {
         }
 
         // Close Prometheus server to allow process to exit
-        if (this.prometheusServer) {
-            this.prometheusServer.close((err) => {
-                if (err && this.verbose) {
-                    console.error('Failed to close Prometheus server:', err);
-                }
-            });
-        }
+        // Wait for the server to fully close to ensure port is released
+        await this.closePrometheusServer();
     }
 
-    public stop() {
+    public async stop() {
         if (this.progressBar) {
             this.progressBar.stop();
         }
-        if (this.prometheusServer) {
-            this.prometheusServer.close();
-        }
+        await this.closePrometheusServer();
     }
 }

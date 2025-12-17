@@ -105,7 +105,7 @@ for (const { log_address, from, to, block_num } of transfers) {
 
 // Wait for all tasks to complete
 await queue.onIdle();
-tracker.complete();
+await tracker.complete();
 
 // Shutdown batch insert queue
 if (VERBOSE) {

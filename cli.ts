@@ -145,7 +145,8 @@ function addCommonOptions(command: Command): Command {
             .option(
                 '--auto-restart-delay <seconds>',
                 `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
-                process.env.AUTO_RESTART_DELAY || String(DEFAULT_AUTO_RESTART_DELAY),
+                process.env.AUTO_RESTART_DELAY ||
+                    String(DEFAULT_AUTO_RESTART_DELAY),
             )
     );
 }
