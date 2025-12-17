@@ -1,5 +1,5 @@
 // Import proto polyfill first to fix tronweb protobuf issues
-import "../lib/proto-polyfill";
+import '../lib/proto-polyfill';
 import { hextoString } from 'tronweb/utils';
 
 export function parse_string(str: string) {

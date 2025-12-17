@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 /**
  * Tests for ENABLE_PROMETHEUS default behavior
- * 
+ *
  * This test suite verifies that ENABLE_PROMETHEUS defaults to true
  * and can be explicitly disabled by setting the environment variable to 'false'
  */

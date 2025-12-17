@@ -23,7 +23,10 @@ export interface QueryMetrics {
     totalTimeMs: number;
 }
 
-export async function query<T = any>(query: string, query_params: Record<string, any> = {}): Promise<{
+export async function query<T = any>(
+    query: string,
+    query_params: Record<string, any> = {},
+): Promise<{
     data: T[];
     metrics: QueryMetrics;
 }> {
@@ -48,8 +51,10 @@ export async function query<T = any>(query: string, query_params: Record<string,
         const endTime = performance.now();
 
         // Calculate times
-        const httpRequestTimeMs = Math.round((queryEndTime - queryStartTime) * 100) / 100;
-        const dataFetchTimeMs = Math.round((parseEndTime - parseStartTime) * 100) / 100;
+        const httpRequestTimeMs =
+            Math.round((queryEndTime - queryStartTime) * 100) / 100;
+        const dataFetchTimeMs =
+            Math.round((parseEndTime - parseStartTime) * 100) / 100;
         const totalTimeMs = Math.round((endTime - startTime) * 100) / 100;
 
         return {
@@ -66,7 +71,9 @@ export async function query<T = any>(query: string, query_params: Record<string,
         const urlObj = new URL(url);
         const host = urlObj.hostname;
 
-        const err = error as Error & { cause?: { code?: string; message?: string } };
+        const err = error as Error & {
+            cause?: { code?: string; message?: string };
+        };
 
         console.error('\n=== ClickHouse Connection Error ===');
         console.error('Connection URL:', url);
@@ -85,15 +92,20 @@ export async function query<T = any>(query: string, query_params: Record<string,
         }
 
         // Log timeout information if available
-        if (err.message && err.message.includes('timeout')) {
+        if (err.message?.includes('timeout')) {
             console.error('Timeout Details: Connection timeout occurred');
-            console.error('Attempted Address:', `${host}:${urlObj.port || (urlObj.protocol === 'https:' ? 443 : 8123)}`);
+            console.error(
+                'Attempted Address:',
+                `${host}:${urlObj.port || (urlObj.protocol === 'https:' ? 443 : 8123)}`,
+            );
         }
 
         console.error('Stack Trace:', err.stack);
         console.error('===================================\n');
 
         // Re-throw with enhanced message
-        throw new Error(`Failed to connect to ClickHouse at ${url}: ${err.message}`);
+        throw new Error(
+            `Failed to connect to ClickHouse at ${url}: ${err.message}`,
+        );
     }
 }

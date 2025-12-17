@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { ProgressTracker } from './progress';
 
 describe('ProgressTracker', () => {
@@ -6,23 +6,23 @@ describe('ProgressTracker', () => {
         const tracker = new ProgressTracker({
             serviceName: 'Test Service',
             totalTasks: 100,
-            enablePrometheus: false
+            enablePrometheus: false,
         });
 
         // Simulate processing tasks
         for (let i = 0; i < 80; i++) {
             tracker.incrementSuccess();
-            await new Promise(resolve => setTimeout(resolve, 10)); // Small delay to see progress
+            await new Promise((resolve) => setTimeout(resolve, 10)); // Small delay to see progress
         }
 
         // Simulate some errors
         for (let i = 0; i < 20; i++) {
             tracker.incrementError();
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
         }
 
         tracker.complete();
-        
+
         // If we got here without errors, the test passed
         expect(true).toBe(true);
     });
@@ -33,7 +33,7 @@ describe('ProgressTracker', () => {
             serviceName: 'No Errors Test',
             totalTasks: 10,
             enablePrometheus: false,
-            verbose: false  // Disable verbose to avoid console output during test
+            verbose: false, // Disable verbose to avoid console output during test
         });
 
         for (let i = 0; i < 10; i++) {
@@ -46,7 +46,7 @@ describe('ProgressTracker', () => {
             serviceName: 'With Errors Test',
             totalTasks: 10,
             enablePrometheus: false,
-            verbose: false  // Disable verbose to avoid console output during test
+            verbose: false, // Disable verbose to avoid console output during test
         });
 
         for (let i = 0; i < 7; i++) {

@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
-import { describe, test, expect } from 'bun:test';
-import { transformSqlForCluster, splitSqlStatements } from './setup';
+import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { splitSqlStatements, transformSqlForCluster } from './setup';
 
 /**
  * Integration test for the setup CLI command
@@ -13,7 +13,7 @@ import { resolve } from 'path';
 describe('Setup CLI Integration Tests', () => {
     const schemaFiles = [
         'sql.schemas/schema.metadata.sql',
-        'sql.schemas/schema.balances.sql'
+        'sql.schemas/schema.balances.sql',
     ];
 
     test('all schema files should exist', () => {
@@ -62,11 +62,16 @@ describe('Setup CLI Integration Tests', () => {
     });
 
     test('metadata schema should have expected statements', () => {
-        const metadataContent = readFileSync('sql.schemas/schema.metadata.sql', 'utf8');
+        const metadataContent = readFileSync(
+            'sql.schemas/schema.metadata.sql',
+            'utf8',
+        );
         const statements = splitSqlStatements(metadataContent);
 
-        const hasCreateTable = statements.some(s => s.includes('CREATE TABLE'));
-        const hasInsert = statements.some(s => s.includes('INSERT'));
+        const hasCreateTable = statements.some((s) =>
+            s.includes('CREATE TABLE'),
+        );
+        const hasInsert = statements.some((s) => s.includes('INSERT'));
 
         expect(hasCreateTable).toBe(true);
         expect(hasInsert).toBe(true);
@@ -74,7 +79,9 @@ describe('Setup CLI Integration Tests', () => {
 
     test('should have expected table names', () => {
         const expectedTables = ['metadata', 'metadata_errors', 'balances'];
-        const allContent = schemaFiles.map(f => readFileSync(f, 'utf8')).join('\n');
+        const allContent = schemaFiles
+            .map((f) => readFileSync(f, 'utf8'))
+            .join('\n');
 
         for (const table of expectedTables) {
             expect(allContent).toContain(table);

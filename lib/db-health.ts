@@ -53,11 +53,12 @@ export async function checkDNS(url: string): Promise<HealthCheckResult> {
         // Use DNS-over-HTTPS to resolve the hostname
         const dnsUrl = `https://dns.google/resolve?name=${hostname}&type=A`;
         const response = await fetch(dnsUrl);
-        const data = await response.json() as DNSResponse;
+        const data = (await response.json()) as DNSResponse;
 
         if (data.Answer && data.Answer.length > 0) {
-            const ipAddresses = data.Answer
-                .filter((answer) => answer.type === 1) // A records
+            const ipAddresses = data.Answer.filter(
+                (answer) => answer.type === 1,
+            ) // A records
                 .map((answer) => answer.data);
 
             return {
@@ -93,9 +94,7 @@ export async function checkDNS(url: string): Promise<HealthCheckResult> {
 /**
  * Ping the ClickHouse server using the /ping endpoint
  */
-export async function pingClickHouse(
-    url: string
-): Promise<HealthCheckResult> {
+export async function pingClickHouse(url: string): Promise<HealthCheckResult> {
     const hostname = getHostnameFromUrl(url);
     try {
         // Use the ping endpoint
@@ -211,7 +210,9 @@ export async function runHealthChecks(): Promise<{
     if (dnsCheck.success) {
         console.log(`✓ ${dnsCheck.message}`);
         if (dnsCheck.details?.ipAddresses) {
-            console.log(`  IP Addresses: ${dnsCheck.details.ipAddresses.join(', ')}`);
+            console.log(
+                `  IP Addresses: ${dnsCheck.details.ipAddresses.join(', ')}`,
+            );
         }
     } else {
         console.error(`✗ ${dnsCheck.message}`);
@@ -238,7 +239,9 @@ export async function runHealthChecks(): Promise<{
             console.error(`  Error Code: ${pingCheck.details.errorCode}`);
         }
         if (pingCheck.details?.attemptedAddress) {
-            console.error(`  Attempted Address: ${pingCheck.details.attemptedAddress}`);
+            console.error(
+                `  Attempted Address: ${pingCheck.details.attemptedAddress}`,
+            );
         }
         if (pingCheck.details?.timeout) {
             console.error(`  Timeout: ${pingCheck.details.timeout}`);

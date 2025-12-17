@@ -12,14 +12,6 @@ export interface BatchInsertConfig {
 }
 
 /**
- * Interface for items in the batch queue
- */
-interface BatchItem<T> {
-    table: string;
-    value: T;
-}
-
-/**
  * BatchInsertQueue manages batched inserts to ClickHouse
  * Accumulates inserts and flushes them either:
  * - Every intervalMs milliseconds
@@ -78,13 +70,16 @@ export class BatchInsertQueue {
      */
     public async flushAll(): Promise<void> {
         const tables = Array.from(this.queues.keys());
-        await Promise.all(tables.map(table => this.flush(table)));
+        await Promise.all(tables.map((table) => this.flush(table)));
     }
 
     /**
      * Insert values immediately into ClickHouse
      */
-    private async insertImmediate<T>(table: string, values: T[]): Promise<void> {
+    private async insertImmediate<T>(
+        table: string,
+        values: T[],
+    ): Promise<void> {
         if (values.length === 0) {
             return;
         }
@@ -106,7 +101,7 @@ export class BatchInsertQueue {
 
         this.timer = setInterval(() => {
             if (!this.isShuttingDown) {
-                this.flushAll().catch(error => {
+                this.flushAll().catch((error) => {
                     console.error('Error during periodic flush:', error);
                 });
             }
@@ -116,10 +111,17 @@ export class BatchInsertQueue {
     /**
      * Handle insert errors
      */
-    private handleInsertError(error: unknown, table: string, count: number): void {
+    private handleInsertError(
+        error: unknown,
+        table: string,
+        count: number,
+    ): void {
         const err = error as Error;
         const errorMessage = err?.message || String(error);
-        console.error(`Failed to insert batch of ${count} rows into ${table}:`, errorMessage);
+        console.error(
+            `Failed to insert batch of ${count} rows into ${table}:`,
+            errorMessage,
+        );
     }
 
     /**
@@ -174,7 +176,9 @@ export function initBatchInsertQueue(config: BatchInsertConfig): void {
  */
 export function getBatchInsertQueue(): BatchInsertQueue {
     if (!globalBatchQueue) {
-        throw new Error('Batch insert queue not initialized. Call initBatchInsertQueue first.');
+        throw new Error(
+            'Batch insert queue not initialized. Call initBatchInsertQueue first.',
+        );
     }
     return globalBatchQueue;
 }

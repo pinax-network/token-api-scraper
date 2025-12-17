@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { BatchInsertQueue } from './batch-insert';
 
 // Mock the clickhouse client
@@ -29,7 +29,7 @@ describe('BatchInsertQueue', () => {
 
         test('should queue items without immediate insert', async () => {
             await queue.add('test_table', { id: 1, value: 'test' });
-            
+
             expect(mockInsert).not.toHaveBeenCalled();
             expect(queue.getQueueSize('test_table')).toBe(1);
         });
@@ -38,7 +38,7 @@ describe('BatchInsertQueue', () => {
             await queue.add('test_table', { id: 1, value: 'test1' });
             await queue.add('test_table', { id: 2, value: 'test2' });
             await queue.add('test_table', { id: 3, value: 'test3' });
-            
+
             expect(mockInsert).not.toHaveBeenCalled();
             expect(queue.getQueueSize('test_table')).toBe(3);
         });
@@ -52,7 +52,7 @@ describe('BatchInsertQueue', () => {
             await smallQueue.add('test_table', { id: 1 });
             await smallQueue.add('test_table', { id: 2 });
             await smallQueue.add('test_table', { id: 3 });
-            
+
             expect(mockInsert).toHaveBeenCalledTimes(1);
             expect(mockInsert).toHaveBeenCalledWith({
                 table: 'test_table',
@@ -66,9 +66,9 @@ describe('BatchInsertQueue', () => {
         test('should flush all pending items on manual flushAll', async () => {
             await queue.add('test_table', { id: 1 });
             await queue.add('test_table', { id: 2 });
-            
+
             await queue.flushAll();
-            
+
             expect(mockInsert).toHaveBeenCalledTimes(1);
             expect(mockInsert).toHaveBeenCalledWith({
                 table: 'test_table',
@@ -82,7 +82,7 @@ describe('BatchInsertQueue', () => {
             await queue.add('table1', { id: 1 });
             await queue.add('table2', { id: 2 });
             await queue.add('table1', { id: 3 });
-            
+
             expect(queue.getQueueSize('table1')).toBe(2);
             expect(queue.getQueueSize('table2')).toBe(1);
             expect(queue.getTotalQueueSize()).toBe(3);
@@ -91,9 +91,9 @@ describe('BatchInsertQueue', () => {
         test('should flush all tables on flushAll', async () => {
             await queue.add('table1', { id: 1 });
             await queue.add('table2', { id: 2 });
-            
+
             await queue.flushAll();
-            
+
             expect(mockInsert).toHaveBeenCalledTimes(2);
             expect(queue.getTotalQueueSize()).toBe(0);
         });
@@ -101,9 +101,9 @@ describe('BatchInsertQueue', () => {
         test('should flush on shutdown', async () => {
             await queue.add('test_table', { id: 1 });
             await queue.add('test_table', { id: 2 });
-            
+
             await queue.shutdown();
-            
+
             expect(mockInsert).toHaveBeenCalledTimes(1);
             expect(queue.getQueueSize('test_table')).toBe(0);
         });
@@ -116,12 +116,12 @@ describe('BatchInsertQueue', () => {
 
             await fastQueue.add('test_table', { id: 1 });
             await fastQueue.add('test_table', { id: 2 });
-            
+
             // Wait for the interval to trigger
-            await new Promise(resolve => setTimeout(resolve, 150));
-            
+            await new Promise((resolve) => setTimeout(resolve, 150));
+
             expect(mockInsert).toHaveBeenCalled();
-            
+
             await fastQueue.shutdown();
         });
 
@@ -158,7 +158,7 @@ describe('BatchInsertQueue', () => {
     describe('error handling', () => {
         test('should handle insert errors gracefully', async () => {
             mockInsert.mockRejectedValueOnce(new Error('Insert failed'));
-            
+
             const errorQueue = new BatchInsertQueue({
                 intervalMs: 1000,
                 maxSize: 2,
@@ -167,13 +167,13 @@ describe('BatchInsertQueue', () => {
             // This should trigger a flush due to max size
             await errorQueue.add('test_table', { id: 1 });
             await errorQueue.add('test_table', { id: 2 });
-            
+
             // Wait a bit to ensure the flush completes
-            await new Promise(resolve => setTimeout(resolve, 50));
-            
+            await new Promise((resolve) => setTimeout(resolve, 50));
+
             // Should have attempted the insert
             expect(mockInsert).toHaveBeenCalled();
-            
+
             await errorQueue.shutdown();
         });
     });

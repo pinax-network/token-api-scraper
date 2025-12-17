@@ -23,7 +23,7 @@
 
 // Define the global proto namespace if it doesn't exist
 if (typeof globalThis.proto === 'undefined') {
-  (globalThis as any).proto = {};
+    (globalThis as any).proto = {};
 }
 
 // Export a reference for TypeScript type checking

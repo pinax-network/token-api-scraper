@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { ProgressTracker } from './progress';
 
 describe('ProgressTracker with Prometheus', () => {
@@ -7,16 +7,16 @@ describe('ProgressTracker with Prometheus', () => {
             serviceName: 'Test Prometheus Service',
             totalTasks: 50,
             enablePrometheus: true,
-            prometheusPort: 19090 // Use a different port to avoid conflicts
+            prometheusPort: 19090, // Use a different port to avoid conflicts
         });
 
         // Wait for server to start
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Verify the Prometheus metrics endpoint is accessible
         const response = await fetch('http://localhost:19090/metrics');
         expect(response.ok).toBe(true);
-        
+
         const metricsText = await response.text();
         expect(metricsText.length).toBeGreaterThan(0);
         expect(metricsText).toContain('scraper_total_tasks');
@@ -25,19 +25,19 @@ describe('ProgressTracker with Prometheus', () => {
         // Simulate processing tasks
         for (let i = 0; i < 40; i++) {
             tracker.incrementSuccess();
-            await new Promise(resolve => setTimeout(resolve, 20));
+            await new Promise((resolve) => setTimeout(resolve, 20));
         }
 
         // Simulate some errors
         for (let i = 0; i < 10; i++) {
             tracker.incrementError();
-            await new Promise(resolve => setTimeout(resolve, 20));
+            await new Promise((resolve) => setTimeout(resolve, 20));
         }
 
         tracker.complete();
-        
+
         // Verify server is closed after complete
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         try {
             await fetch('http://localhost:19090/metrics');
             expect(false).toBe(true); // Should not reach here

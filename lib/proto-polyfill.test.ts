@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 
 /**
  * Test to verify the proto polyfill is working correctly
@@ -15,7 +15,7 @@ describe('Proto Polyfill', () => {
         // This simulates what tronweb's generated code does
         const testData = { test: 'value' };
         Object.assign((globalThis as any).proto, testData);
-        
+
         expect((globalThis as any).proto.test).toBe('value');
     });
 });

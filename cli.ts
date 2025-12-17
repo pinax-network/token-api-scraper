@@ -1,12 +1,14 @@
 #!/usr/bin/env bun
-import { Command } from 'commander';
 import { spawn } from 'child_process';
-import { resolve } from 'path';
+import { Command } from 'commander';
 import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { executeSqlSetup, promptClusterSelection } from './lib/setup';
 
 // Read version from package.json
-const VERSION = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
+const VERSION = JSON.parse(
+    readFileSync(resolve(__dirname, 'package.json'), 'utf8'),
+).version;
 
 // Default auto-restart delay in seconds
 const DEFAULT_AUTO_RESTART_DELAY = 10;
@@ -18,20 +20,24 @@ const DEFAULT_AUTO_RESTART_DELAY = 10;
 const SERVICES = {
     'metadata-transfers': {
         path: './services/metadata/transfers.ts',
-        description: 'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `transfers`'
+        description:
+            'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `transfers`',
     },
     'metadata-swaps': {
         path: './services/metadata/swaps.ts',
-        description: 'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `swaps`'
+        description:
+            'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `swaps`',
     },
     'balances-erc20': {
         path: './services/balances/erc20.ts',
-        description: 'Query and update TRC-20 token balances for accounts using the balanceOf() function'
+        description:
+            'Query and update TRC-20 token balances for accounts using the balanceOf() function',
     },
     'balances-native': {
         path: './services/balances/native.ts',
-        description: 'Query and update native token balances for accounts on the TRON network'
-    }
+        description:
+            'Query and update native token balances for accounts on the TRON network',
+    },
 };
 
 // Initialize Commander program
@@ -39,7 +45,9 @@ const program = new Command();
 
 program
     .name('token-api-scraper')
-    .description('CLI tool for running TRC-20 blockchain data scraping services')
+    .description(
+        'CLI tool for running TRC-20 blockchain data scraping services',
+    )
     .version(VERSION, '-v, --version', 'Display the current version');
 
 /**
@@ -47,95 +55,97 @@ program
  * These options control database connection, RPC settings, and monitoring
  */
 function addCommonOptions(command: Command): Command {
-    return command
-        // ClickHouse Database Options
-        .option(
-            '--clickhouse-url <url>',
-            'ClickHouse database connection URL. Used for storing scraped blockchain data.',
-            process.env.CLICKHOUSE_URL || 'http://localhost:8123'
-        )
-        .option(
-            '--clickhouse-username <user>',
-            'Username for authenticating with the ClickHouse database.',
-            process.env.CLICKHOUSE_USERNAME || 'default'
-        )
-        .option(
-            '--clickhouse-password <password>',
-            'Password for authenticating with the ClickHouse database. Keep this secure!',
-            process.env.CLICKHOUSE_PASSWORD || ''
-        )
-        .option(
-            '--clickhouse-database <db>',
-            'Name of the ClickHouse database to use for data storage.',
-            process.env.CLICKHOUSE_DATABASE || 'default'
-        )
-        // RPC Node Options
-        .option(
-            '--node-url <url>',
-            'EVM RPC node URL for querying blockchain data. Can be a public node or your own.',
-            process.env.NODE_URL || 'https://tron-evm-rpc.publicnode.com'
-        )
-        .option(
-            '--concurrency <number>',
-            'Number of concurrent RPC requests. Higher values = faster but may hit rate limits. Range: 1-50.',
-            process.env.CONCURRENCY || '40'
-        )
-        // Retry Configuration Options
-        .option(
-            '--max-retries <number>',
-            'Maximum number of retry attempts for failed RPC requests.',
-            process.env.MAX_RETRIES || '3'
-        )
-        .option(
-            '--base-delay-ms <number>',
-            'Base delay in milliseconds for exponential backoff between retries.',
-            process.env.BASE_DELAY_MS || '400'
-        )
-        .option(
-            '--jitter-min <number>',
-            'Minimum jitter multiplier for backoff delay (e.g., 0.7 = 70% of backoff).',
-            process.env.JITTER_MIN || '0.7'
-        )
-        .option(
-            '--jitter-max <number>',
-            'Maximum jitter multiplier for backoff delay (e.g., 1.3 = 130% of backoff).',
-            process.env.JITTER_MAX || '1.3'
-        )
-        .option(
-            '--max-delay-ms <number>',
-            'Maximum delay in milliseconds between retry attempts (cap on backoff).',
-            process.env.MAX_DELAY_MS || '30000'
-        )
-        .option(
-            '--timeout-ms <number>',
-            'Timeout in milliseconds for individual RPC requests.',
-            process.env.TIMEOUT_MS || '10000'
-        )
-        // Monitoring Options
-        .option(
-            '--enable-prometheus',
-            'Enable Prometheus metrics endpoint for monitoring service performance and progress.'
-        )
-        .option(
-            '--prometheus-port <port>',
-            'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
-            process.env.PROMETHEUS_PORT || '9090'
-        )
-        // Auto-restart Options
-        .option(
-            '--auto-restart',
-            'Automatically restart the service after it completes successfully.'
-        )
-        // Logging Options
-        .option(
-            '--verbose',
-            'Enable verbose logging output. When disabled, only errors are shown. Prometheus metrics are still computed.'
-        )
-        .option(
-            '--auto-restart-delay <seconds>',
-            `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
-            String(DEFAULT_AUTO_RESTART_DELAY)
-        );
+    return (
+        command
+            // ClickHouse Database Options
+            .option(
+                '--clickhouse-url <url>',
+                'ClickHouse database connection URL. Used for storing scraped blockchain data.',
+                process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+            )
+            .option(
+                '--clickhouse-username <user>',
+                'Username for authenticating with the ClickHouse database.',
+                process.env.CLICKHOUSE_USERNAME || 'default',
+            )
+            .option(
+                '--clickhouse-password <password>',
+                'Password for authenticating with the ClickHouse database. Keep this secure!',
+                process.env.CLICKHOUSE_PASSWORD || '',
+            )
+            .option(
+                '--clickhouse-database <db>',
+                'Name of the ClickHouse database to use for data storage.',
+                process.env.CLICKHOUSE_DATABASE || 'default',
+            )
+            // RPC Node Options
+            .option(
+                '--node-url <url>',
+                'EVM RPC node URL for querying blockchain data. Can be a public node or your own.',
+                process.env.NODE_URL || 'https://tron-evm-rpc.publicnode.com',
+            )
+            .option(
+                '--concurrency <number>',
+                'Number of concurrent RPC requests. Higher values = faster but may hit rate limits. Range: 1-50.',
+                process.env.CONCURRENCY || '40',
+            )
+            // Retry Configuration Options
+            .option(
+                '--max-retries <number>',
+                'Maximum number of retry attempts for failed RPC requests.',
+                process.env.MAX_RETRIES || '3',
+            )
+            .option(
+                '--base-delay-ms <number>',
+                'Base delay in milliseconds for exponential backoff between retries.',
+                process.env.BASE_DELAY_MS || '400',
+            )
+            .option(
+                '--jitter-min <number>',
+                'Minimum jitter multiplier for backoff delay (e.g., 0.7 = 70% of backoff).',
+                process.env.JITTER_MIN || '0.7',
+            )
+            .option(
+                '--jitter-max <number>',
+                'Maximum jitter multiplier for backoff delay (e.g., 1.3 = 130% of backoff).',
+                process.env.JITTER_MAX || '1.3',
+            )
+            .option(
+                '--max-delay-ms <number>',
+                'Maximum delay in milliseconds between retry attempts (cap on backoff).',
+                process.env.MAX_DELAY_MS || '30000',
+            )
+            .option(
+                '--timeout-ms <number>',
+                'Timeout in milliseconds for individual RPC requests.',
+                process.env.TIMEOUT_MS || '10000',
+            )
+            // Monitoring Options
+            .option(
+                '--enable-prometheus',
+                'Enable Prometheus metrics endpoint for monitoring service performance and progress.',
+            )
+            .option(
+                '--prometheus-port <port>',
+                'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
+                process.env.PROMETHEUS_PORT || '9090',
+            )
+            // Auto-restart Options
+            .option(
+                '--auto-restart',
+                'Automatically restart the service after it completes successfully.',
+            )
+            // Logging Options
+            .option(
+                '--verbose',
+                'Enable verbose logging output. When disabled, only errors are shown. Prometheus metrics are still computed.',
+            )
+            .option(
+                '--auto-restart-delay <seconds>',
+                `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
+                String(DEFAULT_AUTO_RESTART_DELAY),
+            )
+    );
 }
 
 /**
@@ -148,23 +158,32 @@ function runService(serviceName: string, options: any) {
 
     if (!service) {
         console.error(`❌ Error: Unknown service '${serviceName}'`);
-        console.log(`\n📋 Available services: ${Object.keys(SERVICES).join(', ')}`);
+        console.log(
+            `\n📋 Available services: ${Object.keys(SERVICES).join(', ')}`,
+        );
         process.exit(1);
     }
 
     const autoRestart = options.autoRestart || false;
-    const autoRestartDelay = parseInt(options.autoRestartDelay || String(DEFAULT_AUTO_RESTART_DELAY), 10);
+    const autoRestartDelay = parseInt(
+        options.autoRestartDelay || String(DEFAULT_AUTO_RESTART_DELAY),
+        10,
+    );
 
     // Validate autoRestartDelay
-    if (isNaN(autoRestartDelay) || autoRestartDelay < 1) {
-        console.error(`❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number (minimum 1 second).`);
+    if (Number.isNaN(autoRestartDelay) || autoRestartDelay < 1) {
+        console.error(
+            `❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number (minimum 1 second).`,
+        );
         process.exit(1);
     }
 
     if (options.verbose) {
         console.log(`🚀 Starting service: ${serviceName}\n`);
         if (autoRestart) {
-            console.log(`🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`);
+            console.log(
+                `🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`,
+            );
         }
     }
 
@@ -186,15 +205,17 @@ function runService(serviceName: string, options: any) {
         JITTER_MAX: options.jitterMax,
         MAX_DELAY_MS: options.maxDelayMs,
         TIMEOUT_MS: options.timeoutMs,
-        ENABLE_PROMETHEUS: options.enablePrometheus ? 'true' : (process.env.ENABLE_PROMETHEUS || 'true'),
+        ENABLE_PROMETHEUS: options.enablePrometheus
+            ? 'true'
+            : process.env.ENABLE_PROMETHEUS || 'true',
         PROMETHEUS_PORT: options.prometheusPort,
-        VERBOSE: options.verbose ? 'true' : 'false'
+        VERBOSE: options.verbose ? 'true' : 'false',
     };
 
     // Spawn the service as a child process
     const child = spawn('bun', ['run', servicePath], {
-        stdio: 'inherit',  // Pipe stdout/stderr to parent process
-        env
+        stdio: 'inherit', // Pipe stdout/stderr to parent process
+        env,
     });
 
     child.on('error', (err) => {
@@ -205,13 +226,17 @@ function runService(serviceName: string, options: any) {
     child.on('exit', (code) => {
         if (code === 0) {
             if (options.verbose) {
-                console.log(`\n✅ Service '${serviceName}' completed successfully`);
+                console.log(
+                    `\n✅ Service '${serviceName}' completed successfully`,
+                );
             }
 
             // Auto-restart logic
             if (autoRestart) {
                 if (options.verbose) {
-                    console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
+                    console.log(
+                        `⏳ Restarting in ${autoRestartDelay} seconds...`,
+                    );
                 }
                 // Use setTimeout to schedule the restart asynchronously
                 // This is safe for long-running scenarios because:
@@ -240,7 +265,9 @@ function runService(serviceName: string, options: any) {
 const runCommand = program
     .command('run <service>')
     .description('Run a specific scraper service')
-    .addHelpText('after', `
+    .addHelpText(
+        'after',
+        `
 
 Services:
   metadata-transfers          ${SERVICES['metadata-transfers'].description}
@@ -257,7 +284,8 @@ Examples:
   # Auto-restart examples
   $ npm run cli run metadata-transfers --auto-restart
   $ npm run cli run metadata-swaps --auto-restart --auto-restart-delay 30
-    `)
+    `,
+    )
     .action((service: string, options: any) => {
         runService(service, options);
     });
@@ -287,9 +315,11 @@ const setupCommand = program
     .description('Deploy SQL schema files to ClickHouse database')
     .option(
         '--cluster [name]',
-        'ClickHouse cluster name. If provided without a name, shows available clusters to choose from.'
+        'ClickHouse cluster name. If provided without a name, shows available clusters to choose from.',
     )
-    .addHelpText('after', `
+    .addHelpText(
+        'after',
+        `
 
 Setup SQL Schema Files:
   The setup command deploys SQL schema files to your ClickHouse database.
@@ -327,16 +357,21 @@ Examples:
       --clickhouse-url http://localhost:8123 \\
       --clickhouse-database my_database \\
       --cluster production_cluster
-    `)
+    `,
+    )
     .action(async (files: string[], options: any) => {
         console.log('🚀 SQL Setup Command\n');
 
         // Update ClickHouse client environment from CLI options
         // These options override existing environment variables
-        if (options.clickhouseUrl) process.env.CLICKHOUSE_URL = options.clickhouseUrl;
-        if (options.clickhouseUsername) process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
-        if (options.clickhousePassword) process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
-        if (options.clickhouseDatabase) process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
+        if (options.clickhouseUrl)
+            process.env.CLICKHOUSE_URL = options.clickhouseUrl;
+        if (options.clickhouseUsername)
+            process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
+        if (options.clickhousePassword)
+            process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
+        if (options.clickhouseDatabase)
+            process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
 
         // Handle cluster option
         let clusterName = options.cluster;
@@ -354,11 +389,11 @@ Examples:
         }
 
         // Resolve file paths
-        const resolvedFiles = files.map(f => resolve(process.cwd(), f));
+        const resolvedFiles = files.map((f) => resolve(process.cwd(), f));
 
         try {
             await executeSqlSetup(resolvedFiles, {
-                cluster: clusterName
+                cluster: clusterName,
             });
             process.exit(0);
         } catch (error) {
@@ -373,22 +408,22 @@ setupCommand
     .option(
         '--clickhouse-url <url>',
         'ClickHouse database connection URL',
-        process.env.CLICKHOUSE_URL || 'http://localhost:8123'
+        process.env.CLICKHOUSE_URL || 'http://localhost:8123',
     )
     .option(
         '--clickhouse-username <user>',
         'Username for authenticating with ClickHouse',
-        process.env.CLICKHOUSE_USERNAME || 'default'
+        process.env.CLICKHOUSE_USERNAME || 'default',
     )
     .option(
         '--clickhouse-password <password>',
         'Password for authenticating with ClickHouse',
-        process.env.CLICKHOUSE_PASSWORD || ''
+        process.env.CLICKHOUSE_PASSWORD || '',
     )
     .option(
         '--clickhouse-database <db>',
         'ClickHouse database name',
-        process.env.CLICKHOUSE_DATABASE || 'default'
+        process.env.CLICKHOUSE_DATABASE || 'default',
     );
 
 // ============================================================================

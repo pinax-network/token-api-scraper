@@ -1,10 +1,19 @@
-import { describe, test, expect } from 'bun:test';
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, RPC_BATCH_ENABLED, RPC_BATCH_SIZE, NETWORK } from './config';
+import { describe, expect, test } from 'bun:test';
+import {
+    BATCH_INSERT_INTERVAL_MS,
+    BATCH_INSERT_MAX_SIZE,
+    CONCURRENCY,
+    ENABLE_PROMETHEUS,
+    NETWORK,
+    PROMETHEUS_PORT,
+    RPC_BATCH_ENABLED,
+    RPC_BATCH_SIZE,
+} from './config';
 
 describe('config module', () => {
     test('CONCURRENCY should be a valid number', () => {
         expect(typeof CONCURRENCY).toBe('number');
-        expect(isNaN(CONCURRENCY)).toBe(false);
+        expect(Number.isNaN(CONCURRENCY)).toBe(false);
     });
 
     test('CONCURRENCY should be at least 1', () => {
@@ -17,7 +26,7 @@ describe('config module', () => {
 
     test('PROMETHEUS_PORT should be a valid number', () => {
         expect(typeof PROMETHEUS_PORT).toBe('number');
-        expect(isNaN(PROMETHEUS_PORT)).toBe(false);
+        expect(Number.isNaN(PROMETHEUS_PORT)).toBe(false);
     });
 
     test('PROMETHEUS_PORT should be a valid port number', () => {
@@ -27,7 +36,7 @@ describe('config module', () => {
 
     test('BATCH_INSERT_INTERVAL_MS should be a valid number', () => {
         expect(typeof BATCH_INSERT_INTERVAL_MS).toBe('number');
-        expect(isNaN(BATCH_INSERT_INTERVAL_MS)).toBe(false);
+        expect(Number.isNaN(BATCH_INSERT_INTERVAL_MS)).toBe(false);
     });
 
     test('BATCH_INSERT_INTERVAL_MS should be positive', () => {
@@ -36,7 +45,7 @@ describe('config module', () => {
 
     test('BATCH_INSERT_MAX_SIZE should be a valid number', () => {
         expect(typeof BATCH_INSERT_MAX_SIZE).toBe('number');
-        expect(isNaN(BATCH_INSERT_MAX_SIZE)).toBe(false);
+        expect(Number.isNaN(BATCH_INSERT_MAX_SIZE)).toBe(false);
     });
 
     test('BATCH_INSERT_MAX_SIZE should be positive', () => {
@@ -49,7 +58,7 @@ describe('config module', () => {
 
     test('RPC_BATCH_SIZE should be a valid number', () => {
         expect(typeof RPC_BATCH_SIZE).toBe('number');
-        expect(isNaN(RPC_BATCH_SIZE)).toBe(false);
+        expect(Number.isNaN(RPC_BATCH_SIZE)).toBe(false);
     });
 
     test('RPC_BATCH_SIZE should be positive', () => {

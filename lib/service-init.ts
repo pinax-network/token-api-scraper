@@ -3,8 +3,15 @@
  * Handles common initialization tasks for all services
  */
 
-import { CONCURRENCY, ENABLE_PROMETHEUS, PROMETHEUS_PORT, BATCH_INSERT_INTERVAL_MS, BATCH_INSERT_MAX_SIZE, VERBOSE } from './config';
 import { initBatchInsertQueue } from './batch-insert';
+import {
+    BATCH_INSERT_INTERVAL_MS,
+    BATCH_INSERT_MAX_SIZE,
+    CONCURRENCY,
+    ENABLE_PROMETHEUS,
+    PROMETHEUS_PORT,
+    VERBOSE,
+} from './config';
 
 export interface ServiceInitOptions {
     serviceName: string;
@@ -21,12 +28,18 @@ export function initService(options: ServiceInitOptions): void {
         intervalMs: BATCH_INSERT_INTERVAL_MS,
         maxSize: BATCH_INSERT_MAX_SIZE,
     });
-    
+
     if (VERBOSE) {
-        console.log(`⚡ Batch insert enabled: flush every ${BATCH_INSERT_INTERVAL_MS}ms or ${BATCH_INSERT_MAX_SIZE} rows`);
-        console.log(`🚀 Starting ${options.serviceName} with concurrency: ${CONCURRENCY}`);
+        console.log(
+            `⚡ Batch insert enabled: flush every ${BATCH_INSERT_INTERVAL_MS}ms or ${BATCH_INSERT_MAX_SIZE} rows`,
+        );
+        console.log(
+            `🚀 Starting ${options.serviceName} with concurrency: ${CONCURRENCY}`,
+        );
         if (ENABLE_PROMETHEUS) {
-            console.log(`📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`);
+            console.log(
+                `📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`,
+            );
         }
     }
 }

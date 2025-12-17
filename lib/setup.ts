@@ -1,7 +1,7 @@
-import { readFileSync, existsSync } from 'fs';
+import { select } from '@inquirer/prompts';
+import { existsSync, readFileSync } from 'fs';
 import { basename } from 'path';
 import { client } from './clickhouse';
-import { select } from '@inquirer/prompts';
 
 /**
  * Options for SQL setup
@@ -27,7 +27,7 @@ export async function showClusters(): Promise<string[]> {
             format: 'JSONEachRow',
         });
         const clusters: ClusterInfo[] = await resultSet.json();
-        return clusters.map(c => c.cluster);
+        return clusters.map((c) => c.cluster);
     } catch (error) {
         const err = error as Error;
         throw new Error(`Failed to query clusters: ${err.message}`);
@@ -39,23 +39,25 @@ export async function showClusters(): Promise<string[]> {
  */
 export async function promptClusterSelection(): Promise<string> {
     console.log('\n🔍 Fetching available clusters...\n');
-    
+
     const clusters = await showClusters();
-    
+
     if (clusters.length === 0) {
-        throw new Error('No clusters found. Please specify a cluster name manually using --cluster <name>');
+        throw new Error(
+            'No clusters found. Please specify a cluster name manually using --cluster <name>',
+        );
     }
-    
+
     console.log(`Found ${clusters.length} cluster(s):\n`);
-    
+
     const selectedCluster = await select({
         message: 'Select a cluster:',
-        choices: clusters.map(cluster => ({
+        choices: clusters.map((cluster) => ({
             name: cluster,
             value: cluster,
         })),
     });
-    
+
     return selectedCluster;
 }
 
@@ -64,24 +66,27 @@ export async function promptClusterSelection(): Promise<string> {
  * - Adds ON CLUSTER clause to CREATE/ALTER statements
  * - Converts MergeTree engines to ReplicatedMergeTree
  */
-export function transformSqlForCluster(sql: string, clusterName: string): string {
+export function transformSqlForCluster(
+    sql: string,
+    clusterName: string,
+): string {
     let transformed = sql;
 
     // Add ON CLUSTER to CREATE TABLE statements (before ENGINE)
     transformed = transformed.replace(
         /CREATE TABLE (IF NOT EXISTS )?(\S+)/gi,
-        (match, ifNotExists, tableName) => {
+        (_match, ifNotExists, tableName) => {
             const clause = ifNotExists || '';
             return `CREATE TABLE ${clause}${tableName} ON CLUSTER '${clusterName}'`;
-        }
+        },
     );
 
     // Add ON CLUSTER to ALTER TABLE statements
     transformed = transformed.replace(
         /ALTER TABLE (\S+)/gi,
-        (match, tableName) => {
+        (_match, tableName) => {
             return `ALTER TABLE ${tableName} ON CLUSTER '${clusterName}'`;
-        }
+        },
     );
 
     // Add ON CLUSTER to CREATE FUNCTION statements (all variants)
@@ -90,11 +95,11 @@ export function transformSqlForCluster(sql: string, clusterName: string): string
     // Result: CREATE [OR REPLACE] FUNCTION [IF NOT EXISTS] function_name ON CLUSTER 'name' ...
     transformed = transformed.replace(
         /CREATE(\s+OR\s+REPLACE)?\s+FUNCTION(\s+IF\s+NOT\s+EXISTS)?\s+(\S+)/gi,
-        (match, orReplace, ifNotExists, functionName) => {
+        (_match, orReplace, ifNotExists, functionName) => {
             const orReplacePart = orReplace || '';
             const ifNotExistsPart = ifNotExists || '';
             return `CREATE${orReplacePart} FUNCTION${ifNotExistsPart} ${functionName} ON CLUSTER '${clusterName}'`;
-        }
+        },
     );
 
     // Add ON CLUSTER to CREATE MATERIALIZED VIEW statements
@@ -102,40 +107,40 @@ export function transformSqlForCluster(sql: string, clusterName: string): string
     // Result: CREATE MATERIALIZED VIEW [IF NOT EXISTS] view_name ON CLUSTER 'name' ...
     transformed = transformed.replace(
         /CREATE\s+MATERIALIZED\s+VIEW(\s+IF\s+NOT\s+EXISTS)?\s+(\S+)/gi,
-        (match, ifNotExists, viewName) => {
+        (_match, ifNotExists, viewName) => {
             const ifNotExistsPart = ifNotExists || '';
             return `CREATE MATERIALIZED VIEW${ifNotExistsPart} ${viewName} ON CLUSTER '${clusterName}'`;
-        }
+        },
     );
 
     // Convert MergeTree engines to ReplicatedMergeTree
     // ReplacingMergeTree -> ReplicatedReplacingMergeTree
     transformed = transformed.replace(
         /ENGINE\s*=\s*ReplacingMergeTree\(([^)]+)\)/gi,
-        (match, args) => {
+        (_match, args) => {
             return `ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}', ${args})`;
-        }
+        },
     );
 
     // Handle basic MergeTree without parentheses (most common case)
     // Match: ENGINE = MergeTree (followed by newline, whitespace, or semicolon)
     transformed = transformed.replace(
         /ENGINE\s*=\s*MergeTree(?=\s|$|;)/gi,
-        `ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')`
+        `ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')`,
     );
 
     // Handle MergeTree with empty parentheses
     transformed = transformed.replace(
         /ENGINE\s*=\s*MergeTree\(\s*\)/gi,
-        `ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')`
+        `ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')`,
     );
 
     // Handle MergeTree with parameters
     transformed = transformed.replace(
         /ENGINE\s*=\s*MergeTree\(([^)]+)\)/gi,
-        (match, args) => {
+        (_match, args) => {
             return `ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}', ${args})`;
-        }
+        },
     );
 
     return transformed;
@@ -152,7 +157,7 @@ export function splitSqlStatements(sql: string): string[] {
 
     for (const line of lines) {
         const trimmedLine = line.trim();
-        
+
         // Skip empty lines and standalone comments
         if (!trimmedLine || trimmedLine.startsWith('--')) {
             // But keep inline comments as part of the statement
@@ -176,7 +181,7 @@ export function splitSqlStatements(sql: string): string[] {
         statements.push(currentStatement.trim());
     }
 
-    return statements.filter(s => s.length > 0);
+    return statements.filter((s) => s.length > 0);
 }
 
 /**
@@ -184,7 +189,7 @@ export function splitSqlStatements(sql: string): string[] {
  */
 export async function executeSqlSetup(
     filePaths: string[],
-    options: SetupOptions = {}
+    options: SetupOptions = {},
 ): Promise<void> {
     console.log('🔧 Starting SQL setup...\n');
 
@@ -196,13 +201,13 @@ export async function executeSqlSetup(
             if (!existsSync(filePath)) {
                 const fileName = basename(filePath);
                 const hasValidExtension = /\.(sql|SQL)$/i.test(fileName);
-                
+
                 // If the file doesn't have a SQL extension, it might be a misplaced cluster name
                 if (!hasValidExtension) {
                     throw new Error(
                         `File not found: ${filePath}\n\n` +
-                        `💡 Tip: If '${fileName}' is a cluster name, use: --cluster ${fileName}\n` +
-                        `   Example: bun run cli.ts setup file1.sql file2.sql --cluster ${fileName}`
+                            `💡 Tip: If '${fileName}' is a cluster name, use: --cluster ${fileName}\n` +
+                            `   Example: bun run cli.ts setup file1.sql file2.sql --cluster ${fileName}`,
                     );
                 } else {
                     throw new Error(`File not found: ${filePath}`);
@@ -211,7 +216,7 @@ export async function executeSqlSetup(
 
             // Read SQL file
             const sqlContent = readFileSync(filePath, 'utf8');
-            
+
             // Transform SQL if cluster is specified
             const transformedSql = options.cluster
                 ? transformSqlForCluster(sqlContent, options.cluster)
@@ -225,14 +230,20 @@ export async function executeSqlSetup(
             // Execute each statement
             for (let i = 0; i < statements.length; i++) {
                 const statement = statements[i];
-                const statementPreview = statement.substring(0, 60).replace(/\n/g, ' ');
-                
+                const statementPreview = statement
+                    .substring(0, 60)
+                    .replace(/\n/g, ' ');
+
                 try {
                     await client.exec({ query: statement });
-                    console.log(`   ✓ Statement ${i + 1}/${statements.length}: ${statementPreview}...`);
+                    console.log(
+                        `   ✓ Statement ${i + 1}/${statements.length}: ${statementPreview}...`,
+                    );
                 } catch (error) {
                     const err = error as Error;
-                    console.error(`   ✗ Statement ${i + 1}/${statements.length} failed: ${err.message}`);
+                    console.error(
+                        `   ✗ Statement ${i + 1}/${statements.length} failed: ${err.message}`,
+                    );
                     console.error(`   Statement: ${statementPreview}...`);
                     throw error;
                 }
@@ -241,16 +252,22 @@ export async function executeSqlSetup(
             console.log(`   ✅ Completed: ${filePath}\n`);
         } catch (error) {
             const err = error as Error;
-            console.error(`   ❌ Failed to process ${filePath}: ${err.message}\n`);
+            console.error(
+                `   ❌ Failed to process ${filePath}: ${err.message}\n`,
+            );
             throw error;
         }
     }
 
     console.log('✅ SQL setup completed successfully!');
-    
+
     if (options.cluster) {
         console.log(`\n📊 Cluster: ${options.cluster}`);
-        console.log('   - ON CLUSTER clause added to CREATE TABLE, ALTER TABLE, CREATE FUNCTION, and CREATE MATERIALIZED VIEW statements');
-        console.log('   - Converted MergeTree engines to Replicated* variants (ReplicatedMergeTree, ReplicatedReplacingMergeTree)');
+        console.log(
+            '   - ON CLUSTER clause added to CREATE TABLE, ALTER TABLE, CREATE FUNCTION, and CREATE MATERIALIZED VIEW statements',
+        );
+        console.log(
+            '   - Converted MergeTree engines to Replicated* variants (ReplicatedMergeTree, ReplicatedReplacingMergeTree)',
+        );
     }
 }

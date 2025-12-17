@@ -1,6 +1,6 @@
 import cliProgress from 'cli-progress';
-import * as promClient from 'prom-client';
 import * as http from 'http';
+import * as promClient from 'prom-client';
 import { VERBOSE } from './config';
 
 // Prometheus metrics
@@ -14,35 +14,35 @@ const totalTasksGauge = new promClient.Gauge({
     name: 'scraper_total_tasks',
     help: 'Total number of tasks to process',
     labelNames: ['service'],
-    registers: [register]
+    registers: [register],
 });
 
 const completedTasksCounter = new promClient.Counter({
     name: 'scraper_completed_tasks_total',
     help: 'Total number of completed tasks',
     labelNames: ['service', 'status'],
-    registers: [register]
+    registers: [register],
 });
 
 const errorTasksCounter = new promClient.Counter({
     name: 'scraper_error_tasks_total',
     help: 'Total number of failed tasks',
     labelNames: ['service'],
-    registers: [register]
+    registers: [register],
 });
 
 const requestRateGauge = new promClient.Gauge({
     name: 'scraper_requests_per_second',
     help: 'Current requests per second',
     labelNames: ['service'],
-    registers: [register]
+    registers: [register],
 });
 
 const progressGauge = new promClient.Gauge({
     name: 'scraper_progress_percentage',
     help: 'Current progress percentage',
     labelNames: ['service'],
-    registers: [register]
+    registers: [register],
 });
 
 export interface ProgressTrackerOptions {
@@ -50,7 +50,7 @@ export interface ProgressTrackerOptions {
     totalTasks: number;
     enablePrometheus?: boolean;
     prometheusPort?: number;
-    verbose?: boolean;  // Optional override for verbose setting
+    verbose?: boolean; // Optional override for verbose setting
 }
 
 export class ProgressTracker {
@@ -71,7 +71,8 @@ export class ProgressTracker {
         this.serviceName = options.serviceName;
         this.totalTasks = options.totalTasks;
         this.startTime = Date.now();
-        this.verbose = options.verbose !== undefined ? options.verbose : VERBOSE;
+        this.verbose =
+            options.verbose !== undefined ? options.verbose : VERBOSE;
 
         // Initialize Prometheus metrics
         totalTasksGauge.labels(this.serviceName).set(this.totalTasks);
@@ -89,14 +90,14 @@ export class ProgressTracker {
                 format: `${this.serviceName} |{bar}| {percentage}% | ETA: {custom_eta} | {value}/{total}{errors} | Rate: {rate} req/s | Elapsed: {elapsed}`,
                 barCompleteChar: '\u2588',
                 barIncompleteChar: '\u2591',
-                hideCursor: true
+                hideCursor: true,
             });
 
             this.progressBar.start(this.totalTasks, 0, {
                 rate: '0.00',
                 elapsed: '0s',
                 custom_eta: '0s',
-                errors: ''
+                errors: '',
             });
         }
     }
@@ -115,7 +116,9 @@ export class ProgressTracker {
 
         this.prometheusServer.listen(port, () => {
             if (this.verbose) {
-                console.log(`📊 Prometheus metrics server listening on port ${port}`);
+                console.log(
+                    `📊 Prometheus metrics server listening on port ${port}`,
+                );
             }
         });
     }
@@ -150,8 +153,10 @@ export class ProgressTracker {
         // Use a more efficient approach: find the first valid index and slice once
         const cutoffTime = now - this.RATE_WINDOW_MS;
         let firstValidIndex = 0;
-        while (firstValidIndex < this.taskTimestamps.length &&
-            this.taskTimestamps[firstValidIndex] < cutoffTime) {
+        while (
+            firstValidIndex < this.taskTimestamps.length &&
+            this.taskTimestamps[firstValidIndex] < cutoffTime
+        ) {
             firstValidIndex++;
         }
         if (firstValidIndex > 0) {
@@ -195,7 +200,7 @@ export class ProgressTracker {
                 rate: rate.toFixed(2),
                 elapsed: this.formatElapsed(elapsed),
                 custom_eta: customEta,
-                errors: this.errorTasks > 0 ? ` | ❌ ${this.errorTasks}` : ''
+                errors: this.errorTasks > 0 ? ` | ❌ ${this.errorTasks}` : '',
             });
         }
 
@@ -226,13 +231,18 @@ export class ProgressTracker {
         const elapsed = (Date.now() - this.startTime) / 1000;
         // Use average rate over entire duration for final statistics
         const rate = elapsed > 0 ? this.completedTasks / elapsed : 0;
-        const successRate = this.totalTasks > 0 ? (this.successfulTasks / this.totalTasks) * 100 : 0;
+        const successRate =
+            this.totalTasks > 0
+                ? (this.successfulTasks / this.totalTasks) * 100
+                : 0;
 
         if (this.verbose) {
             console.log(`\n✨ ${this.serviceName} completed!`);
             console.log(`📊 Statistics:`);
             console.log(`   Total tasks: ${this.totalTasks}`);
-            console.log(`   Successful: ${this.successfulTasks} (${successRate.toFixed(1)}%)`);
+            console.log(
+                `   Successful: ${this.successfulTasks} (${successRate.toFixed(1)}%)`,
+            );
             console.log(`   Failed: ${this.errorTasks}`);
             console.log(`   Time elapsed: ${this.formatElapsed(elapsed)}`);
             console.log(`   Average rate: ${rate.toFixed(2)} req/s`);
