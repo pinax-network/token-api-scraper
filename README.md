@@ -74,10 +74,7 @@ Run in containerized environments:
 docker build -t token-api-scraper .
 
 # Run service
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e NODE_URL=https://bsc.rpc.pinax.network/v1/***/jsonrpc \
-  token-api-scraper run metadata-transfers
+docker run --env-file .env token-api-scraper run metadata-swaps --verbose --auto-restart
 ```
 
 See [Docker Guide](docs/DOCKER.md) for Docker Compose examples and production deployment.
