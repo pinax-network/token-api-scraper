@@ -275,12 +275,20 @@ export class ProgressTracker {
         }
     }
 
-    public stop() {
+    public async stop() {
         if (this.progressBar) {
             this.progressBar.stop();
         }
         if (this.prometheusServer) {
-            this.prometheusServer.close();
+            await new Promise<void>((resolve, reject) => {
+                this.prometheusServer?.close((err) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
         }
     }
 }
