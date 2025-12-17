@@ -37,10 +37,7 @@ async function processNativeBalance(account: string, tracker: ProgressTracker) {
     }
 }
 
-export async function run(
-    tracker?: ProgressTracker,
-    keepPrometheusAlive = false,
-) {
+export async function run(tracker?: ProgressTracker) {
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const accounts = await get_accounts_for_native_balances();
@@ -72,7 +69,8 @@ export async function run(
 
     // Wait for all tasks to complete
     await queue.onIdle();
-    await tracker.complete({ keepPrometheusAlive });
+    // Always keep Prometheus alive for auto-restart
+    await tracker.complete({ keepPrometheusAlive: true });
 
     // Shutdown batch insert queue
     if (VERBOSE) {

@@ -58,10 +58,7 @@ function isBlackHoleAddress(address: string): boolean {
     return address === 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 }
 
-export async function run(
-    tracker?: ProgressTracker,
-    keepPrometheusAlive = false,
-) {
+export async function run(tracker?: ProgressTracker) {
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const transfers = await get_latest_transfers();
@@ -114,7 +111,8 @@ export async function run(
 
     // Wait for all tasks to complete
     await queue.onIdle();
-    await tracker.complete({ keepPrometheusAlive });
+    // Always keep Prometheus alive for auto-restart
+    await tracker.complete({ keepPrometheusAlive: true });
 
     // Shutdown batch insert queue
     if (VERBOSE) {

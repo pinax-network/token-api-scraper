@@ -14,10 +14,7 @@ import { processMetadata } from '.';
 // Initialize service
 initService({ serviceName: 'metadata RPC service' });
 
-export async function run(
-    tracker?: ProgressTracker,
-    keepPrometheusAlive = false,
-) {
+export async function run(tracker?: ProgressTracker) {
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const contracts = await query<{ contract: string; block_num: number }>(
@@ -46,7 +43,8 @@ export async function run(
 
     // Wait for all tasks to complete
     await queue.onIdle();
-    await tracker.complete({ keepPrometheusAlive });
+    // Always keep Prometheus alive for auto-restart
+    await tracker.complete({ keepPrometheusAlive: true });
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

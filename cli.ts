@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { spawn } from 'child_process';
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -123,19 +122,9 @@ function addCommonOptions(command: Command): Command {
             )
             // Monitoring Options
             .option(
-                '--enable-prometheus',
-                'Enable Prometheus metrics endpoint for monitoring service performance and progress.',
-            )
-            .option(
                 '--prometheus-port <port>',
                 'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
                 process.env.PROMETHEUS_PORT || '9090',
-            )
-            // Auto-restart Options
-            .option(
-                '--auto-restart',
-                'Automatically restart the service after it completes successfully.',
-                process.env.AUTO_RESTART === 'true',
             )
             // Logging Options
             .option(
@@ -153,11 +142,11 @@ function addCommonOptions(command: Command): Command {
 }
 
 /**
- * Runs a service directly in the current process with auto-restart support
+ * Runs a service directly in the current process with continuous auto-restart
  * @param serviceName - Name of the service to run (must exist in SERVICES)
  * @param options - Commander options object containing CLI flags
  */
-async function runServiceDirect(serviceName: string, options: any) {
+async function runService(serviceName: string, options: any) {
     const service = SERVICES[serviceName as keyof typeof SERVICES];
 
     if (!service) {
@@ -168,7 +157,6 @@ async function runServiceDirect(serviceName: string, options: any) {
         process.exit(1);
     }
 
-    const autoRestart = options.autoRestart || false;
     const autoRestartDelay = parseInt(
         options.autoRestartDelay || String(DEFAULT_AUTO_RESTART_DELAY),
         10,
@@ -184,11 +172,9 @@ async function runServiceDirect(serviceName: string, options: any) {
 
     if (options.verbose) {
         console.log(`🚀 Starting service: ${serviceName}\n`);
-        if (autoRestart) {
-            console.log(
-                `🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`,
-            );
-        }
+        console.log(
+            `🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`,
+        );
     }
 
     const servicePath = resolve(__dirname, service.path);
@@ -207,9 +193,6 @@ async function runServiceDirect(serviceName: string, options: any) {
     process.env.JITTER_MAX = options.jitterMax;
     process.env.MAX_DELAY_MS = options.maxDelayMs;
     process.env.TIMEOUT_MS = options.timeoutMs;
-    process.env.ENABLE_PROMETHEUS = options.enablePrometheus
-        ? 'true'
-        : process.env.ENABLE_PROMETHEUS || 'true';
     process.env.PROMETHEUS_PORT = options.prometheusPort;
     process.env.VERBOSE = options.verbose ? 'true' : 'false';
 
@@ -224,7 +207,7 @@ async function runServiceDirect(serviceName: string, options: any) {
         process.exit(1);
     }
 
-    // Run the service in a loop if auto-restart is enabled
+    // Run the service in a continuous loop
     let tracker: ProgressTracker | undefined;
     let iteration = 0;
 
@@ -235,22 +218,13 @@ async function runServiceDirect(serviceName: string, options: any) {
                 console.log(`\n🔄 Starting iteration ${iteration}...\n`);
             }
 
-            // Run the service, keeping Prometheus alive if auto-restart is enabled
-            tracker = await serviceModule.run(tracker, autoRestart);
+            // Run the service, always keeping Prometheus alive for auto-restart
+            tracker = await serviceModule.run(tracker);
 
             if (options.verbose) {
                 console.log(
                     `\n✅ Service '${serviceName}' iteration ${iteration} completed successfully`,
                 );
-            }
-
-            // If auto-restart is not enabled, exit after first run
-            if (!autoRestart) {
-                // Close Prometheus server on final exit
-                if (tracker && typeof tracker.stop === 'function') {
-                    await tracker.stop();
-                }
-                process.exit(0);
             }
 
             // Wait before restarting
@@ -269,118 +243,6 @@ async function runServiceDirect(serviceName: string, options: any) {
             process.exit(1);
         }
     }
-}
-
-/**
- * Spawns a service process with the provided environment variables (legacy method)
- * Used when auto-restart is disabled
- * @param serviceName - Name of the service to run (must exist in SERVICES)
- * @param options - Commander options object containing CLI flags
- */
-function runService(serviceName: string, options: any) {
-    const service = SERVICES[serviceName as keyof typeof SERVICES];
-
-    if (!service) {
-        console.error(`❌ Error: Unknown service '${serviceName}'`);
-        console.log(
-            `\n📋 Available services: ${Object.keys(SERVICES).join(', ')}`,
-        );
-        process.exit(1);
-    }
-
-    const autoRestart = options.autoRestart || false;
-    const autoRestartDelay = parseInt(
-        options.autoRestartDelay || String(DEFAULT_AUTO_RESTART_DELAY),
-        10,
-    );
-
-    // Validate autoRestartDelay
-    if (Number.isNaN(autoRestartDelay) || autoRestartDelay < 1) {
-        console.error(
-            `❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number (minimum 1 second).`,
-        );
-        process.exit(1);
-    }
-
-    if (options.verbose) {
-        console.log(`🚀 Starting service: ${serviceName}\n`);
-        if (autoRestart) {
-            console.log(
-                `🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`,
-            );
-        }
-    }
-
-    const servicePath = resolve(__dirname, service.path);
-
-    // Build environment variables from CLI options
-    // CLI options override existing environment variables
-    const env = {
-        ...process.env,
-        CLICKHOUSE_URL: options.clickhouseUrl,
-        CLICKHOUSE_USERNAME: options.clickhouseUsername,
-        CLICKHOUSE_PASSWORD: options.clickhousePassword,
-        CLICKHOUSE_DATABASE: options.clickhouseDatabase,
-        NODE_URL: options.nodeUrl,
-        CONCURRENCY: options.concurrency,
-        MAX_RETRIES: options.maxRetries,
-        BASE_DELAY_MS: options.baseDelayMs,
-        JITTER_MIN: options.jitterMin,
-        JITTER_MAX: options.jitterMax,
-        MAX_DELAY_MS: options.maxDelayMs,
-        TIMEOUT_MS: options.timeoutMs,
-        ENABLE_PROMETHEUS: options.enablePrometheus
-            ? 'true'
-            : process.env.ENABLE_PROMETHEUS || 'true',
-        PROMETHEUS_PORT: options.prometheusPort,
-        VERBOSE: options.verbose ? 'true' : 'false',
-    };
-
-    // Spawn the service as a child process
-    const child = spawn('bun', ['run', servicePath], {
-        stdio: 'inherit', // Pipe stdout/stderr to parent process
-        env,
-    });
-
-    child.on('error', (err) => {
-        console.error(`❌ Failed to start service: ${err.message}`);
-        process.exit(1);
-    });
-
-    child.on('exit', (code) => {
-        if (code === 0) {
-            if (options.verbose) {
-                console.log(
-                    `\n✅ Service '${serviceName}' completed successfully`,
-                );
-            }
-
-            // Auto-restart logic
-            if (autoRestart) {
-                if (options.verbose) {
-                    console.log(
-                        `⏳ Restarting in ${autoRestartDelay} seconds...`,
-                    );
-                }
-                // Use setTimeout to schedule the restart asynchronously
-                // This is safe for long-running scenarios because:
-                // 1. Each setTimeout call is async and doesn't add to the call stack
-                // 2. The service process completes and exits before the next one starts
-                // 3. This is the standard pattern for service restart managers
-                setTimeout(() => {
-                    if (options.verbose) {
-                        console.log(''); // Add blank line for readability
-                    }
-                    runService(serviceName, options);
-                }, autoRestartDelay * 1000);
-            } else {
-                process.exit(0);
-            }
-        } else {
-            // Exit with the actual error code (null becomes 1)
-            process.exit(code ?? 1);
-        }
-    });
 }
 
 // ============================================================================
@@ -403,20 +265,15 @@ Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
   $ npm run cli run balances-erc20 --concurrency 20
-  $ npm run cli run balances-native --enable-prometheus --prometheus-port 8080
+  $ npm run cli run balances-native --prometheus-port 8080
   
-  # Auto-restart examples
-  $ npm run cli run metadata-transfers --auto-restart
-  $ npm run cli run metadata-swaps --auto-restart --auto-restart-delay 30
+  # Auto-restart delay examples
+  $ npm run cli run metadata-transfers --auto-restart-delay 30
+  $ npm run cli run metadata-swaps --auto-restart-delay 60
     `,
     )
     .action(async (service: string, options: any) => {
-        // Use direct runner for auto-restart to keep process alive
-        if (options.autoRestart) {
-            await runServiceDirect(service, options);
-        } else {
-            runService(service, options);
-        }
+        await runService(service, options);
     });
 
 // Add common options to the run command
