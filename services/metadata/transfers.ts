@@ -1,11 +1,7 @@
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
-import {
-    CONCURRENCY,
-    NETWORK,
-    PROMETHEUS_PORT,
-} from '../../lib/config';
+import { CONCURRENCY, NETWORK, PROMETHEUS_PORT } from '../../lib/config';
 import { ProgressTracker } from '../../lib/progress';
 import { initService } from '../../lib/service-init';
 import { processMetadata } from '.';

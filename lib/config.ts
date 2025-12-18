@@ -49,6 +49,9 @@ export const CLICKHOUSE_USERNAME = process.env.CLICKHOUSE_USERNAME || 'default';
 export const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_PASSWORD || '';
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || 'default';
 
+export const NODE_URL =
+    process.env.NODE_URL || 'https://tron-evm-rpc.publicnode.com';
+
 /**
  * Network name extracted from CLICKHOUSE_DATABASE
  * The database format is expected to be "network:suffix"

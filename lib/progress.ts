@@ -1,7 +1,12 @@
 import cliProgress from 'cli-progress';
 import * as http from 'http';
 import * as promClient from 'prom-client';
-import { VERBOSE } from './config';
+import {
+    CLICKHOUSE_DATABASE,
+    CLICKHOUSE_URL,
+    NODE_URL,
+    VERBOSE,
+} from './config';
 
 // Prometheus metrics
 const register = new promClient.Registry();
@@ -45,6 +50,17 @@ const progressGauge = new promClient.Gauge({
     registers: [register],
 });
 
+// Configuration info metrics
+const configInfoGauge = new promClient.Gauge({
+    name: 'scraper_config_info',
+    help: 'Configuration information for the scraper',
+    labelNames: ['clickhouse_url', 'clickhouse_database', 'node_url'],
+    registers: [register],
+});
+
+// Track whether config metrics have been initialized
+let configMetricsInitialized = false;
+
 export interface ProgressTrackerOptions {
     serviceName: string;
     totalTasks: number;
@@ -77,6 +93,14 @@ export class ProgressTracker {
         // Initialize Prometheus metrics
         totalTasksGauge.labels(this.serviceName).set(this.totalTasks);
         progressGauge.labels(this.serviceName).set(0);
+
+        // Set configuration info metrics once (only on first initialization)
+        if (!configMetricsInitialized) {
+            configInfoGauge
+                .labels(CLICKHOUSE_URL, CLICKHOUSE_DATABASE, NODE_URL)
+                .set(1);
+            configMetricsInitialized = true;
+        }
 
         // Start Prometheus server if enabled (before progress bar to avoid interference)
         if (options.enablePrometheus) {
