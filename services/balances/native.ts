@@ -49,8 +49,7 @@ export async function run(tracker?: ProgressTracker) {
     }
 
     // Initialize or reset progress tracker
-    const shouldCreateTracker = !tracker;
-    if (shouldCreateTracker) {
+    if (!tracker) {
         tracker = new ProgressTracker({
             serviceName: 'Native Balances',
             totalTasks: accounts.length,

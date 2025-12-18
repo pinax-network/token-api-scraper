@@ -56,7 +56,7 @@ function isBlackHoleAddress(address: string): boolean {
 
 export async function run(tracker?: ProgressTracker) {
     // Initialize service (must be called before using batch insert queue)
-    initService({ serviceName: 'TRC20 balances RPC service' });
+    initService({ serviceName: 'ERC20 balances RPC service' });
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
@@ -86,8 +86,7 @@ export async function run(tracker?: ProgressTracker) {
     }
 
     // Initialize or reset progress tracker
-    const shouldCreateTracker = !tracker;
-    if (shouldCreateTracker) {
+    if (!tracker) {
         tracker = new ProgressTracker({
             serviceName: 'ERC20 Balances',
             totalTasks,

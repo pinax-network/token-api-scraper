@@ -21,8 +21,7 @@ export async function run(tracker?: ProgressTracker) {
     );
 
     // Initialize or reset progress tracker
-    const shouldCreateTracker = !tracker;
-    if (shouldCreateTracker) {
+    if (!tracker) {
         tracker = new ProgressTracker({
             serviceName: 'Token Metadata by Swaps',
             totalTasks: contracts.data.length,
