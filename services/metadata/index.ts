@@ -81,11 +81,45 @@ export async function insert_metadata(
     }
 }
 
+/**
+ * Check if an error is infrastructure-related and should be skipped from metadata_errors
+ * These are non-deterministic network/infrastructure issues
+ */
+function isInfrastructureError(error: string): boolean {
+    const lowerError = error.toLowerCase();
+
+    // Network connection errors
+    if (
+        lowerError.includes('unable to connect') ||
+        lowerError.includes('was there a typo in the url or port')
+    ) {
+        return true;
+    }
+
+    // HTTP status code errors that are infrastructure-related
+    if (
+        lowerError.includes('non-json response (status 502)') ||
+        lowerError.includes('non-json response (status 404)')
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
 export async function insert_error_metadata(
     contract: string,
     error: string,
     tracker?: ProgressTracker,
 ) {
+    // Skip infrastructure-related errors
+    if (isInfrastructureError(error)) {
+        if (tracker) {
+            tracker.incrementError();
+        }
+        return;
+    }
+
     await insertRow(
         'metadata_errors',
         { contract, error },
