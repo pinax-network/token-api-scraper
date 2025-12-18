@@ -16,13 +16,8 @@ export const VERBOSE = process.env.VERBOSE === 'true';
 export const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
 
 /**
- * Enable Prometheus metrics endpoint
- * Always enabled by default
- */
-export const ENABLE_PROMETHEUS = true;
-
-/**
  * HTTP port for Prometheus metrics endpoint
+ * Prometheus is always enabled
  * Default: 9090
  */
 export const PROMETHEUS_PORT = parseInt(
@@ -47,18 +42,6 @@ export const BATCH_INSERT_MAX_SIZE = parseInt(
     process.env.BATCH_INSERT_MAX_SIZE || '10000',
     10,
 );
-
-/**
- * Enable RPC batch requests
- * Default: false (for backward compatibility)
- */
-export const RPC_BATCH_ENABLED = process.env.RPC_BATCH_ENABLED === 'true';
-
-/**
- * Maximum number of requests per RPC batch
- * Default: 10
- */
-export const RPC_BATCH_SIZE = parseInt(process.env.RPC_BATCH_SIZE || '10', 10);
 
 export const CLICKHOUSE_URL =
     process.env.CLICKHOUSE_URL || 'http://localhost:8123';

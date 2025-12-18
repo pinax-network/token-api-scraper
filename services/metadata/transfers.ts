@@ -3,7 +3,6 @@ import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import {
     CONCURRENCY,
-    ENABLE_PROMETHEUS,
     NETWORK,
     PROMETHEUS_PORT,
 } from '../../lib/config';
@@ -11,10 +10,10 @@ import { ProgressTracker } from '../../lib/progress';
 import { initService } from '../../lib/service-init';
 import { processMetadata } from '.';
 
-// Initialize service
-initService({ serviceName: 'metadata RPC service' });
-
 export async function run(tracker?: ProgressTracker) {
+    // Initialize service (must be called before using batch insert queue)
+    initService({ serviceName: 'metadata RPC service' });
+
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const contracts = await query<{ contract: string; block_num: number }>(
@@ -27,7 +26,7 @@ export async function run(tracker?: ProgressTracker) {
         tracker = new ProgressTracker({
             serviceName: 'Token Metadata by Transfers',
             totalTasks: contracts.data.length,
-            enablePrometheus: ENABLE_PROMETHEUS,
+            enablePrometheus: true,
             prometheusPort: PROMETHEUS_PORT,
         });
     } else {

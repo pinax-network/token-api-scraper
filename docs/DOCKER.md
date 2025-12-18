@@ -265,7 +265,6 @@ services:
       - CLICKHOUSE_DATABASE=default
       - NODE_URL=https://tron-evm-rpc.publicnode.com
       - CONCURRENCY=10
-      - ENABLE_PROMETHEUS=true
       - PROMETHEUS_PORT=9090
     command: run trc20-balances
     ports:
@@ -319,7 +318,6 @@ CONCURRENCY=10
 MAX_RETRIES=3
 
 # Monitoring
-ENABLE_PROMETHEUS=true
 PROMETHEUS_PORT=9090
 ```
 
@@ -426,7 +424,6 @@ services:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
-      - ENABLE_PROMETHEUS=true
       - PROMETHEUS_PORT=9090
     command: run trc20-balances
     healthcheck:
@@ -533,10 +530,10 @@ docker-compose up -d --scale trc20-backfill-scraper=1
    restart: unless-stopped
    ```
 
-3. **Enable monitoring**:
+3. **Configure Prometheus port (Prometheus is always enabled)**:
    ```yaml
    environment:
-     - ENABLE_PROMETHEUS=true
+     - PROMETHEUS_PORT=9090
    ```
 
 4. **Configure resource limits**:
@@ -569,7 +566,6 @@ services:
       - NODE_URL=https://your-tron-node.example.com
       - CONCURRENCY=20
       - MAX_RETRIES=5
-      - ENABLE_PROMETHEUS=true
       - PROMETHEUS_PORT=9090
     command: run trc20-balances
     deploy:

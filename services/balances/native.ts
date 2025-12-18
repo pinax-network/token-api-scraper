@@ -2,7 +2,6 @@ import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import {
     CONCURRENCY,
-    ENABLE_PROMETHEUS,
     PROMETHEUS_PORT,
     VERBOSE,
 } from '../../lib/config';
@@ -14,9 +13,6 @@ import {
     insert_native_balances,
 } from '../../src/insert';
 import { get_accounts_for_native_balances } from '../../src/queries';
-
-// Initialize service
-initService({ serviceName: 'Native balances RPC service' });
 
 async function processNativeBalance(account: string, tracker: ProgressTracker) {
     // get native TRX balance for the account
@@ -38,6 +34,9 @@ async function processNativeBalance(account: string, tracker: ProgressTracker) {
 }
 
 export async function run(tracker?: ProgressTracker) {
+    // Initialize service (must be called before using batch insert queue)
+    initService({ serviceName: 'Native balances RPC service' });
+
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const accounts = await get_accounts_for_native_balances();
@@ -55,7 +54,7 @@ export async function run(tracker?: ProgressTracker) {
         tracker = new ProgressTracker({
             serviceName: 'Native Balances',
             totalTasks: accounts.length,
-            enablePrometheus: ENABLE_PROMETHEUS,
+            enablePrometheus: true,
             prometheusPort: PROMETHEUS_PORT,
         });
     } else {
