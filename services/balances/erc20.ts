@@ -1,10 +1,6 @@
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
-import {
-    CONCURRENCY,
-    PROMETHEUS_PORT,
-    VERBOSE,
-} from '../../lib/config';
+import { CONCURRENCY, PROMETHEUS_PORT, VERBOSE } from '../../lib/config';
 import { ProgressTracker } from '../../lib/progress';
 import { callContract } from '../../lib/rpc';
 import { initService } from '../../lib/service-init';

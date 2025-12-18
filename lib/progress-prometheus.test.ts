@@ -46,4 +46,33 @@ describe('ProgressTracker with Prometheus', () => {
             expect(true).toBe(true);
         }
     });
+
+    test('should include configuration info metrics', async () => {
+        const tracker = new ProgressTracker({
+            serviceName: 'Test Config Metrics',
+            totalTasks: 10,
+            enablePrometheus: true,
+            prometheusPort: 19091, // Use a different port
+        });
+
+        // Wait for server to start
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Fetch metrics
+        const response = await fetch('http://localhost:19091/metrics');
+        expect(response.ok).toBe(true);
+
+        const metricsText = await response.text();
+
+        // Verify config info metrics are present
+        expect(metricsText).toContain('scraper_config_info');
+        expect(metricsText).toContain('clickhouse_url');
+        expect(metricsText).toContain('clickhouse_database');
+        expect(metricsText).toContain('node_url');
+
+        await tracker.complete();
+
+        // Verify server is closed after complete
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    });
 });

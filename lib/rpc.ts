@@ -4,6 +4,7 @@ import { sleep } from 'bun';
 import { AbiCoder, keccak256, toUtf8Bytes } from 'ethers'; // ethers v6+
 import PQueue from 'p-queue';
 import { TronWeb } from 'tronweb';
+import { NODE_URL } from './config';
 
 /** -----------------------------------------------------------------------
  *  Config
@@ -14,8 +15,6 @@ const DEFAULT_JITTER_MIN = 0.7; // 70% of backoff
 const DEFAULT_JITTER_MAX = 1.3; // 130% of backoff
 const DEFAULT_MAX_DELAY_MS = 30_000;
 const DEFAULT_TIMEOUT_MS = 10_000;
-
-const NODE_URL = process.env.NODE_URL || 'https://tron-evm-rpc.publicnode.com';
 
 // Read retry config from environment variables
 const MAX_RETRIES = parseInt(
