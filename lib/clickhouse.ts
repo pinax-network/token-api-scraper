@@ -1,4 +1,7 @@
 import { createClient } from '@clickhouse/client';
+import { createLogger } from './logger';
+
+const log = createLogger('clickhouse');
 
 export const client = createClient({
     url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
@@ -57,6 +60,14 @@ export async function query<T = any>(
             Math.round((parseEndTime - parseStartTime) * 100) / 100;
         const totalTimeMs = Math.round((endTime - startTime) * 100) / 100;
 
+        // DEBUG: Log query results
+        log.debug('ClickHouse query completed', {
+            rowCount: data.length,
+            httpRequestTimeMs,
+            dataFetchTimeMs,
+            totalTimeMs,
+        });
+
         return {
             data,
             metrics: {
@@ -66,7 +77,6 @@ export async function query<T = any>(
             },
         };
     } catch (error: unknown) {
-        // Enhanced error logging with connection details
         const url = process.env.CLICKHOUSE_URL || 'http://localhost:8123';
         const urlObj = new URL(url);
         const host = urlObj.hostname;
@@ -75,35 +85,16 @@ export async function query<T = any>(
             cause?: { code?: string; message?: string };
         };
 
-        console.error('\n=== ClickHouse Connection Error ===');
-        console.error('Connection URL:', url);
-        console.error('Host:', host);
-        console.error('Error Type:', err.constructor.name);
-        console.error('Error Message:', err.message);
+        log.error('ClickHouse query failed', {
+            url,
+            host,
+            errorType: err.constructor.name,
+            message: err.message,
+            cause: err.cause,
+            isTimeout: err.message?.includes('timeout'),
+            address: `${host}:${urlObj.port || (urlObj.protocol === 'https:' ? 443 : 8123)}`,
+        });
 
-        if (err.cause) {
-            console.error('Error Cause:', err.cause);
-            if (err.cause.code) {
-                console.error('Error Code:', err.cause.code);
-            }
-            if (err.cause.message) {
-                console.error('Cause Message:', err.cause.message);
-            }
-        }
-
-        // Log timeout information if available
-        if (err.message?.includes('timeout')) {
-            console.error('Timeout Details: Connection timeout occurred');
-            console.error(
-                'Attempted Address:',
-                `${host}:${urlObj.port || (urlObj.protocol === 'https:' ? 443 : 8123)}`,
-            );
-        }
-
-        console.error('Stack Trace:', err.stack);
-        console.error('===================================\n');
-
-        // Re-throw with enhanced message
         throw new Error(
             `Failed to connect to ClickHouse at ${url}: ${err.message}`,
         );

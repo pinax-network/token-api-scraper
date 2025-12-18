@@ -1,11 +1,14 @@
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { CONCURRENCY, PROMETHEUS_PORT, VERBOSE } from '../../lib/config';
+import { createLogger } from '../../lib/logger';
 import { ProgressTracker } from '../../lib/progress';
 import { callContract } from '../../lib/rpc';
 import { initService } from '../../lib/service-init';
 import { insert_balances, insert_error_balances } from '../../src/insert';
 import { get_latest_transfers } from '../../src/queries';
+
+const log = createLogger('balances-erc20');
 
 async function processBalanceOf(
     account: string,
@@ -14,10 +17,12 @@ async function processBalanceOf(
     tracker: ProgressTracker,
 ) {
     // get `balanceOf` RPC call for the account
+    const startTime = performance.now();
     try {
         const balance_hex = await callContract(contract, `balanceOf(address)`, [
             account,
         ]); // 70a08231
+        const queryTimeMs = Math.round(performance.now() - startTime);
 
         if (balance_hex) {
             await insert_balances(
@@ -29,6 +34,14 @@ async function processBalanceOf(
                 },
                 tracker,
             );
+
+            log.info('Balance scraped successfully', {
+                contract,
+                account,
+                balanceHex: balance_hex,
+                blockNum: block_num,
+                queryTimeMs,
+            });
         } else {
             await insert_error_balances(
                 { block_num, contract, account },
@@ -71,6 +84,14 @@ export async function run(tracker?: ProgressTracker) {
         }
         uniqueAccounts.add(to);
         totalTasks++;
+    }
+
+    if (totalTasks > 0) {
+        log.info('Found transfers to process', {
+            uniqueContracts: uniqueContracts.size,
+            uniqueAccounts: uniqueAccounts.size,
+            totalTasks,
+        });
     }
 
     if (VERBOSE) {

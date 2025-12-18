@@ -1,5 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
-import { initService } from './service-init';
+import { beforeEach, describe } from 'bun:test';
 
 describe('initService', () => {
     let consoleOutput: string[] = [];

@@ -5,6 +5,9 @@ import { AbiCoder, keccak256, toUtf8Bytes } from 'ethers'; // ethers v6+
 import PQueue from 'p-queue';
 import { TronWeb } from 'tronweb';
 import { NODE_URL } from './config';
+import { createLogger } from './logger';
+
+const log = createLogger('rpc');
 
 /** -----------------------------------------------------------------------
  *  Config
@@ -245,7 +248,17 @@ async function makeJsonRpcRequest(
             );
         }
 
-        return json?.result || '';
+        const result = json?.result || '';
+
+        // DEBUG: Log RPC response details
+        log.debug('RPC response received', {
+            method,
+            status: res.status,
+            hasResult: !!result,
+            resultLength: result.length,
+        });
+
+        return result;
     } catch (err: any) {
         clearTimeout(timer);
         throw err;
@@ -293,6 +306,16 @@ async function makeJsonRpcCall(
                 // Bubble up final error or non-retryable error
                 throw err;
             }
+
+            // Log retry warning
+            log.warn('RPC request failed, retrying', {
+                method,
+                attempt,
+                maxAttempts: attempts,
+                error: err.message,
+                endpoint: NODE_URL,
+                context: errorContext,
+            });
 
             // Exponential backoff with jitter
             const backoffMs = Math.floor(baseDelayMs * 2 ** (attempt - 1));
@@ -486,6 +509,15 @@ export async function makeBatchJsonRpcCall(
                 // Bubble up final error or non-retryable error
                 throw err;
             }
+
+            // Log retry warning for batch requests
+            log.warn('Batch RPC request failed, retrying', {
+                requestCount: requests.length,
+                attempt,
+                maxAttempts: attempts,
+                error: err.message,
+                endpoint: NODE_URL,
+            });
 
             // Exponential backoff with jitter
             const backoffMs = Math.floor(baseDelayMs * 2 ** (attempt - 1));

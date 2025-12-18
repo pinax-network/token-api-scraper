@@ -14,6 +14,9 @@ import {
     PROMETHEUS_PORT,
     VERBOSE,
 } from './config';
+import { createLogger, LOG_LEVEL } from './logger';
+
+const log = createLogger('service');
 
 export interface ServiceInitOptions {
     serviceName: string;
@@ -34,17 +37,27 @@ export function initService(options: ServiceInitOptions): void {
         maxSize: BATCH_INSERT_MAX_SIZE,
     });
 
-    if (VERBOSE) {
-        // Only log configuration once
-        if (!serviceInitialized) {
-            console.log(`🔧 Configuration:`);
-            console.log(`   CLICKHOUSE_URL: ${CLICKHOUSE_URL}`);
-            console.log(`   CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}`);
-            console.log(`   NODE_URL: ${NODE_URL}`);
-            console.log('');
-            serviceInitialized = true;
-        }
+    // Log startup info (always at INFO level)
+    if (!serviceInitialized) {
+        log.info('Service starting', {
+            service: options.serviceName,
+            logLevel: LOG_LEVEL,
+            clickhouseUrl: CLICKHOUSE_URL,
+            clickhouseDatabase: CLICKHOUSE_DATABASE,
+            nodeUrl: NODE_URL,
+            concurrency: CONCURRENCY,
+            prometheusPort: PROMETHEUS_PORT,
+            batchInsertIntervalMs: BATCH_INSERT_INTERVAL_MS,
+            batchInsertMaxSize: BATCH_INSERT_MAX_SIZE,
+        });
+        serviceInitialized = true;
+    } else {
+        log.info('Service restarting', {
+            service: options.serviceName,
+        });
+    }
 
+    if (VERBOSE) {
         console.log(
             `⚡ Batch insert enabled: flush every ${BATCH_INSERT_INTERVAL_MS}ms or ${BATCH_INSERT_MAX_SIZE} rows`,
         );
