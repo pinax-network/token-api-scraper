@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { initService } from './service-init';
 
 describe('initService', () => {
-    // Save original console.log
-    const originalConsoleLog = console.log;
     let consoleOutput: string[] = [];
 
     beforeEach(() => {
