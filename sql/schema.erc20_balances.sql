@@ -89,7 +89,7 @@ SELECT
 FROM erc20_balances_rpc
 WHERE is_ok = 1;
 
--- Native TRX Balances
+-- Native TRON Balances
 CREATE TABLE IF NOT EXISTS native_balances_rpc (
     -- balance --
     account                     String,
