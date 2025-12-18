@@ -19,12 +19,9 @@ export async function run(tracker?: ProgressTracker) {
         await Bun.file(__dirname + '/get_contracts_by_swaps.sql').text(),
     );
 
-    if (contracts.data.length > 0) {
-        log.info('Found contracts to scrape', {
-            count: contracts.data.length,
-            source: 'swaps',
-        });
-    }
+    log.info(
+        `Found ${contracts.data.length} ${NETWORK} contracts to scrape at block ${contracts.data?.[0]?.block_num ?? 'N/A'}`,
+    );
 
     // Initialize or reset progress tracker
     if (!tracker) {
