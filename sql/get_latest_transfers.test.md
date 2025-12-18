@@ -5,8 +5,8 @@ This document outlines test cases to verify the continuous query logic works cor
 ## Test Scenario 1: First Run (Empty Balances Table)
 
 **Setup:**
-- `trc20_balances_rpc` is empty
-- `trc20_transfer` has 100 transfers
+- `erc20_balances_rpc` is empty
+- `erc20_transfer` has 100 transfers
 
 **Expected Result:**
 - Query returns all 100 transfers (up to LIMIT)
@@ -15,14 +15,14 @@ This document outlines test cases to verify the continuous query logic works cor
 **Verification:**
 ```sql
 -- Should return transfers since LEFT JOIN with empty table returns NULL
-SELECT COUNT(*) FROM trc20_transfer; -- Should match result count (up to 10000)
+SELECT COUNT(*) FROM erc20_transfer; -- Should match result count (up to 10000)
 ```
 
 ## Test Scenario 2: Subsequent Run (Some Balances Exist)
 
 **Setup:**
-- `trc20_balances_rpc` has balances for accounts A, B, C at block 1000
-- `trc20_transfer` has new transfers at blocks 1001-1100
+- `erc20_balances_rpc` has balances for accounts A, B, C at block 1000
+- `erc20_transfer` has new transfers at blocks 1001-1100
 
 **Expected Result:**
 - Query returns only transfers at block > 1000 for accounts A, B, C
@@ -32,17 +32,17 @@ SELECT COUNT(*) FROM trc20_transfer; -- Should match result count (up to 10000)
 ```sql
 -- Transfers for existing accounts should only be from newer blocks
 SELECT t.block_num, t.to, t.from
-FROM trc20_transfer t
-WHERE t.to IN (SELECT account FROM trc20_balances_rpc)
-  OR t.from IN (SELECT account FROM trc20_balances_rpc);
--- All returned block_num should be > MAX(block_num) in trc20_balances_rpc for that account
+FROM erc20_transfer t
+WHERE t.to IN (SELECT account FROM erc20_balances_rpc)
+  OR t.from IN (SELECT account FROM erc20_balances_rpc);
+-- All returned block_num should be > MAX(block_num) in erc20_balances_rpc for that account
 ```
 
 ## Test Scenario 3: No New Transfers
 
 **Setup:**
-- `trc20_balances_rpc` has balances at block 2000
-- Latest transfer in `trc20_transfer` is at block 1999
+- `erc20_balances_rpc` has balances at block 2000
+- Latest transfer in `erc20_transfer` is at block 1999
 
 **Expected Result:**
 - Query returns empty result set
@@ -52,8 +52,8 @@ WHERE t.to IN (SELECT account FROM trc20_balances_rpc)
 ```sql
 -- Should return 0 rows
 SELECT COUNT(*)
-FROM trc20_transfer t
-WHERE t.block_num > (SELECT MAX(block_num) FROM trc20_balances_rpc);
+FROM erc20_transfer t
+WHERE t.block_num > (SELECT MAX(block_num) FROM erc20_balances_rpc);
 -- Should be 0
 ```
 
@@ -81,7 +81,7 @@ WHERE t.block_num > (SELECT MAX(block_num) FROM trc20_balances_rpc);
 ## Test Scenario 5: Error Handling (Failed Balance Queries)
 
 **Setup:**
-- `trc20_balances_rpc` has some entries with `is_ok = 0` (errors)
+- `erc20_balances_rpc` has some entries with `is_ok = 0` (errors)
 - These error entries have block_num set
 
 **Expected Result:**
@@ -91,7 +91,7 @@ WHERE t.block_num > (SELECT MAX(block_num) FROM trc20_balances_rpc);
 **Verification:**
 ```sql
 -- Error entries should not prevent re-querying
-SELECT * FROM trc20_balances_rpc WHERE is_ok = 0;
+SELECT * FROM erc20_balances_rpc WHERE is_ok = 0;
 -- These accounts should appear in the next query result
 ```
 
@@ -109,7 +109,7 @@ SELECT * FROM trc20_balances_rpc WHERE is_ok = 0;
 **Verification:**
 ```sql
 -- Query should include transfers from black hole
-SELECT * FROM trc20_transfer WHERE `from` = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
+SELECT * FROM erc20_transfer WHERE `from` = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 -- Service code filters this out during processing
 ```
 
@@ -117,9 +117,9 @@ SELECT * FROM trc20_transfer WHERE `from` = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb'
 
 ### Index Usage
 The query should efficiently use indexes on:
-- `trc20_balances_rpc.contract` and `.account`
-- `trc20_balances_rpc.block_num`
-- `trc20_transfer.log_address`, `.from`, `.to`, `.block_num`
+- `erc20_balances_rpc.contract` and `.account`
+- `erc20_balances_rpc.block_num`
+- `erc20_transfer.log_address`, `.from`, `.to`, `.block_num`
 
 ### Query Plan Verification
 ```sql
@@ -135,7 +135,7 @@ Expected:
 
 To manually verify the implementation works:
 
-1. Start with empty `trc20_balances_rpc`
+1. Start with empty `erc20_balances_rpc`
 2. Run `npm run balances` - should process many transfers
 3. Check inserted records have `block_num` populated
 4. Run `npm run balances` again - should process fewer/no transfers

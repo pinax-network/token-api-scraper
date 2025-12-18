@@ -18,7 +18,7 @@ The fastest way to get started:
 
 ```bash
 # Deploy all schema files to ClickHouse
-npm run cli setup sql/schema.metadata.sql sql/schema.trc20_balances.sql
+npm run cli setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
 ```
 
 This creates all necessary:
@@ -49,7 +49,7 @@ The project includes two main schema files:
 npm run cli setup sql/schema.metadata.sql
 ```
 
-### 2. schema.trc20_balances.sql
+### 2. schema.erc20_balances.sql
 
 **Purpose**: Stores token and native balance data
 
@@ -59,13 +59,13 @@ npm run cli setup sql/schema.metadata.sql
   - `format_balance()` - Formats balance with decimals
 
 - **Tables**:
-  - `trc20_balances_rpc` - TRC-20 token balances with block number tracking
+  - `erc20_balances_rpc` - ERC-20 token balances with block number tracking
   - `native_balances_rpc` - Native token balances
   - Both use `MergeTree` engine with appropriate sorting keys
 
 **Deployment**:
 ```bash
-npm run cli setup sql/schema.trc20_balances.sql
+npm run cli setup sql/schema.erc20_balances.sql
 ```
 
 ## Deployment Options
@@ -80,7 +80,7 @@ npm run cli setup sql/schema.*.sql
 
 # Deploy individual schemas
 npm run cli setup sql/schema.metadata.sql
-npm run cli setup sql/schema.trc20_balances.sql
+npm run cli setup sql/schema.erc20_balances.sql
 ```
 
 ### Custom Database Connection
@@ -147,12 +147,12 @@ ORDER BY (chain, contract)
 
 **Engine**: `ReplacingMergeTree` - Automatically deduplicates rows with the same `ORDER BY` key
 
-### trc20_balances_rpc
+### erc20_balances_rpc
 
-Stores TRC-20 token balances with block number tracking.
+Stores ERC-20 token balances with block number tracking.
 
 ```sql
-CREATE TABLE IF NOT EXISTS trc20_balances_rpc
+CREATE TABLE IF NOT EXISTS erc20_balances_rpc
 (
     chain String,
     contract String,
@@ -290,7 +290,7 @@ Typical usage:
 
 **Partitioning**: Consider partitioning large tables:
 ```sql
-ALTER TABLE trc20_balances_rpc
+ALTER TABLE erc20_balances_rpc
 MODIFY PARTITION BY toYYYYMM(toDate(block_num))
 ```
 
@@ -301,7 +301,7 @@ SELECT
     contract,
     account,
     argMax(balance, block_num) AS balance
-FROM trc20_balances_rpc
+FROM erc20_balances_rpc
 WHERE is_ok = 1
 GROUP BY contract, account
 ```
@@ -342,7 +342,7 @@ echo "SHOW TABLES" | clickhouse-client
 echo "DESCRIBE TABLE metadata_rpc" | clickhouse-client
 
 # Check row counts
-echo "SELECT COUNT(*) FROM trc20_balances_rpc" | clickhouse-client
+echo "SELECT COUNT(*) FROM erc20_balances_rpc" | clickhouse-client
 ```
 
 ### Test Functions
@@ -398,14 +398,14 @@ npm run cli setup sql/schema.*.sql
 ### Adding Indexes
 
 ```sql
-ALTER TABLE trc20_balances_rpc
+ALTER TABLE erc20_balances_rpc
 ADD INDEX idx_account (account) TYPE minmax GRANULARITY 1;
 ```
 
 ### Adding Columns
 
 ```sql
-ALTER TABLE trc20_balances_rpc
+ALTER TABLE erc20_balances_rpc
 ADD COLUMN IF NOT EXISTS timestamp DateTime DEFAULT now();
 ```
 
@@ -459,7 +459,7 @@ The setup command uses `IF NOT EXISTS` clauses, so it's safe to run multiple tim
 
 ```sql
 DROP TABLE IF EXISTS metadata_rpc;
-DROP TABLE IF EXISTS trc20_balances_rpc;
+DROP TABLE IF EXISTS erc20_balances_rpc;
 DROP TABLE IF EXISTS native_balances_rpc;
 ```
 

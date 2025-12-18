@@ -4,7 +4,7 @@ WITH metadata_contracts AS (
 ),
 contracts AS (
     SELECT log_address AS contract
-    FROM trc20_transfer
+    FROM erc20_transfer
     GROUP BY log_address
 )
 SELECT contract

@@ -5,7 +5,7 @@ WITH native_balances AS (
     FROM native_balances_rpc
 )
 SELECT DISTINCT account
-FROM trc20_transfer_agg
+FROM erc20_transfer_agg
 WHERE account NOT IN native_balances
 ORDER BY account
 LIMIT 10000;

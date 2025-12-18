@@ -3,7 +3,7 @@
 -- This processes backwards from end of chain to beginning
 WITH max_block AS (
     SELECT MAX(block_num) as max_block_num
-    FROM trc20_transfer
+    FROM erc20_transfer
 ),
 native_balances AS (
     SELECT DISTINCT account
@@ -13,7 +13,7 @@ accounts_with_blocks AS (
     SELECT DISTINCT
         account,
         MAX(block_num) as last_seen_block
-    FROM trc20_transfer_agg
+    FROM erc20_transfer_agg
     GROUP BY account
 )
 SELECT

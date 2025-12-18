@@ -5,7 +5,7 @@ WITH balances AS (
         contract,
         account,
         block_num
-    FROM trc20_balances_rpc
+    FROM erc20_balances_rpc
     WHERE is_ok = 1
 ),
 latest_blocks AS (
@@ -21,7 +21,7 @@ SELECT DISTINCT
     t.`from`,
     t.`to`,
     t.block_num
-FROM trc20_transfer t
+FROM erc20_transfer t
 LEFT JOIN latest_blocks lb_to ON (t.log_address = lb_to.contract AND t.`to` = lb_to.account)
 LEFT JOIN latest_blocks lb_from ON (t.log_address = lb_from.contract AND t.`from` = lb_from.account)
 WHERE

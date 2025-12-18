@@ -31,7 +31,7 @@ const SERVICES = {
     'balances-erc20': {
         path: './services/balances/erc20.ts',
         description:
-            'Query and update TRC-20 token balances for accounts using the balanceOf() function',
+            'Query and update ERC-20 token balances for accounts using the balanceOf() function',
     },
     'balances-native': {
         path: './services/balances/native.ts',
@@ -46,7 +46,7 @@ const program = new Command();
 program
     .name('token-api-scraper')
     .description(
-        'CLI tool for running TRC-20 blockchain data scraping services',
+        'CLI tool for running ERC-20 blockchain data scraping services',
     )
     .version(VERSION, '-v, --version', 'Display the current version');
 
