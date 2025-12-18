@@ -258,9 +258,9 @@ describe('schema files', () => {
         expect(plainMergeTree).toBeNull();
     });
 
-    test('should transform all actual trc20_balances.sql correctly', async () => {
+    test('should transform all actual erc20_balances.sql correctly', async () => {
         const balancesSql = await Bun.file(
-            './sql/schema.trc20_balances.sql',
+            './sql/schema.erc20_balances.sql',
         ).text();
         const transformed = transformSqlForCluster(balancesSql, 'test_cluster');
 

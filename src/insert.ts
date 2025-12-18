@@ -58,7 +58,7 @@ export async function insert_balances(
     tracker?: ProgressTracker,
 ) {
     const success = await insertRow(
-        'trc20_balances_rpc',
+        'erc20_balances_rpc',
         row,
         `Failed to insert balance for account ${row.account}`,
     );
@@ -74,7 +74,7 @@ export async function insert_error_balances(
     tracker?: ProgressTracker,
 ) {
     await insertRow(
-        'trc20_balances_rpc',
+        'erc20_balances_rpc',
         { ...row, error_msg },
         `Failed to insert error balance for account ${row.account}`,
     );

@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION format_balance AS (balance, decimals) ->
     )
 );
 
-CREATE TABLE IF NOT EXISTS trc20_balances_rpc (
+CREATE TABLE IF NOT EXISTS erc20_balances_rpc (
     -- block --
     block_num                   UInt32 DEFAULT 0,
     block_hash                  String DEFAULT '',
@@ -50,7 +50,7 @@ ORDER BY (
 );
 
 -- Latest Balances
-CREATE TABLE IF NOT EXISTS trc20_balances (
+CREATE TABLE IF NOT EXISTS erc20_balances (
     -- block --
     block_num                   UInt32,
 
@@ -71,9 +71,9 @@ ORDER BY (
 )
 SETTINGS deduplicate_merge_projection_mode = 'rebuild';
 
--- Table to keep the latest TRC20 balances per (contract, account) with non-zero balances only --
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_trc20_balances
-TO trc20_balances
+-- Table to keep the latest ERC20 balances per (contract, account) with non-zero balances only --
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_erc20_balances
+TO erc20_balances
 AS
 SELECT
     -- block --
@@ -86,10 +86,10 @@ SELECT
     contract,
     account,
     balance
-FROM trc20_balances_rpc
+FROM erc20_balances_rpc
 WHERE is_ok = 1;
 
--- Native TRX Balances
+-- Native TRON Balances
 CREATE TABLE IF NOT EXISTS native_balances_rpc (
     -- balance --
     account                     String,

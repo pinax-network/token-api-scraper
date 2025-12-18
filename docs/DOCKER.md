@@ -62,7 +62,7 @@ docker run \
   token-api-scraper run metadata
 ```
 
-#### TRC-20 Balances (Incremental)
+#### ERC-20 Balances (Incremental)
 
 ```bash
 docker run \
@@ -70,7 +70,7 @@ docker run \
   -e CLICKHOUSE_USERNAME=default \
   -e CLICKHOUSE_PASSWORD=password \
   -e NODE_URL=https://tron-evm-rpc.publicnode.com \
-  token-api-scraper run trc20-balances
+  token-api-scraper run erc20-balances
 ```
 
 #### Native Balances (Incremental)
@@ -85,11 +85,11 @@ docker run \
 #### Backfill Services
 
 ```bash
-# TRC-20 backfill
+# ERC-20 backfill
 docker run \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
   -e CONCURRENCY=15 \
-  token-api-scraper run trc20-backfill
+  token-api-scraper run erc20-backfill
 
 # Native backfill
 docker run \
@@ -103,7 +103,7 @@ docker run \
 Command-line flags override environment variables:
 
 ```bash
-docker run token-api-scraper run trc20-balances \
+docker run token-api-scraper run erc20-balances \
   --clickhouse-url http://clickhouse:8123 \
   --concurrency 20 \
   --enable-prometheus \
@@ -117,7 +117,7 @@ docker run token-api-scraper run trc20-balances \
 docker run \
   -v $(pwd)/sql:/app/sql \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  token-api-scraper setup sql/schema.metadata.sql sql/schema.trc20_balances.sql
+  token-api-scraper setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
 
 # Setup with cluster
 docker run \
@@ -149,8 +149,8 @@ services:
     command: run metadata
     restart: unless-stopped
 
-  # TRC-20 balances (incremental)
-  trc20-balances-scraper:
+  # ERC-20 balances (incremental)
+  erc20-balances-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -159,7 +159,7 @@ services:
       - CLICKHOUSE_DATABASE=default
       - NODE_URL=https://tron-evm-rpc.publicnode.com
       - CONCURRENCY=10
-    command: run trc20-balances
+    command: run erc20-balances
     restart: unless-stopped
 
   # Native balances (incremental)
@@ -200,7 +200,7 @@ services:
     command: run metadata
     restart: unless-stopped
 
-  trc20-balances-scraper:
+  erc20-balances-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -209,7 +209,7 @@ services:
       - CLICKHOUSE_DATABASE=default
       - NODE_URL=https://tron-evm-rpc.publicnode.com
       - CONCURRENCY=10
-    command: run trc20-balances
+    command: run erc20-balances
     restart: unless-stopped
 
   native-balances-scraper:
@@ -225,7 +225,7 @@ services:
     restart: unless-stopped
 
   # Backfill services
-  trc20-backfill-scraper:
+  erc20-backfill-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -234,7 +234,7 @@ services:
       - CLICKHOUSE_DATABASE=default
       - NODE_URL=https://tron-evm-rpc.publicnode.com
       - CONCURRENCY=15
-    command: run trc20-backfill
+    command: run erc20-backfill
     restart: "no"  # Don't restart - backfill completes eventually
 
   native-backfill-scraper:
@@ -256,7 +256,7 @@ services:
 version: '3.8'
 
 services:
-  trc20-balances-scraper:
+  erc20-balances-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -266,7 +266,7 @@ services:
       - NODE_URL=https://tron-evm-rpc.publicnode.com
       - CONCURRENCY=10
       - PROMETHEUS_PORT=9090
-    command: run trc20-balances
+    command: run erc20-balances
     ports:
       - "9090:9090"  # Expose Prometheus metrics
     restart: unless-stopped
@@ -294,7 +294,7 @@ global:
 scrape_configs:
   - job_name: 'token-scraper'
     static_configs:
-      - targets: ['trc20-balances-scraper:9090']
+      - targets: ['erc20-balances-scraper:9090']
 ```
 
 ## Environment Variables
@@ -420,12 +420,12 @@ Add health checks to your services:
 
 ```yaml
 services:
-  trc20-balances-scraper:
+  erc20-balances-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
       - PROMETHEUS_PORT=9090
-    command: run trc20-balances
+    command: run erc20-balances
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
       interval: 30s
@@ -468,7 +468,7 @@ docker-compose logs -f
 docker-compose logs -f metadata-scraper
 
 # View last 100 lines
-docker-compose logs --tail=100 trc20-balances-scraper
+docker-compose logs --tail=100 erc20-balances-scraper
 ```
 
 ### Log Configuration
@@ -493,7 +493,7 @@ services:
 
 ```yaml
 services:
-  trc20-balances-scraper:
+  erc20-balances-scraper:
     build: .
     deploy:
       resources:
@@ -503,17 +503,17 @@ services:
         reservations:
           cpus: '1.0'
           memory: 1G
-    command: run trc20-balances
+    command: run erc20-balances
 ```
 
 ### Scaling
 
 ```bash
 # Scale up to 3 instances
-docker-compose up -d --scale trc20-backfill-scraper=3
+docker-compose up -d --scale erc20-backfill-scraper=3
 
 # Scale down to 1 instance
-docker-compose up -d --scale trc20-backfill-scraper=1
+docker-compose up -d --scale erc20-backfill-scraper=1
 ```
 
 ## Production Deployment
@@ -556,7 +556,7 @@ docker-compose up -d --scale trc20-backfill-scraper=1
 version: '3.8'
 
 services:
-  trc20-balances-scraper:
+  erc20-balances-scraper:
     image: token-api-scraper:1.0.0
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -567,7 +567,7 @@ services:
       - CONCURRENCY=20
       - MAX_RETRIES=5
       - PROMETHEUS_PORT=9090
-    command: run trc20-balances
+    command: run erc20-balances
     deploy:
       resources:
         limits:
@@ -644,21 +644,21 @@ Example minimal Kubernetes deployment:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: trc20-balances-scraper
+  name: erc20-balances-scraper
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: trc20-balances-scraper
+      app: erc20-balances-scraper
   template:
     metadata:
       labels:
-        app: trc20-balances-scraper
+        app: erc20-balances-scraper
     spec:
       containers:
       - name: scraper
         image: token-api-scraper:1.0.0
-        command: ["node", "cli.js", "run", "trc20-balances"]
+        command: ["node", "cli.js", "run", "erc20-balances"]
         env:
         - name: CLICKHOUSE_URL
           value: "http://clickhouse:8123"

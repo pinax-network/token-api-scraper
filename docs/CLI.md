@@ -40,9 +40,9 @@ Output example:
 ```
 Available services:
   - metadata
-  - trc20-balances
+  - erc20-balances
   - native-balances
-  - trc20-backfill
+  - erc20-backfill
   - native-backfill
 ```
 
@@ -54,7 +54,7 @@ Deploy SQL schema files to your ClickHouse database. This is required before run
 
 ```bash
 # Deploy all schema files
-npm run cli setup sql/schema.metadata.sql sql/schema.trc20_balances.sql
+npm run cli setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
 
 # Deploy individual files
 npm run cli setup sql/schema.metadata.sql
@@ -90,9 +90,9 @@ The project includes two schema files:
    - `metadata_rpc` table - Stores token name, symbol, and decimals from smart contracts
    - Uses ReplacingMergeTree for automatic deduplication
 
-2. **schema.trc20_balances.sql**: Balance tables
+2. **schema.erc20_balances.sql**: Balance tables
    - Helper functions: `hex_to_uint256()`, `format_balance()`
-   - `trc20_balances_rpc` - TRC-20 token balances with block number tracking
+   - `erc20_balances_rpc` - ERC-20 token balances with block number tracking
    - `native_balances_rpc` - Native token balances
 
 ### run
@@ -115,15 +115,15 @@ npm run cli run metadata --concurrency 20
 npm run cli run metadata --enable-prometheus --prometheus-port 8080
 ```
 
-##### trc20-balances
+##### erc20-balances
 
-Processes TRC-20 token balances incrementally (only new transfers since last run).
+Processes ERC-20 token balances incrementally (only new transfers since last run).
 
 ```bash
-npm run cli run trc20-balances
+npm run cli run erc20-balances
 
 # With custom parameters
-npm run cli run trc20-balances --concurrency 15 --enable-prometheus
+npm run cli run erc20-balances --concurrency 15 --enable-prometheus
 ```
 
 ##### native-balances
@@ -137,15 +137,15 @@ npm run cli run native-balances
 npm run cli run native-balances --transfers-table native_transfer
 ```
 
-##### trc20-backfill
+##### erc20-backfill
 
-Processes all historical TRC-20 transfers from newest to oldest blocks. Run repeatedly until complete.
+Processes all historical ERC-20 transfers from newest to oldest blocks. Run repeatedly until complete.
 
 ```bash
-npm run cli run trc20-backfill
+npm run cli run erc20-backfill
 
 # With higher concurrency for faster processing
-npm run cli run trc20-backfill --concurrency 20
+npm run cli run erc20-backfill --concurrency 20
 ```
 
 ##### native-backfill
@@ -214,7 +214,7 @@ Services automatically run in continuous mode, restarting after each completion 
 | `--transfers-table <table>` | Name of the transfers table to query | `transfers` |
 | `--cluster <name>` | ClickHouse cluster name (setup only) | (none) |
 
-Valid values for `--transfers-table`: `transfers`, `native_transfer`, `trc20_transfer`
+Valid values for `--transfers-table`: `transfers`, `native_transfer`, `erc20_transfer`
 
 ## Usage Examples
 
@@ -222,16 +222,16 @@ Valid values for `--transfers-table`: `transfers`, `native_transfer`, `trc20_tra
 
 ```bash
 # 1. Setup database schema
-npm run cli setup sql/schema.metadata.sql sql/schema.trc20_balances.sql
+npm run cli setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
 
 # 2. Fetch token metadata
 npm run cli run metadata
 
-# 3. Start scraping TRC-20 balances (incremental)
-npm run cli run trc20-balances
+# 3. Start scraping ERC-20 balances (incremental)
+npm run cli run erc20-balances
 
 # 4. Optionally backfill historical data in parallel
-npm run cli run trc20-backfill --concurrency 15
+npm run cli run erc20-backfill --concurrency 15
 npm run cli run native-backfill --concurrency 15
 ```
 
@@ -255,7 +255,7 @@ npm run cli run metadata \
   --concurrency 20
 
 # Run backfill with monitoring and verbose logs
-npm run cli run trc20-backfill \
+npm run cli run erc20-backfill \
   --verbose \
   --concurrency 15 \
   --enable-prometheus \
@@ -273,7 +273,7 @@ npm run cli setup sql/schema.*.sql \
   --clickhouse-database production_evm
 
 # Run with production settings
-npm run cli run trc20-balances \
+npm run cli run erc20-balances \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database production_evm \
   --concurrency 20 \
@@ -286,7 +286,7 @@ npm run cli run trc20-balances \
 
 ```bash
 # Use a different transfers table name
-npm run cli run trc20-balances --transfers-table trc20_transfer
+npm run cli run erc20-balances --transfers-table erc20_transfer
 npm run cli run native-balances --transfers-table native_transfer
 ```
 
@@ -298,13 +298,13 @@ For backward compatibility, direct npm scripts are still available:
 # Run metadata RPC service
 npm run start
 
-# Run TRC-20 balances RPC service (incremental updates)
+# Run ERC-20 balances RPC service (incremental updates)
 npm run balances
 
 # Run Native balances RPC service (incremental updates)
 npm run native-balances
 
-# Run TRC-20 balances BACKFILL service
+# Run ERC-20 balances BACKFILL service
 npm run backfill-erc20
 
 # Run Native balances BACKFILL service
@@ -440,10 +440,10 @@ You can run multiple services in parallel for maximum throughput:
 
 ```bash
 # Terminal 1: Incremental updates
-npm run cli run trc20-balances
+npm run cli run erc20-balances
 
 # Terminal 2: Historical backfill
-npm run cli run trc20-backfill --concurrency 15
+npm run cli run erc20-backfill --concurrency 15
 
 # Terminal 3: Native balances
 npm run cli run native-backfill --concurrency 15
@@ -456,7 +456,7 @@ Set up cron jobs for periodic updates:
 ```bash
 # crontab -e
 # Run every hour
-0 * * * * cd /path/to/token-api-scraper && npm run cli run trc20-balances
+0 * * * * cd /path/to/token-api-scraper && npm run cli run erc20-balances
 ```
 
 ### Continuous Operation
