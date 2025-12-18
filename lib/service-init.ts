@@ -14,7 +14,7 @@ import {
     PROMETHEUS_PORT,
     VERBOSE,
 } from './config';
-import { createLogger, LOG_LEVEL } from './logger';
+import { createLogger } from './logger';
 
 const log = createLogger('service');
 
@@ -41,7 +41,7 @@ export function initService(options: ServiceInitOptions): void {
     if (!serviceInitialized) {
         log.info('Service starting', {
             service: options.serviceName,
-            logLevel: LOG_LEVEL,
+            logLevel: process.env.LOG_LEVEL ?? 'info',
             clickhouseUrl: CLICKHOUSE_URL,
             clickhouseDatabase: CLICKHOUSE_DATABASE,
             nodeUrl: NODE_URL,
@@ -52,9 +52,7 @@ export function initService(options: ServiceInitOptions): void {
         });
         serviceInitialized = true;
     } else {
-        log.info('Service restarting', {
-            service: options.serviceName,
-        });
+        log.debug('Service restarting: ', options.serviceName);
     }
 
     if (VERBOSE) {

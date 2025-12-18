@@ -68,8 +68,8 @@ export class BatchInsertQueue {
         }
     }
 
-    /**
-     * Flush all pending inserts for all tables
+    /**`
+     * Flush all pending inserts for all tables`
      */
     public async flushAll(): Promise<void> {
         const tables = Array.from(this.queues.keys());
@@ -199,12 +199,12 @@ export function getBatchInsertQueue(): BatchInsertQueue {
  */
 export async function shutdownBatchInsertQueue(): Promise<void> {
     if (globalBatchQueue) {
-        log.info('Shutting down batch insert queue');
+        log.debug('Shutting down batch insert queue');
         if (VERBOSE) {
             console.log('⏳ Flushing remaining batch inserts...');
         }
         await globalBatchQueue.shutdown();
-        log.info('Batch insert queue shutdown complete');
+        log.debug('Batch insert queue shutdown complete');
         if (VERBOSE) {
             console.log('✅ Batch inserts flushed successfully');
         }
