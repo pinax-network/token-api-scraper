@@ -4,9 +4,12 @@ import {
     decodeNumberHex,
     decodeSymbolHex,
 } from '../../lib/hex-decode';
+import { createLogger } from '../../lib/logger';
 import type { ProgressTracker } from '../../lib/progress';
 import { callContract } from '../../lib/rpc';
 import { insertRow } from '../../src/insert';
+
+const log = createLogger('metadata');
 
 let isFirstCall = true;
 
@@ -30,10 +33,12 @@ export async function processMetadata(
 
         // Fetch symbol & name only if decimals exists (including 0)
         if (decimals !== null) {
+            const startTime = performance.now();
             const symbol_hex = await callContract(contract, 'symbol()'); // 95d89b41
             const symbol = decodeSymbolHex(symbol_hex);
             const name_hex = await callContract(contract, 'name()'); // 06fdde03
             const name = decodeNameHex(name_hex);
+            const queryTimeMs = Math.round(performance.now() - startTime);
 
             await insert_metadata(
                 {
@@ -46,6 +51,15 @@ export async function processMetadata(
                 },
                 tracker,
             );
+
+            log.info('Metadata scraped successfully', {
+                contract,
+                name,
+                symbol,
+                decimals,
+                blockNum: block_num,
+                queryTimeMs,
+            });
         } else {
             await insert_error_metadata(
                 contract,

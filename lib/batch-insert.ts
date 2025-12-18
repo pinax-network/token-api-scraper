@@ -1,5 +1,8 @@
 import { client } from './clickhouse';
 import { VERBOSE } from './config';
+import { createLogger } from './logger';
+
+const log = createLogger('batch-insert');
 
 /**
  * Interface for batch insert configuration
@@ -89,6 +92,11 @@ export class BatchInsertQueue {
             format: 'JSONEachRow',
             values,
         });
+
+        log.debug('Batch insert completed', {
+            table,
+            rowCount: values.length,
+        });
     }
 
     /**
@@ -102,7 +110,7 @@ export class BatchInsertQueue {
         this.timer = setInterval(() => {
             if (!this.isShuttingDown) {
                 this.flushAll().catch((error) => {
-                    console.error('Error during periodic flush:', error);
+                    log.error('Error during periodic flush', { error });
                 });
             }
         }, this.config.intervalMs);
@@ -117,11 +125,11 @@ export class BatchInsertQueue {
         count: number,
     ): void {
         const err = error as Error;
-        const errorMessage = err?.message || String(error);
-        console.error(
-            `Failed to insert batch of ${count} rows into ${table}:`,
-            errorMessage,
-        );
+        log.error('Failed to insert batch', {
+            table,
+            rowCount: count,
+            message: err?.message || String(error),
+        });
     }
 
     /**
@@ -191,10 +199,12 @@ export function getBatchInsertQueue(): BatchInsertQueue {
  */
 export async function shutdownBatchInsertQueue(): Promise<void> {
     if (globalBatchQueue) {
+        log.info('Shutting down batch insert queue');
         if (VERBOSE) {
             console.log('⏳ Flushing remaining batch inserts...');
         }
         await globalBatchQueue.shutdown();
+        log.info('Batch insert queue shutdown complete');
         if (VERBOSE) {
             console.log('✅ Batch inserts flushed successfully');
         }

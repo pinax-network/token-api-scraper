@@ -2,9 +2,12 @@ import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { CONCURRENCY, NETWORK, PROMETHEUS_PORT } from '../../lib/config';
+import { createLogger } from '../../lib/logger';
 import { ProgressTracker } from '../../lib/progress';
 import { initService } from '../../lib/service-init';
 import { processMetadata } from '.';
+
+const log = createLogger('metadata-transfers');
 
 export async function run(tracker?: ProgressTracker) {
     // Initialize service (must be called before using batch insert queue)
@@ -15,6 +18,13 @@ export async function run(tracker?: ProgressTracker) {
     const contracts = await query<{ contract: string; block_num: number }>(
         await Bun.file(__dirname + '/get_contracts_by_transfers.sql').text(),
     );
+
+    if (contracts.data.length > 0) {
+        log.info('Found contracts to scrape', {
+            count: contracts.data.length,
+            source: 'transfers',
+        });
+    }
 
     // Initialize or reset progress tracker
     if (!tracker) {

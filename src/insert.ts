@@ -1,5 +1,8 @@
 import { getBatchInsertQueue } from '../lib/batch-insert';
+import { createLogger } from '../lib/logger';
 import type { ProgressTracker } from '../lib/progress';
+
+const log = createLogger('insert');
 
 /**
  * Interface for ClickHouse client errors
@@ -16,15 +19,16 @@ interface ClickHouseError extends Error {
 export function handleInsertError(error: unknown, context: string): void {
     const err = error as ClickHouseError;
     const errorMessage = err?.message || String(error);
-    console.error(`${context}:`, errorMessage);
-    if (
+    const isConnectionError =
         err?.code === 'ConnectionRefused' ||
-        errorMessage?.includes('Connection refused')
-    ) {
-        console.error(
-            'Unable to connect to ClickHouse. Check database connection.',
-        );
-    }
+        errorMessage?.includes('Connection refused');
+
+    log.error('Insert operation failed', {
+        context,
+        message: errorMessage,
+        code: err?.code,
+        isConnectionError,
+    });
 }
 
 /**

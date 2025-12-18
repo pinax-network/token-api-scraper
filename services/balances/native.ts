@@ -1,6 +1,7 @@
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { CONCURRENCY, PROMETHEUS_PORT, VERBOSE } from '../../lib/config';
+import { createLogger } from '../../lib/logger';
 import { ProgressTracker } from '../../lib/progress';
 import { getNativeBalance } from '../../lib/rpc';
 import { initService } from '../../lib/service-init';
@@ -10,10 +11,14 @@ import {
 } from '../../src/insert';
 import { get_accounts_for_native_balances } from '../../src/queries';
 
+const log = createLogger('balances-native');
+
 async function processNativeBalance(account: string, tracker: ProgressTracker) {
     // get native TRX balance for the account
+    const startTime = performance.now();
     try {
         const balance_hex = await getNativeBalance(account);
+        const queryTimeMs = Math.round(performance.now() - startTime);
 
         // Store balance (including "0" for zero balance)
         await insert_native_balances(
@@ -23,6 +28,12 @@ async function processNativeBalance(account: string, tracker: ProgressTracker) {
             },
             tracker,
         );
+
+        log.info('Native balance scraped successfully', {
+            account,
+            balanceHex: balance_hex,
+            queryTimeMs,
+        });
     } catch (err) {
         const message = (err as Error).message || String(err);
         await insert_error_native_balances(account, message, tracker);
@@ -36,6 +47,12 @@ export async function run(tracker?: ProgressTracker) {
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const accounts = await get_accounts_for_native_balances();
+
+    if (accounts.length > 0) {
+        log.info('Found accounts to process', {
+            count: accounts.length,
+        });
+    }
 
     if (VERBOSE) {
         console.log(`\n📋 Task Overview:`);
