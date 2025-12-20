@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { DEFAULT_CONFIG } from './lib/config';
 import { createLogger } from './lib/logger';
 import { startPrometheusServer, stopPrometheusServer } from './lib/prometheus';
 import { executeSqlSetup, promptClusterSelection } from './lib/setup';
@@ -12,9 +13,6 @@ const log = createLogger('cli');
 const VERSION = JSON.parse(
     readFileSync(resolve(__dirname, 'package.json'), 'utf8'),
 ).version;
-
-// Default auto-restart delay in seconds
-const DEFAULT_AUTO_RESTART_DELAY = 10;
 
 /**
  * Available services that can be run via the CLI
@@ -64,75 +62,81 @@ function addCommonOptions(command: Command): Command {
             .option(
                 '--clickhouse-url <url>',
                 'ClickHouse database connection URL. Used for storing scraped blockchain data.',
-                process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+                process.env.CLICKHOUSE_URL || DEFAULT_CONFIG.CLICKHOUSE_URL,
             )
             .option(
                 '--clickhouse-username <user>',
                 'Username for authenticating with the ClickHouse database.',
-                process.env.CLICKHOUSE_USERNAME || 'default',
+                process.env.CLICKHOUSE_USERNAME ||
+                    DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
             )
             .option(
                 '--clickhouse-password <password>',
                 'Password for authenticating with the ClickHouse database. Keep this secure!',
-                process.env.CLICKHOUSE_PASSWORD || '',
+                process.env.CLICKHOUSE_PASSWORD ||
+                    DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
             )
             .option(
                 '--clickhouse-database <db>',
                 'Name of the ClickHouse database to use for data storage.',
-                process.env.CLICKHOUSE_DATABASE || 'default',
+                process.env.CLICKHOUSE_DATABASE ||
+                    DEFAULT_CONFIG.CLICKHOUSE_DATABASE,
             )
             // RPC Node Options
             .option(
                 '--node-url <url>',
                 'EVM RPC node URL for querying blockchain data. Can be a public node or your own.',
-                process.env.NODE_URL || 'https://tron-evm-rpc.publicnode.com',
+                process.env.NODE_URL || DEFAULT_CONFIG.NODE_URL,
             )
             .option(
                 '--concurrency <number>',
                 'Number of concurrent RPC requests. Higher values = faster but may hit rate limits. Range: 1-50.',
-                process.env.CONCURRENCY || '40',
+                process.env.CONCURRENCY || String(DEFAULT_CONFIG.CONCURRENCY),
             )
             // Retry Configuration Options
             .option(
                 '--max-retries <number>',
                 'Maximum number of retry attempts for failed RPC requests.',
-                process.env.MAX_RETRIES || '3',
+                process.env.MAX_RETRIES || String(DEFAULT_CONFIG.MAX_RETRIES),
             )
             .option(
                 '--base-delay-ms <number>',
                 'Base delay in milliseconds for exponential backoff between retries.',
-                process.env.BASE_DELAY_MS || '400',
+                process.env.BASE_DELAY_MS ||
+                    String(DEFAULT_CONFIG.BASE_DELAY_MS),
             )
             .option(
                 '--jitter-min <number>',
                 'Minimum jitter multiplier for backoff delay (e.g., 0.7 = 70% of backoff).',
-                process.env.JITTER_MIN || '0.7',
+                process.env.JITTER_MIN || String(DEFAULT_CONFIG.JITTER_MIN),
             )
             .option(
                 '--jitter-max <number>',
                 'Maximum jitter multiplier for backoff delay (e.g., 1.3 = 130% of backoff).',
-                process.env.JITTER_MAX || '1.3',
+                process.env.JITTER_MAX || String(DEFAULT_CONFIG.JITTER_MAX),
             )
             .option(
                 '--max-delay-ms <number>',
                 'Maximum delay in milliseconds between retry attempts (cap on backoff).',
-                process.env.MAX_DELAY_MS || '30000',
+                process.env.MAX_DELAY_MS || String(DEFAULT_CONFIG.MAX_DELAY_MS),
             )
             .option(
                 '--timeout-ms <number>',
                 'Timeout in milliseconds for individual RPC requests.',
-                process.env.TIMEOUT_MS || '10000',
+                process.env.TIMEOUT_MS || String(DEFAULT_CONFIG.TIMEOUT_MS),
             )
             // Monitoring Options
             .option(
                 '--prometheus-port <port>',
                 'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
-                process.env.PROMETHEUS_PORT || '9090',
+                process.env.PROMETHEUS_PORT ||
+                    String(DEFAULT_CONFIG.PROMETHEUS_PORT),
             )
             .option(
                 '--prometheus-hostname <hostname>',
                 'Hostname for the Prometheus server to bind to.',
-                process.env.PROMETHEUS_HOSTNAME || '0.0.0.0',
+                process.env.PROMETHEUS_HOSTNAME ||
+                    DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
             )
             // Logging Options
             .option(
@@ -142,11 +146,33 @@ function addCommonOptions(command: Command): Command {
             )
             .option(
                 '--auto-restart-delay <seconds>',
-                `Delay in seconds before restarting the service (default: ${DEFAULT_AUTO_RESTART_DELAY}).`,
+                `Delay in seconds before restarting the service (default: ${DEFAULT_CONFIG.AUTO_RESTART_DELAY}).`,
                 process.env.AUTO_RESTART_DELAY ||
-                    String(DEFAULT_AUTO_RESTART_DELAY),
+                    String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
             )
     );
+}
+
+/**
+ * Interface for CLI options passed to service commands
+ */
+interface ServiceOptions {
+    clickhouseUrl: string;
+    clickhouseUsername: string;
+    clickhousePassword: string;
+    clickhouseDatabase: string;
+    nodeUrl: string;
+    concurrency: string;
+    maxRetries: string;
+    baseDelayMs: string;
+    jitterMin: string;
+    jitterMax: string;
+    maxDelayMs: string;
+    timeoutMs: string;
+    prometheusPort: string;
+    prometheusHostname: string;
+    verbose: boolean;
+    autoRestartDelay: string;
 }
 
 /**
@@ -154,7 +180,7 @@ function addCommonOptions(command: Command): Command {
  * @param serviceName - Name of the service to run (must exist in SERVICES)
  * @param options - Commander options object containing CLI flags
  */
-async function runService(serviceName: string, options: any) {
+async function runService(serviceName: string, options: ServiceOptions) {
     const service = SERVICES[serviceName as keyof typeof SERVICES];
 
     if (!service) {
@@ -165,7 +191,7 @@ async function runService(serviceName: string, options: any) {
     }
 
     const autoRestartDelay = parseInt(
-        options.autoRestartDelay || String(DEFAULT_AUTO_RESTART_DELAY),
+        options.autoRestartDelay || String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
         10,
     );
 
@@ -413,22 +439,22 @@ setupCommand
     .option(
         '--clickhouse-url <url>',
         'ClickHouse database connection URL',
-        process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+        process.env.CLICKHOUSE_URL || DEFAULT_CONFIG.CLICKHOUSE_URL,
     )
     .option(
         '--clickhouse-username <user>',
         'Username for authenticating with ClickHouse',
-        process.env.CLICKHOUSE_USERNAME || 'default',
+        process.env.CLICKHOUSE_USERNAME || DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
     )
     .option(
         '--clickhouse-password <password>',
         'Password for authenticating with ClickHouse',
-        process.env.CLICKHOUSE_PASSWORD || '',
+        process.env.CLICKHOUSE_PASSWORD || DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
     )
     .option(
         '--clickhouse-database <db>',
         'ClickHouse database name',
-        process.env.CLICKHOUSE_DATABASE || 'default',
+        process.env.CLICKHOUSE_DATABASE || DEFAULT_CONFIG.CLICKHOUSE_DATABASE,
     );
 
 // ============================================================================

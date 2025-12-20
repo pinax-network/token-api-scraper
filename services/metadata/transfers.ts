@@ -11,7 +11,7 @@ const log = createLogger(serviceName);
 
 export async function run() {
     // Initialize service (must be called before using batch insert queue)
-    initService({ serviceName});
+    initService({ serviceName });
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 

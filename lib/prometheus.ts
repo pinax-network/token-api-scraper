@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as promClient from 'prom-client';
-import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL, PROMETHEUS_HOSTNAME } from './config';
+import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('prometheus');
@@ -72,7 +72,10 @@ export function startPrometheusServer(port: number, hostname = PROMETHEUS_HOSTNA
         });
 
         prometheusServer.listen(port, hostname, () => {
-            log.info('Prometheus server started', { port, url: `http://${hostname}:${port}/metrics` });
+            log.info('Prometheus server started', {
+                port,
+                url: `http://${hostname}:${port}/metrics`,
+            });
             resolve();
         });
 
