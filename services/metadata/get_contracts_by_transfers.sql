@@ -12,6 +12,7 @@ contracts AS (
         log_address AS contract,
         max(block_num) as block_num
     FROM transfers
+    WHERE transfer_type = 'transfer'
     GROUP BY log_address
 )
 SELECT *
