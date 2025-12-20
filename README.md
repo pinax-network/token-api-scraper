@@ -7,7 +7,7 @@ A specialized tool for scraping and indexing ERC-20 token data on the TRON block
 - **ERC-20 Focus**: Designed specifically for TRON ERC-20 tokens
 - **Continuous Query Mechanism**: Tracks block numbers to enable incremental balance updates
 - **Efficient Processing**: Only queries new or updated transfers, avoiding redundant RPC calls
-- **Progress Monitoring**: Real-time progress tracking with Prometheus metrics support
+- **Prometheus Metrics**: Real-time monitoring with Prometheus metrics support
 - **Concurrent Processing**: Configurable concurrency for optimal RPC throughput
 - **RPC Batch Requests**: Optional batching of multiple RPC calls for improved performance
 
