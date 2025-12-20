@@ -21,10 +21,13 @@ import { resolve } from 'path';
 const envLocalPath = resolve(process.cwd(), '.env.local');
 const envPath = resolve(process.cwd(), '.env');
 
+let envFileLoaded = '';
 if (existsSync(envLocalPath)) {
     config({ path: envLocalPath });
+    envFileLoaded = '.env.local';
 } else if (existsSync(envPath)) {
     config({ path: envPath });
+    envFileLoaded = '.env';
 }
 
 // Import after loading env vars
@@ -32,6 +35,11 @@ import { runHealthChecks } from '../lib/db-health.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('check-db-health');
+
+// Log environment file if loaded
+if (envFileLoaded) {
+    log.debug('Environment loaded', { file: envFileLoaded });
+}
 
 // Check if health check should be skipped
 if (process.env.SKIP_DB_CHECK === '1') {

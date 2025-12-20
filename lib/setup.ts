@@ -274,8 +274,8 @@ export async function executeSqlSetup(
         log.info('Cluster configuration applied', {
             cluster: options.cluster,
             transformations: [
-                'ON CLUSTER clause added to CREATE/ALTER/CREATE FUNCTION/CREATE MATERIALIZED VIEW statements',
-                'MergeTree engines converted to Replicated* variants',
+                'Added ON CLUSTER clauses',
+                'Converted to Replicated engines',
             ],
         });
     }
