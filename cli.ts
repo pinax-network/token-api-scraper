@@ -129,6 +129,11 @@ function addCommonOptions(command: Command): Command {
                 'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
                 process.env.PROMETHEUS_PORT || '9090',
             )
+            .option(
+                '--prometheus-hostname <hostname>',
+                'Hostname for the Prometheus server to bind to.',
+                process.env.PROMETHEUS_HOSTNAME || '0.0.0.0',
+            )
             // Logging Options
             .option(
                 '--verbose',
@@ -197,12 +202,14 @@ async function runService(serviceName: string, options: any) {
     process.env.MAX_DELAY_MS = options.maxDelayMs;
     process.env.TIMEOUT_MS = options.timeoutMs;
     process.env.PROMETHEUS_PORT = options.prometheusPort;
+    process.env.PROMETHEUS_HOSTNAME = options.prometheusHostname;
     process.env.VERBOSE = options.verbose ? 'true' : 'false';
 
     // Start Prometheus server once before the loop
     const prometheusPort = parseInt(options.prometheusPort, 10);
+    const prometheusHostname = options.prometheusHostname;
     try {
-        await startPrometheusServer(prometheusPort);
+        await startPrometheusServer(prometheusHostname, prometheusPort);
     } catch (error) {
         log.error('Failed to start Prometheus server', { error });
         process.exit(1);

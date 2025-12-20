@@ -10,7 +10,9 @@ import {
     CLICKHOUSE_DATABASE,
     CLICKHOUSE_URL,
     CONCURRENCY,
+    LOG_LEVEL,
     NODE_URL,
+    PROMETHEUS_HOSTNAME,
     PROMETHEUS_PORT,
 } from './config';
 import { createLogger } from './logger';
@@ -40,14 +42,17 @@ export function initService(options: ServiceInitOptions): void {
     if (!serviceInitialized) {
         log.info('Service starting', {
             service: options.serviceName,
-            logLevel: process.env.LOG_LEVEL ?? 'info',
-            clickhouseUrl: CLICKHOUSE_URL,
-            clickhouseDatabase: CLICKHOUSE_DATABASE,
-            nodeUrl: NODE_URL,
-            concurrency: CONCURRENCY,
-            prometheusPort: PROMETHEUS_PORT,
-            batchInsertIntervalMs: BATCH_INSERT_INTERVAL_MS,
-            batchInsertMaxSize: BATCH_INSERT_MAX_SIZE,
+            env: {
+                LOG_LEVEL,
+                CLICKHOUSE_URL,
+                CLICKHOUSE_DATABASE,
+                NODE_URL,
+                CONCURRENCY,
+                PROMETHEUS_PORT,
+                PROMETHEUS_HOSTNAME,
+                BATCH_INSERT_INTERVAL_MS,
+                BATCH_INSERT_MAX_SIZE,
+            }
         });
         serviceInitialized = true;
     } else {

@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as promClient from 'prom-client';
-import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL } from './config';
+import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL, PROMETHEUS_HOSTNAME } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('prometheus');
@@ -40,10 +40,11 @@ let prometheusServer: http.Server | undefined;
 
 /**
  * Initialize Prometheus server
+ * @param hostname - Hostname to bind to
  * @param port - Port to listen on
  * @returns Promise that resolves when server is started
  */
-export function startPrometheusServer(port: number): Promise<void> {
+export function startPrometheusServer(hostname: string, port: number): Promise<void> {
     return new Promise((resolve, reject) => {
         // Set configuration info metrics once (only on first initialization)
         if (!configMetricsInitialized) {
@@ -60,7 +61,7 @@ export function startPrometheusServer(port: number): Promise<void> {
         }
 
         prometheusServer = http.createServer(async (req, res) => {
-            if (req.url === '/metrics') {
+            if (req.url === '/metrics' || req.url === '/') {
                 res.setHeader('Content-Type', register.contentType);
                 const metrics = await register.metrics();
                 res.end(metrics);
@@ -70,8 +71,8 @@ export function startPrometheusServer(port: number): Promise<void> {
             }
         });
 
-        prometheusServer.listen(port, '0.0.0.0', () => {
-            log.info('Prometheus server started', { port });
+        prometheusServer.listen(port, hostname, () => {
+            log.info('Prometheus server started', { port, url: `http://${hostname}:${port}/metrics` });
             resolve();
         });
 

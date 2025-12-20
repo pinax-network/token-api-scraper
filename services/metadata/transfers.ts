@@ -6,12 +6,12 @@ import { createLogger } from '../../lib/logger';
 import { initService } from '../../lib/service-init';
 import { processMetadata } from '.';
 
-const log = createLogger('metadata-transfers');
-const SERVICE_NAME = 'Token Metadata by Transfers';
+const serviceName = 'metadata-transfers';
+const log = createLogger(serviceName);
 
 export async function run() {
     // Initialize service (must be called before using batch insert queue)
-    initService({ serviceName: 'metadata RPC service' });
+    initService({ serviceName});
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
@@ -29,7 +29,7 @@ export async function run() {
     // Process all contracts
     for (const { contract, block_num } of contracts.data) {
         queue.add(async () => {
-            await processMetadata(NETWORK, contract, block_num, SERVICE_NAME);
+            await processMetadata(NETWORK, contract, block_num, serviceName);
         });
     }
 

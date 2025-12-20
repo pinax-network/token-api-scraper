@@ -7,8 +7,8 @@ import { initService } from '../../lib/service-init';
 import { insert_balances, insert_error_balances } from '../../src/insert';
 import { get_latest_transfers } from '../../src/queries';
 
-const log = createLogger('balances-erc20');
-const SERVICE_NAME = 'ERC20 Balances';
+const serviceName = 'balances-erc20';
+const log = createLogger(serviceName);
 
 async function processBalanceOf(
     account: string,
@@ -31,7 +31,7 @@ async function processBalanceOf(
                     balance_hex,
                     block_num,
                 },
-                SERVICE_NAME,
+                serviceName,
             );
 
             log.info('Balance scraped successfully', {
@@ -45,7 +45,7 @@ async function processBalanceOf(
             await insert_error_balances(
                 { block_num, contract, account },
                 'zero balance',
-                SERVICE_NAME,
+                serviceName,
             );
         }
     } catch (err) {
@@ -53,7 +53,7 @@ async function processBalanceOf(
         await insert_error_balances(
             { block_num, contract, account },
             message,
-            SERVICE_NAME,
+            serviceName,
         );
     }
 }

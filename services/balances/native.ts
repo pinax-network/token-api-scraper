@@ -10,8 +10,8 @@ import {
 } from '../../src/insert';
 import { get_accounts_for_native_balances } from '../../src/queries';
 
-const log = createLogger('balances-native');
-const SERVICE_NAME = 'Native Balances';
+const serviceName = 'balances-native';
+const log = createLogger(serviceName);
 
 async function processNativeBalance(account: string) {
     // get native TRX balance for the account
@@ -26,7 +26,7 @@ async function processNativeBalance(account: string) {
                 account,
                 balance_hex,
             },
-            SERVICE_NAME,
+            serviceName,
         );
 
         log.info('Native balance scraped successfully', {
@@ -36,7 +36,7 @@ async function processNativeBalance(account: string) {
         });
     } catch (err) {
         const message = (err as Error).message || String(err);
-        await insert_error_native_balances(account, message, SERVICE_NAME);
+        await insert_error_native_balances(account, message, serviceName);
     }
 }
 

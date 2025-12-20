@@ -10,6 +10,12 @@
 export const VERBOSE = process.env.VERBOSE === 'true';
 
 /**
+ * Logging level
+ * Default: 'info'
+ */
+export const LOG_LEVEL = process.env.LOG_LEVEL ?? 'info'
+
+/**
  * Number of concurrent RPC requests
  * Default: 10
  */
@@ -24,6 +30,12 @@ export const PROMETHEUS_PORT = parseInt(
     process.env.PROMETHEUS_PORT || '9090',
     10,
 );
+
+/**
+ * Hostname for Prometheus server to bind to
+ * Default: '0.0.0.0' (all interfaces)
+ */
+export const PROMETHEUS_HOSTNAME = process.env.PROMETHEUS_HOSTNAME || '0.0.0.0';
 
 /**
  * Interval in milliseconds to flush batch inserts
