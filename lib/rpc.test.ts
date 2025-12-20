@@ -221,17 +221,20 @@ describe('RPC decoders', () => {
             } as Response;
         };
 
-        globalThis.fetch = emptyMockFetch as any;
+        const savedFetch = globalThis.fetch;
+        try {
+            globalThis.fetch = emptyMockFetch as any;
 
-        const result = await callContract(
-            'TCCA2WH8e1EJEUNkt1FNwmEjWWbgZm28vb',
-            'decimals()',
-        );
+            const result = await callContract(
+                'TCCA2WH8e1EJEUNkt1FNwmEjWWbgZm28vb',
+                'decimals()',
+            );
 
-        // Empty response should return empty string
-        expect(result).toBe('');
-
-        // Restore regular mock
-        globalThis.fetch = mockFetch as any;
+            // Empty response should return empty string
+            expect(result).toBe('');
+        } finally {
+            // Always restore the regular mock even if test fails
+            globalThis.fetch = savedFetch;
+        }
     });
 });
