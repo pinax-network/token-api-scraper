@@ -17,12 +17,6 @@ import { config } from 'dotenv';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 
-// Check if health check should be skipped
-if (process.env.SKIP_DB_CHECK === '1') {
-    console.log('⚠️  Database health check skipped (SKIP_DB_CHECK=1)');
-    process.exit(0);
-}
-
 // Load environment variables from .env.local or .env
 const envLocalPath = resolve(process.cwd(), '.env.local');
 const envPath = resolve(process.cwd(), '.env');
@@ -33,11 +27,17 @@ if (existsSync(envLocalPath)) {
     config({ path: envPath });
 }
 
+import { runHealthChecks } from '../lib/db-health.js';
 // Import after loading env vars
 import { createLogger } from '../lib/logger.js';
-import { runHealthChecks } from '../lib/db-health.js';
 
 const log = createLogger('check-db-health');
+
+// Check if health check should be skipped
+if (process.env.SKIP_DB_CHECK === '1') {
+    log.warn('Database health check skipped (SKIP_DB_CHECK=1)');
+    process.exit(0);
+}
 
 async function main() {
     try {

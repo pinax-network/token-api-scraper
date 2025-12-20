@@ -424,7 +424,9 @@ async function makeBatchJsonRpcRequest(
             const index = (item.id as number) - 1; // Convert back to 0-based index
 
             if (index < 0 || index >= requests.length) {
-                log.warn('Received response with unexpected id', { id: item.id });
+                log.warn('Received response with unexpected id', {
+                    id: item.id,
+                });
                 continue;
             }
 

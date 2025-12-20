@@ -213,7 +213,9 @@ async function runService(serviceName: string, options: any) {
 
     // Check if the service module exports a run function
     if (typeof serviceModule.run !== 'function') {
-        log.error('Service does not export a run function', { service: serviceName });
+        log.error('Service does not export a run function', {
+            service: serviceName,
+        });
         await stopPrometheusServer();
         process.exit(1);
     }
