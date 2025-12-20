@@ -50,6 +50,16 @@ async function processBalanceOf(
         }
     } catch (err) {
         const message = (err as Error).message || String(err);
+
+        // Emit warning for RPC errors with context
+        log.warn('Balance RPC call failed - non-deterministic error', {
+            contract,
+            account,
+            blockNum: block_num,
+            error: message,
+            serviceName,
+        });
+
         await insert_error_balances(
             { block_num, contract, account },
             message,
