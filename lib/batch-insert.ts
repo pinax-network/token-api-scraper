@@ -68,8 +68,8 @@ export class BatchInsertQueue {
         }
     }
 
-    /**`
-     * Flush all pending inserts for all tables`
+    /**
+     * Flush all pending inserts for all tables
      */
     public async flushAll(): Promise<void> {
         const tables = Array.from(this.queues.keys());
