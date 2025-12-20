@@ -12,13 +12,6 @@ const register = new promClient.Registry();
 promClient.collectDefaultMetrics({ register });
 
 // Custom metrics
-const totalTasksGauge = new promClient.Gauge({
-    name: 'scraper_total_tasks',
-    help: 'Total number of tasks to process',
-    labelNames: ['service'],
-    registers: [register],
-});
-
 const completedTasksCounter = new promClient.Counter({
     name: 'scraper_completed_tasks_total',
     help: 'Total number of completed tasks',
@@ -29,20 +22,6 @@ const completedTasksCounter = new promClient.Counter({
 const errorTasksCounter = new promClient.Counter({
     name: 'scraper_error_tasks_total',
     help: 'Total number of failed tasks',
-    labelNames: ['service'],
-    registers: [register],
-});
-
-const requestRateGauge = new promClient.Gauge({
-    name: 'scraper_requests_per_second',
-    help: 'Current requests per second',
-    labelNames: ['service'],
-    registers: [register],
-});
-
-const progressGauge = new promClient.Gauge({
-    name: 'scraper_progress_percentage',
-    help: 'Current progress percentage',
     labelNames: ['service'],
     registers: [register],
 });
@@ -141,33 +120,4 @@ export function incrementSuccess(serviceName: string): void {
 export function incrementError(serviceName: string): void {
     completedTasksCounter.labels(serviceName, 'error').inc();
     errorTasksCounter.labels(serviceName).inc();
-}
-
-/**
- * Set total tasks for a service
- */
-export function setTotalTasks(serviceName: string, total: number): void {
-    totalTasksGauge.labels(serviceName).set(total);
-}
-
-/**
- * Set progress percentage for a service
- */
-export function setProgress(serviceName: string, percentage: number): void {
-    progressGauge.labels(serviceName).set(percentage);
-}
-
-/**
- * Set request rate for a service
- */
-export function setRequestRate(serviceName: string, rate: number): void {
-    requestRateGauge.labels(serviceName).set(rate);
-}
-
-/**
- * Reset metrics for a service (useful for restart)
- */
-export function resetMetrics(serviceName: string, totalTasks: number): void {
-    totalTasksGauge.labels(serviceName).set(totalTasks);
-    progressGauge.labels(serviceName).set(0);
 }

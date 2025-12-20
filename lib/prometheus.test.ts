@@ -2,8 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import {
     incrementError,
     incrementSuccess,
-    setProgress,
-    setTotalTasks,
     startPrometheusServer,
     stopPrometheusServer,
 } from './prometheus';
@@ -62,11 +60,8 @@ describe('Prometheus Server', () => {
         const metricsText = await response.text();
 
         // Verify key metrics are present
-        expect(metricsText).toContain('scraper_total_tasks');
         expect(metricsText).toContain('scraper_completed_tasks_total');
         expect(metricsText).toContain('scraper_error_tasks_total');
-        expect(metricsText).toContain('scraper_requests_per_second');
-        expect(metricsText).toContain('scraper_progress_percentage');
         expect(metricsText).toContain('scraper_config_info');
 
         // Verify config info has labels
@@ -87,8 +82,6 @@ describe('Prometheus Server', () => {
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Set metrics
-        setTotalTasks(serviceName, 100);
-        setProgress(serviceName, 50);
         incrementSuccess(serviceName);
         incrementError(serviceName);
 
