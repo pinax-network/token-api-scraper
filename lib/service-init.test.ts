@@ -20,7 +20,9 @@ describe('initService', () => {
 
     test('should initialize service with provided name', () => {
         // This test just verifies the function can be called without errors
-        expect(() => initService({ serviceName: 'Test Service 1' })).not.toThrow();
+        expect(() =>
+            initService({ serviceName: 'Test Service 1' }),
+        ).not.toThrow();
     });
 
     test('should initialize batch insert queue with correct config', () => {
@@ -28,7 +30,7 @@ describe('initService', () => {
 
         // Verify that batch insert queue was initialized
         expect(mockInitBatchInsertQueue).toHaveBeenCalled();
-        
+
         // Check the configuration passed to batch insert
         expect(mockInitBatchInsertQueue).toHaveBeenCalledWith({
             intervalMs: expect.any(Number),

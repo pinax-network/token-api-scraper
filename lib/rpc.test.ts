@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { TronWeb } from 'tronweb';
-import { abi, callContract, decodeUint256, getNativeBalance } from './rpc';
+import {
+    abi,
+    callContract,
+    decodeUint256,
+    getContractCode,
+    getNativeBalance,
+} from './rpc';
 
 /**
  * Mock RPC responses for testing without network access
@@ -19,6 +25,10 @@ const MOCK_RESPONSES: Record<string, string> = {
         '0x000000000000000000000000000000000000000000000000000000003b9aca00',
     // eth_getBalance -> 0x1bc16d674ec80000 (2 ETH in wei)
     balance: '0x1bc16d674ec80000',
+    // eth_getCode -> contract bytecode (example)
+    code: '0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe',
+    // eth_getCode -> empty (self-destructed or EOA)
+    emptyCode: '0x',
 };
 
 /**
@@ -69,6 +79,8 @@ const mockFetch = async (
         }
     } else if (method === 'eth_getBalance') {
         result = MOCK_RESPONSES.balance;
+    } else if (method === 'eth_getCode') {
+        result = MOCK_RESPONSES.code; // Default to returning contract code
     }
 
     const response = {
@@ -232,6 +244,57 @@ describe('RPC decoders', () => {
 
             // Empty response should return empty string
             expect(result).toBe('');
+        } finally {
+            // Always restore the regular mock even if test fails
+            globalThis.fetch = savedFetch;
+        }
+    });
+
+    test('should get contract code', async () => {
+        const contract = 'TCCA2WH8e1EJEUNkt1FNwmEjWWbgZm28vb';
+
+        const code = await getContractCode(contract);
+
+        // Verify we got a hex string back with code
+        expect(code).toBe(MOCK_RESPONSES.code);
+        expect(code.startsWith('0x')).toBe(true);
+        expect(code.length).toBeGreaterThan(2); // More than just "0x"
+    });
+
+    test('should detect self-destructed contract with no code', async () => {
+        // Temporarily replace with empty code response mock
+        const emptyCodeMockFetch = async (
+            _url: string,
+            options?: RequestInit,
+        ): Promise<Response> => {
+            if (!options?.body) {
+                throw new Error('Request body is required');
+            }
+
+            const body = JSON.parse(options.body as string);
+            const response = {
+                jsonrpc: '2.0',
+                id: body.id,
+                result: '0x', // No code
+            };
+
+            return {
+                ok: true,
+                status: 200,
+                json: async () => response,
+            } as Response;
+        };
+
+        const savedFetch = globalThis.fetch;
+        try {
+            globalThis.fetch = emptyCodeMockFetch as any;
+
+            const code = await getContractCode(
+                'TCCA2WH8e1EJEUNkt1FNwmEjWWbgZm28vb',
+            );
+
+            // Empty code indicates self-destructed or EOA
+            expect(code).toBe('0x');
         } finally {
             // Always restore the regular mock even if test fails
             globalThis.fetch = savedFetch;

@@ -636,6 +636,27 @@ export async function getNativeBalance(
 }
 
 /** -----------------------------------------------------------------------
+ *  getContractCode - Get contract code at an address
+ *  ---------------------------------------------------------------------*/
+export async function getContractCode(
+    address: string,
+    retryOrOpts?: RetryOpts,
+): Promise<string> {
+    // Convert base58 address to EVM hex format
+    const evmAddress = toEvmHexAddress(address);
+
+    const hexValue = await makeJsonRpcCall(
+        'eth_getCode',
+        [evmAddress, 'latest'],
+        retryOrOpts,
+        `getting code for ${address}`,
+    );
+
+    // Return the code as-is (could be "0x" for no code)
+    return hexValue;
+}
+
+/** -----------------------------------------------------------------------
  *  Batch contract call helpers
  *  ---------------------------------------------------------------------*/
 
