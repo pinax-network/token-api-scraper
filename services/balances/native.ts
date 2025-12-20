@@ -1,8 +1,8 @@
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
-import { CONCURRENCY, PROMETHEUS_PORT, VERBOSE } from '../../lib/config';
+import { CONCURRENCY, VERBOSE } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
-import { ProgressTracker } from '../../lib/progress';
+import { setProgress, setTotalTasks } from '../../lib/prometheus';
 import { getNativeBalance } from '../../lib/rpc';
 import { initService } from '../../lib/service-init';
 import {
@@ -12,8 +12,9 @@ import {
 import { get_accounts_for_native_balances } from '../../src/queries';
 
 const log = createLogger('balances-native');
+const SERVICE_NAME = 'Native Balances';
 
-async function processNativeBalance(account: string, tracker: ProgressTracker) {
+async function processNativeBalance(account: string) {
     // get native TRX balance for the account
     const startTime = performance.now();
     try {
@@ -26,7 +27,7 @@ async function processNativeBalance(account: string, tracker: ProgressTracker) {
                 account,
                 balance_hex,
             },
-            tracker,
+            SERVICE_NAME,
         );
 
         log.info('Native balance scraped successfully', {
@@ -36,11 +37,11 @@ async function processNativeBalance(account: string, tracker: ProgressTracker) {
         });
     } catch (err) {
         const message = (err as Error).message || String(err);
-        await insert_error_native_balances(account, message, tracker);
+        await insert_error_native_balances(account, message, SERVICE_NAME);
     }
 }
 
-export async function run(tracker?: ProgressTracker) {
+export async function run() {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName: 'Native balances RPC service' });
 
@@ -61,27 +62,54 @@ export async function run(tracker?: ProgressTracker) {
         console.log(``);
     }
 
-    // Initialize or reset progress tracker
-    if (!tracker) {
-        tracker = new ProgressTracker({
-            serviceName: 'Native Balances',
-            totalTasks: accounts.length,
-            enablePrometheus: true,
-            prometheusPort: PROMETHEUS_PORT,
-        });
-    } else {
-        tracker.reset(accounts.length);
-    }
+    // Set total tasks for Prometheus
+    setTotalTasks(SERVICE_NAME, accounts.length);
+    setProgress(SERVICE_NAME, 0);
+
+    let completedTasks = 0;
+    const startTime = Date.now();
+
+    // Track progress updates to avoid excessive Prometheus updates
+    let lastReportedProgress = 0;
+
+    // Helper to update progress periodically
+    const updateProgress = () => {
+        completedTasks++;
+        // Update progress every 10 tasks or at completion
+        // Note: completedTasks++ is safe in Node.js despite concurrent execution
+        // because JavaScript is single-threaded. The modulo check is best-effort.
+        const currentProgress = Math.floor(
+            (completedTasks / accounts.length) * 100,
+        );
+        if (
+            currentProgress !== lastReportedProgress &&
+            (completedTasks % 10 === 0 || completedTasks === accounts.length)
+        ) {
+            lastReportedProgress = currentProgress;
+            setProgress(SERVICE_NAME, currentProgress);
+        }
+    };
 
     // Process all accounts
     for (const account of accounts) {
-        queue.add(() => processNativeBalance(account, tracker!));
+        queue.add(async () => {
+            await processNativeBalance(account);
+            updateProgress();
+        });
     }
 
     // Wait for all tasks to complete
     await queue.onIdle();
-    // Always keep Prometheus alive for auto-restart
-    await tracker.complete({ keepPrometheusAlive: true });
+
+    const elapsed = (Date.now() - startTime) / 1000;
+    const rate = elapsed > 0 ? completedTasks / elapsed : 0;
+
+    log.info('Service completed', {
+        totalTasks: accounts.length,
+        completedTasks,
+        elapsedSeconds: elapsed.toFixed(2),
+        avgRate: rate.toFixed(2),
+    });
 
     // Shutdown batch insert queue
     if (VERBOSE) {
@@ -91,8 +119,6 @@ export async function run(tracker?: ProgressTracker) {
     if (VERBOSE) {
         console.log('✅ Batch inserts flushed successfully');
     }
-
-    return tracker;
 }
 
 // Run the service if this is the main module

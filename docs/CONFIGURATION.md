@@ -90,6 +90,8 @@ MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 npm run start
   - Default: `9090`
   - Port where metrics will be exposed
 
+The Prometheus server starts automatically when a service runs and stays alive across service restarts for continuous monitoring.
+
 Example:
 ```bash
 # Prometheus metrics are always enabled on port 9090 by default
@@ -105,6 +107,7 @@ PROMETHEUS_PORT=8080 npm run start
 - `scraper_error_tasks_total` - Total number of failed tasks
 - `scraper_requests_per_second` - Current requests per second
 - `scraper_progress_percentage` - Current progress percentage
+- `scraper_config_info` - Configuration information (ClickHouse URL, database, node URL)
 
 Access metrics at: `http://localhost:9090/metrics` (or your configured port)
 
@@ -170,30 +173,34 @@ AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
 - Better for long-running monitoring scenarios
 - Simplified deployment (no need for external process managers)
 
-### Prometheus Metrics
-
-Prometheus metrics are always enabled and provide real-time monitoring of service performance.
-
-- **`PROMETHEUS_PORT`** - HTTP port for Prometheus metrics endpoint
-  - Default: `9090`
-  - Metrics available at `http://localhost:<port>/metrics`
-  - Metrics are preserved across service runs in auto-restart mode
-
 ### Logging Options
 
 - **`VERBOSE`** - Enable verbose logging output
   - Default: `false`
   - Set to `true` to enable detailed console output
-  - When disabled, only errors are shown
+  - When disabled, services use structured logging only
   - Prometheus metrics are still computed regardless of this setting
+
+- **`LOG_TYPE`** - Type of log output format
+  - Default: `pretty`
+  - Options: `pretty`, `json`, `hidden`
+  - Controls the format of structured logs from tslog
+
+- **`LOG_LEVEL`** - Minimum log level to display
+  - Default: `info`
+  - Options: `debug`, `info`, `warn`, `error`
+  - Controls which log messages are displayed
 
 Example:
 ```bash
 # Run with verbose logging
 VERBOSE=true npm run cli run metadata-transfers
 
-# Run silently (default)
+# Run silently with structured logs (default)
 npm run cli run metadata-transfers
+
+# Run with JSON logs for production
+LOG_TYPE=json LOG_LEVEL=warn npm run cli run metadata-transfers
 ```
 
 ## Configuration Priority

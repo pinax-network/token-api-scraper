@@ -314,64 +314,34 @@ npm run backfill-native
 npm run test
 ```
 
-## Progress Monitoring
+## Logging and Monitoring
 
-All services include comprehensive progress monitoring when `--verbose` is enabled (disabled by default).
+### Logging
 
-### Verbose Mode
+Services use structured logging via tslog. All services emit logs in JSON or pretty format depending on the `LOG_TYPE` environment variable.
 
-When `--verbose` is enabled, you'll see detailed progress information:
+When `--verbose` is enabled, you'll see additional console output including:
+- Task overview at the start
+- Batch insert status messages
 
-### Real-time Progress Bar
+### Prometheus Metrics
 
-Shows:
-- Completion percentage
-- Estimated time to completion (ETA)
-- Current request rate
-- Success/error counts
+Prometheus metrics are always enabled and provide real-time monitoring of service performance:
 
-Example output:
-```
-Progress: [████████████████████] 100% | ETA: 0s | 10000/10000 | Success: 9950 | Errors: 50 | Rate: 15.2/s
-```
+- `scraper_total_tasks` - Total number of tasks to process
+- `scraper_completed_tasks_total` - Total number of completed tasks (labeled by status: success/error)
+- `scraper_error_tasks_total` - Total number of failed tasks
+- `scraper_requests_per_second` - Current requests per second
+- `scraper_progress_percentage` - Current progress percentage
 
-### Task Overview
-
-At the start, services display:
-- Total unique contracts to process
-- Total unique accounts to process
-- Total tasks to process
-
-Example:
-```
-📋 Task Overview:
-   Unique contracts: 150
-   Unique accounts: 5000
-   Total tasks to process: 10000
-```
-
-### Statistics Summary
-
-At the end, services display:
-- Success/error counts and percentages
-- Total elapsed time
-- Average request rate
-
-Example:
-```
-✅ Statistics Summary:
-   Success: 9950 (99.5%)
-   Errors: 50 (0.5%)
-   Elapsed: 656s
-   Avg Rate: 15.2 req/s
-```
+Access metrics at: `http://localhost:9090/metrics` (or your configured Prometheus port)
 
 ### Silent Mode (Default)
 
-When `--verbose` is not specified (default behavior), the service runs silently with no console output except for errors. This is useful for:
+When `--verbose` is not specified (default behavior), the service runs with minimal console output, relying on structured logs. This is useful for:
 - Automated/scheduled tasks
 - Running services in the background
-- Reducing log verbosity in production
+- Reducing console verbosity in production
 
 Prometheus metrics continue to be collected and available regardless of verbose setting.
 
