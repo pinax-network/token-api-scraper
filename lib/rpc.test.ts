@@ -28,14 +28,27 @@ const mockFetch = async (
     _url: string,
     options?: RequestInit,
 ): Promise<Response> => {
-    const body = JSON.parse(options?.body as string);
+    if (!options?.body) {
+        throw new Error('Request body is required');
+    }
+
+    const body = JSON.parse(options.body as string);
 
     // Determine which mock response to return based on the method and data
     let result = '0x';
     const method = body.method;
 
     if (method === 'eth_call') {
-        const data = body.params[0].data as string;
+        const params = body.params;
+        if (!params || !Array.isArray(params) || params.length === 0) {
+            throw new Error('Invalid params for eth_call');
+        }
+
+        const data = params[0]?.data;
+        if (typeof data !== 'string') {
+            throw new Error('Invalid data parameter for eth_call');
+        }
+
         // Match function selector (first 10 chars: 0x + 8 hex chars)
         const selector = data.slice(0, 10);
 
@@ -190,7 +203,11 @@ describe('RPC decoders', () => {
             _url: string,
             options?: RequestInit,
         ): Promise<Response> => {
-            const body = JSON.parse(options?.body as string);
+            if (!options?.body) {
+                throw new Error('Request body is required');
+            }
+
+            const body = JSON.parse(options.body as string);
             const response = {
                 jsonrpc: '2.0',
                 id: body.id,
