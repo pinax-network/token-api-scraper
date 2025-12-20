@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as promClient from 'prom-client';
-import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL } from './config';
+import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL, PROMETHEUS_HOSTNAME } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('prometheus');
