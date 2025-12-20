@@ -642,7 +642,8 @@ export async function getContractCode(
     address: string,
     retryOrOpts?: RetryOpts,
 ): Promise<string> {
-    // Convert base58 address to EVM hex format
+    // Convert address to EVM hex format
+    // Accepts both Ethereum hex addresses (0x...) and TRON base58 addresses (T...)
     const evmAddress = toEvmHexAddress(address);
 
     const hexValue = await makeJsonRpcCall(

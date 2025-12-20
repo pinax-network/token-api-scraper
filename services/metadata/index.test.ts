@@ -281,10 +281,7 @@ describe('Self-destruct contract detection', () => {
     });
 
     test('should detect self-destructed contract when decimals() returns null', async () => {
-        mockCallContract.mockImplementation((_contract, signature) => {
-            if (signature === 'decimals()') return Promise.resolve('0x');
-            return Promise.resolve('0x');
-        });
+        mockCallContract.mockReturnValue(Promise.resolve('0x'));
         mockDecodeNumberHex.mockReturnValue(null); // decimals not available
         mockGetContractCode.mockReturnValue(Promise.resolve('0x')); // No code = self-destructed
 
@@ -303,10 +300,7 @@ describe('Self-destruct contract detection', () => {
     });
 
     test('should report missing decimals() when contract has code but decimals() fails', async () => {
-        mockCallContract.mockImplementation((_contract, signature) => {
-            if (signature === 'decimals()') return Promise.resolve('0x');
-            return Promise.resolve('0x');
-        });
+        mockCallContract.mockReturnValue(Promise.resolve('0x'));
         mockDecodeNumberHex.mockReturnValue(null); // decimals not available
         mockGetContractCode.mockReturnValue(
             Promise.resolve(
@@ -329,10 +323,7 @@ describe('Self-destruct contract detection', () => {
     });
 
     test('should fallback to missing decimals() when getContractCode fails', async () => {
-        mockCallContract.mockImplementation((_contract, signature) => {
-            if (signature === 'decimals()') return Promise.resolve('0x');
-            return Promise.resolve('0x');
-        });
+        mockCallContract.mockReturnValue(Promise.resolve('0x'));
         mockDecodeNumberHex.mockReturnValue(null); // decimals not available
         mockGetContractCode.mockReturnValue(
             Promise.reject(new Error('RPC error -32000: server error')),
@@ -353,10 +344,7 @@ describe('Self-destruct contract detection', () => {
     });
 
     test('should detect self-destructed contract with 0x code', async () => {
-        mockCallContract.mockImplementation((_contract, signature) => {
-            if (signature === 'decimals()') return Promise.resolve('0x');
-            return Promise.resolve('0x');
-        });
+        mockCallContract.mockReturnValue(Promise.resolve('0x'));
         mockDecodeNumberHex.mockReturnValue(null); // decimals not available
         mockGetContractCode.mockReturnValue(Promise.resolve('0x')); // 0x = no code
 

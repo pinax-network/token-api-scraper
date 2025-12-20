@@ -10,6 +10,9 @@ import { insertRow } from '../../src/insert';
 
 const log = createLogger('metadata');
 
+// Contract code constant for self-destruct detection
+const EMPTY_CONTRACT_CODE = '0x';
+
 export async function processMetadata(
     network: string,
     contract: string,
@@ -75,7 +78,7 @@ export async function processMetadata(
             // Check if the contract is self-destructed (has no code)
             try {
                 const code = await getContractCode(contract);
-                if (code.toLowerCase() === '0x') {
+                if (code.toLowerCase() === EMPTY_CONTRACT_CODE) {
                     // Contract has no code - it's self-destructed or never existed
                     await insert_error_metadata(
                         contract,
