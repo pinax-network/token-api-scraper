@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as promClient from 'prom-client';
-import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL, PROMETHEUS_HOSTNAME } from './config';
+import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('prometheus');
@@ -44,7 +44,10 @@ let prometheusServer: http.Server | undefined;
  * @param port - Port to listen on
  * @returns Promise that resolves when server is started
  */
-export function startPrometheusServer(hostname: string, port: number): Promise<void> {
+export function startPrometheusServer(
+    hostname: string,
+    port: number,
+): Promise<void> {
     return new Promise((resolve, reject) => {
         // Set configuration info metrics once (only on first initialization)
         if (!configMetricsInitialized) {
@@ -72,7 +75,10 @@ export function startPrometheusServer(hostname: string, port: number): Promise<v
         });
 
         prometheusServer.listen(port, hostname, () => {
-            log.info('Prometheus server started', { port, url: `http://${hostname}:${port}/metrics` });
+            log.info('Prometheus server started', {
+                port,
+                url: `http://${hostname}:${port}/metrics`,
+            });
             resolve();
         });
 

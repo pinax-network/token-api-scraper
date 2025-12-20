@@ -4,7 +4,7 @@ import { sleep } from 'bun';
 import { AbiCoder, keccak256, toUtf8Bytes } from 'ethers'; // ethers v6+
 import PQueue from 'p-queue';
 import { TronWeb } from 'tronweb';
-import { NODE_URL } from './config';
+import { DEFAULT_CONFIG, NODE_URL } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('rpc');
@@ -12,34 +12,27 @@ const log = createLogger('rpc');
 /** -----------------------------------------------------------------------
  *  Config
  *  ---------------------------------------------------------------------*/
-const DEFAULT_RETRIES = 3;
-const DEFAULT_BASE_DELAY_MS = 400;
-const DEFAULT_JITTER_MIN = 0.7; // 70% of backoff
-const DEFAULT_JITTER_MAX = 1.3; // 130% of backoff
-const DEFAULT_MAX_DELAY_MS = 30_000;
-const DEFAULT_TIMEOUT_MS = 10_000;
-
 // Read retry config from environment variables
 const MAX_RETRIES = parseInt(
-    process.env.MAX_RETRIES || String(DEFAULT_RETRIES),
+    process.env.MAX_RETRIES || String(DEFAULT_CONFIG.MAX_RETRIES),
     10,
 );
 const BASE_DELAY_MS = parseInt(
-    process.env.BASE_DELAY_MS || String(DEFAULT_BASE_DELAY_MS),
+    process.env.BASE_DELAY_MS || String(DEFAULT_CONFIG.BASE_DELAY_MS),
     10,
 );
-const JITTER_MIN = parseFloat(
-    process.env.JITTER_MIN || String(DEFAULT_JITTER_MIN),
+const JITTER_MIN = Number.parseFloat(
+    process.env.JITTER_MIN || String(DEFAULT_CONFIG.JITTER_MIN),
 );
-const JITTER_MAX = parseFloat(
-    process.env.JITTER_MAX || String(DEFAULT_JITTER_MAX),
+const JITTER_MAX = Number.parseFloat(
+    process.env.JITTER_MAX || String(DEFAULT_CONFIG.JITTER_MAX),
 );
 const MAX_DELAY_MS = parseInt(
-    process.env.MAX_DELAY_MS || String(DEFAULT_MAX_DELAY_MS),
+    process.env.MAX_DELAY_MS || String(DEFAULT_CONFIG.MAX_DELAY_MS),
     10,
 );
 const TIMEOUT_MS = parseInt(
-    process.env.TIMEOUT_MS || String(DEFAULT_TIMEOUT_MS),
+    process.env.TIMEOUT_MS || String(DEFAULT_CONFIG.TIMEOUT_MS),
     10,
 );
 

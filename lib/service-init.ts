@@ -52,7 +52,7 @@ export function initService(options: ServiceInitOptions): void {
                 PROMETHEUS_HOSTNAME,
                 BATCH_INSERT_INTERVAL_MS,
                 BATCH_INSERT_MAX_SIZE,
-            }
+            },
         });
         serviceInitialized = true;
     } else {
