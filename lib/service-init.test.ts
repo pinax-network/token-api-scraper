@@ -1,49 +1,48 @@
-import { beforeEach, describe } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
+
+// Set log type to hidden to suppress output during tests
+process.env.LOG_TYPE = 'hidden';
+
+// Mock the batch-insert module
+const mockInitBatchInsertQueue = mock(() => {});
+mock.module('./batch-insert', () => ({
+    initBatchInsertQueue: mockInitBatchInsertQueue,
+}));
+
+// Now import after setting environment and mocking
+import { initService } from './service-init';
 
 describe('initService', () => {
-    let consoleOutput: string[] = [];
-
     beforeEach(() => {
-        // Reset output before each test
-        consoleOutput = [];
-        // Replace console.log to capture output
-        console.log = (...args: any[]) => {
-            consoleOutput.push(args.join(' '));
-        };
+        // Clear mock calls before each test
+        mockInitBatchInsertQueue.mockClear();
     });
 
-    // test('should log configuration values once when verbose is enabled', () => {
-    //     // First initialization
-    //     initService({ serviceName: 'Test Service 1' });
+    test('should initialize service with provided name', () => {
+        // This test just verifies the function can be called without errors
+        expect(() => initService({ serviceName: 'Test Service 1' })).not.toThrow();
+    });
 
-    //     // Check that configuration was logged
-    //     const configLines = consoleOutput.join('\n');
-    //     expect(configLines).toContain('🔧 Configuration:');
-    //     expect(configLines).toContain('CLICKHOUSE_URL:');
-    //     expect(configLines).toContain('CLICKHOUSE_DATABASE:');
-    //     expect(configLines).toContain('NODE_URL:');
+    test('should initialize batch insert queue with correct config', () => {
+        initService({ serviceName: 'Metadata Service' });
 
-    //     // Reset output
-    //     consoleOutput = [];
+        // Verify that batch insert queue was initialized
+        expect(mockInitBatchInsertQueue).toHaveBeenCalled();
+        
+        // Check the configuration passed to batch insert
+        expect(mockInitBatchInsertQueue).toHaveBeenCalledWith({
+            intervalMs: expect.any(Number),
+            maxSize: expect.any(Number),
+        });
+    });
 
-    //     // Second initialization
-    //     initService({ serviceName: 'Test Service 2' });
+    test('should handle multiple service initializations', () => {
+        // First initialization
+        initService({ serviceName: 'Service 1' });
+        expect(mockInitBatchInsertQueue).toHaveBeenCalledTimes(1);
 
-    //     // Configuration should NOT be logged again
-    //     const secondConfigLines = consoleOutput.join('\n');
-    //     expect(secondConfigLines).not.toContain('🔧 Configuration:');
-    //     expect(secondConfigLines).not.toContain('CLICKHOUSE_URL:');
-
-    //     // But service-specific logs should still appear
-    //     expect(secondConfigLines).toContain('Test Service 2');
-    // });
-
-    // test('should log service initialization details when verbose is enabled', () => {
-    //     initService({ serviceName: 'Metadata Service' });
-
-    //     const output = consoleOutput.join('\n');
-    //     expect(output).toContain('Batch insert enabled');
-    //     expect(output).toContain('Starting Metadata Service');
-    //     expect(output).toContain('Prometheus metrics enabled');
-    // });
+        // Second initialization
+        initService({ serviceName: 'Service 2' });
+        expect(mockInitBatchInsertQueue).toHaveBeenCalledTimes(2);
+    });
 });
