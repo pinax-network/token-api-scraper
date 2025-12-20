@@ -71,7 +71,7 @@ export async function run() {
     const transfers = await get_latest_transfers();
 
     if (transfers.length > 0) {
-        log.info('Found transfers to process', {
+        log.info('Processing balances from transfers', {
             transferCount: transfers.length,
         });
     }
