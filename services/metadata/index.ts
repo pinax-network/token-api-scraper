@@ -75,7 +75,7 @@ export async function processMetadata(
             // Check if the contract is self-destructed (has no code)
             try {
                 const code = await getContractCode(contract);
-                if (!code || code.toLowerCase() === '0x') {
+                if (code.toLowerCase() === '0x') {
                     // Contract has no code - it's self-destructed or never existed
                     await insert_error_metadata(
                         contract,

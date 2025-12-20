@@ -352,13 +352,13 @@ describe('Self-destruct contract detection', () => {
         expect(mockIncrementError).toHaveBeenCalled();
     });
 
-    test('should detect self-destructed contract with empty code', async () => {
+    test('should detect self-destructed contract with 0x code', async () => {
         mockCallContract.mockImplementation((_contract, signature) => {
             if (signature === 'decimals()') return Promise.resolve('0x');
             return Promise.resolve('0x');
         });
         mockDecodeNumberHex.mockReturnValue(null); // decimals not available
-        mockGetContractCode.mockReturnValue(Promise.resolve('')); // Empty string = no code
+        mockGetContractCode.mockReturnValue(Promise.resolve('0x')); // 0x = no code
 
         await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
 
