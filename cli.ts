@@ -209,7 +209,7 @@ async function runService(serviceName: string, options: any) {
     const prometheusPort = parseInt(options.prometheusPort, 10);
     const prometheusHostname = options.prometheusHostname;
     try {
-        await startPrometheusServer(prometheusHostname, prometheusPort);
+        await startPrometheusServer(prometheusPort, prometheusHostname);
     } catch (error) {
         log.error('Failed to start Prometheus server', { error });
         process.exit(1);
@@ -284,7 +284,7 @@ Examples:
   $ npm run cli run metadata-swaps
   $ npm run cli run balances-erc20 --concurrency 20
   $ npm run cli run balances-native --prometheus-port 8080
-  
+
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
   $ npm run cli run metadata-swaps --auto-restart-delay 60

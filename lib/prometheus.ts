@@ -40,11 +40,11 @@ let prometheusServer: http.Server | undefined;
 
 /**
  * Initialize Prometheus server
- * @param hostname - Hostname to bind to
  * @param port - Port to listen on
+ * @param hostname - Hostname to bind to
  * @returns Promise that resolves when server is started
  */
-export function startPrometheusServer(hostname: string, port: number): Promise<void> {
+export function startPrometheusServer(port: number, hostname = PROMETHEUS_HOSTNAME): Promise<void> {
     return new Promise((resolve, reject) => {
         // Set configuration info metrics once (only on first initialization)
         if (!configMetricsInitialized) {
