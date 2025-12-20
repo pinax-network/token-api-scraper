@@ -42,7 +42,7 @@ export function initService(options: ServiceInitOptions): void {
     if (!serviceInitialized) {
         log.info('Service starting', {
             service: options.serviceName,
-            env: {
+            config: {
                 LOG_LEVEL,
                 CLICKHOUSE_URL,
                 CLICKHOUSE_DATABASE,
