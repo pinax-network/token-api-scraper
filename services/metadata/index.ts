@@ -24,10 +24,31 @@ export async function processMetadata(
         // Fetch symbol & name only if decimals exists (including 0)
         if (decimals !== null) {
             const startTime = performance.now();
-            const symbol_hex = await callContract(contract, 'symbol()'); // 95d89b41
-            const symbol = decodeSymbolHex(symbol_hex);
-            const name_hex = await callContract(contract, 'name()'); // 06fdde03
-            const name = decodeNameHex(name_hex);
+
+            // Try to fetch symbol, but allow empty string if it fails
+            let symbol = '';
+            try {
+                const symbol_hex = await callContract(contract, 'symbol()'); // 95d89b41
+                symbol = decodeSymbolHex(symbol_hex);
+            } catch (err) {
+                log.debug('symbol() not available or failed', {
+                    contract,
+                    error: (err as Error).message,
+                });
+            }
+
+            // Try to fetch name, but allow empty string if it fails
+            let name = '';
+            try {
+                const name_hex = await callContract(contract, 'name()'); // 06fdde03
+                name = decodeNameHex(name_hex);
+            } catch (err) {
+                log.debug('name() not available or failed', {
+                    contract,
+                    error: (err as Error).message,
+                });
+            }
+
             const queryTimeMs = Math.round(performance.now() - startTime);
 
             await insert_metadata(
