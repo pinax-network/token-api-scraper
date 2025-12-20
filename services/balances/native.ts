@@ -74,9 +74,12 @@ export async function run() {
         queue.add(async () => {
             await processNativeBalance(account);
             completedTasks++;
-            
+
             // Update progress periodically
-            if (completedTasks % 10 === 0 || completedTasks === accounts.length) {
+            if (
+                completedTasks % 10 === 0 ||
+                completedTasks === accounts.length
+            ) {
                 const percentage = (completedTasks / accounts.length) * 100;
                 setProgress(SERVICE_NAME, percentage);
             }

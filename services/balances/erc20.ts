@@ -115,9 +115,12 @@ export async function run() {
             queue.add(async () => {
                 await processBalanceOf(from, log_address, block_num);
                 completedTasks++;
-                
+
                 // Update progress periodically
-                if (completedTasks % 10 === 0 || completedTasks === totalTasks) {
+                if (
+                    completedTasks % 10 === 0 ||
+                    completedTasks === totalTasks
+                ) {
                     const percentage = (completedTasks / totalTasks) * 100;
                     setProgress(SERVICE_NAME, percentage);
                 }
@@ -126,7 +129,7 @@ export async function run() {
         queue.add(async () => {
             await processBalanceOf(to, log_address, block_num);
             completedTasks++;
-            
+
             // Update progress periodically
             if (completedTasks % 10 === 0 || completedTasks === totalTasks) {
                 const percentage = (completedTasks / totalTasks) * 100;

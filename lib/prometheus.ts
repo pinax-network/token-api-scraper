@@ -158,7 +158,10 @@ export function updateMetrics(update: MetricsUpdate): void {
         totalTasksGauge.labels(serviceName).set(update.totalTasks);
     }
 
-    if (update.completedTasks !== undefined && update.successfulTasks !== undefined) {
+    if (
+        update.completedTasks !== undefined &&
+        update.successfulTasks !== undefined
+    ) {
         // Increment counters by the change since last update
         // For simplicity, we'll just increment by 1 for each call
         completedTasksCounter.labels(serviceName, 'success').inc();

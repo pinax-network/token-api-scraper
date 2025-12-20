@@ -3,7 +3,7 @@ import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { CONCURRENCY, NETWORK } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
-import { resetMetrics, setProgress, setTotalTasks } from '../../lib/prometheus';
+import { setProgress, setTotalTasks } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import { processMetadata } from '.';
 
@@ -38,10 +38,14 @@ export async function run() {
         queue.add(async () => {
             await processMetadata(NETWORK, contract, block_num, SERVICE_NAME);
             completedTasks++;
-            
+
             // Update progress periodically
-            if (completedTasks % 10 === 0 || completedTasks === contracts.data.length) {
-                const percentage = (completedTasks / contracts.data.length) * 100;
+            if (
+                completedTasks % 10 === 0 ||
+                completedTasks === contracts.data.length
+            ) {
+                const percentage =
+                    (completedTasks / contracts.data.length) * 100;
                 setProgress(SERVICE_NAME, percentage);
             }
         });
