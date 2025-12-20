@@ -220,7 +220,7 @@ describe('schema files', () => {
     });
 
     test('should transform all actual metadata.sql correctly', async () => {
-        const metadataSql = await Bun.file('./sql/schema.metadata.sql').text();
+        const metadataSql = await Bun.file('./sql.schemas/schema.metadata.sql').text();
         const transformed = transformSqlForCluster(metadataSql, 'test_cluster');
 
         // Check all CREATE FUNCTION statements have ON CLUSTER
@@ -258,9 +258,9 @@ describe('schema files', () => {
         expect(plainMergeTree).toBeNull();
     });
 
-    test('should transform all actual erc20_balances.sql correctly', async () => {
+    test('should transform all actual balances.sql correctly', async () => {
         const balancesSql = await Bun.file(
-            './sql/schema.erc20_balances.sql',
+            './sql.schemas/schema.balances.sql',
         ).text();
         const transformed = transformSqlForCluster(balancesSql, 'test_cluster');
 
