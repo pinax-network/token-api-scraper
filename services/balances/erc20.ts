@@ -109,46 +109,36 @@ export async function run() {
     let completedTasks = 0;
     const startTime = Date.now();
 
-    // Use a lock-free counter by tracking in the queue's onEmpty callback
+    // Track progress updates to avoid excessive Prometheus updates
     let lastReportedProgress = 0;
+
+    // Helper to update progress periodically
+    const updateProgress = () => {
+        completedTasks++;
+        // Update progress every 10 tasks or at completion
+        // Note: completedTasks++ is safe in Node.js despite concurrent execution
+        // because JavaScript is single-threaded. The modulo check is best-effort.
+        const currentProgress = Math.floor((completedTasks / totalTasks) * 100);
+        if (
+            currentProgress !== lastReportedProgress &&
+            (completedTasks % 10 === 0 || completedTasks === totalTasks)
+        ) {
+            lastReportedProgress = currentProgress;
+            setProgress(SERVICE_NAME, currentProgress);
+        }
+    };
 
     // Process all accounts and their contracts
     for (const { log_address, from, to, block_num } of transfers) {
         if (!isBlackHoleAddress(from)) {
             queue.add(async () => {
                 await processBalanceOf(from, log_address, block_num);
-                completedTasks++;
-
-                // Update progress periodically (every 10 tasks or at completion)
-                // Using modulo on a potentially racy counter is OK for periodic updates
-                const currentProgress = Math.floor(
-                    (completedTasks / totalTasks) * 100,
-                );
-                if (
-                    currentProgress !== lastReportedProgress &&
-                    (completedTasks % 10 === 0 || completedTasks === totalTasks)
-                ) {
-                    lastReportedProgress = currentProgress;
-                    setProgress(SERVICE_NAME, currentProgress);
-                }
+                updateProgress();
             });
         }
         queue.add(async () => {
             await processBalanceOf(to, log_address, block_num);
-            completedTasks++;
-
-            // Update progress periodically (every 10 tasks or at completion)
-            // Using modulo on a potentially racy counter is OK for periodic updates
-            const currentProgress = Math.floor(
-                (completedTasks / totalTasks) * 100,
-            );
-            if (
-                currentProgress !== lastReportedProgress &&
-                (completedTasks % 10 === 0 || completedTasks === totalTasks)
-            ) {
-                lastReportedProgress = currentProgress;
-                setProgress(SERVICE_NAME, currentProgress);
-            }
+            updateProgress();
         });
     }
 

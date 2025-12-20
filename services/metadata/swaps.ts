@@ -33,28 +33,33 @@ export async function run() {
     let completedTasks = 0;
     const startTime = Date.now();
 
-    // Use a lock-free counter by tracking in the queue's onEmpty callback
+    // Track progress updates to avoid excessive Prometheus updates
     let lastReportedProgress = 0;
+
+    // Helper to update progress periodically
+    const updateProgress = () => {
+        completedTasks++;
+        // Update progress every 10 tasks or at completion
+        // Note: completedTasks++ is safe in Node.js despite concurrent execution
+        // because JavaScript is single-threaded. The modulo check is best-effort.
+        const currentProgress = Math.floor(
+            (completedTasks / contracts.data.length) * 100,
+        );
+        if (
+            currentProgress !== lastReportedProgress &&
+            (completedTasks % 10 === 0 ||
+                completedTasks === contracts.data.length)
+        ) {
+            lastReportedProgress = currentProgress;
+            setProgress(SERVICE_NAME, currentProgress);
+        }
+    };
 
     // Process all contracts
     for (const { contract, block_num } of contracts.data) {
         queue.add(async () => {
             await processMetadata(NETWORK, contract, block_num, SERVICE_NAME);
-            completedTasks++;
-
-            // Update progress periodically (every 10 tasks or at completion)
-            // Using modulo on a potentially racy counter is OK for periodic updates
-            const currentProgress = Math.floor(
-                (completedTasks / contracts.data.length) * 100,
-            );
-            if (
-                currentProgress !== lastReportedProgress &&
-                (completedTasks % 10 === 0 ||
-                    completedTasks === contracts.data.length)
-            ) {
-                lastReportedProgress = currentProgress;
-                setProgress(SERVICE_NAME, currentProgress);
-            }
+            updateProgress();
         });
     }
 
