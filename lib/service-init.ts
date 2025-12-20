@@ -12,7 +12,6 @@ import {
     CONCURRENCY,
     NODE_URL,
     PROMETHEUS_PORT,
-    VERBOSE,
 } from './config';
 import { createLogger } from './logger';
 
@@ -53,15 +52,5 @@ export function initService(options: ServiceInitOptions): void {
         serviceInitialized = true;
     } else {
         log.debug('Service restarting: ', options.serviceName);
-    }
-
-    if (VERBOSE) {
-        console.log(
-            `⚡ Batch insert enabled: flush every ${BATCH_INSERT_INTERVAL_MS}ms or ${BATCH_INSERT_MAX_SIZE} rows`,
-        );
-        console.log(
-            `🚀 Starting ${options.serviceName} with concurrency: ${CONCURRENCY}`,
-        );
-        console.log(`📊 Prometheus metrics enabled on port ${PROMETHEUS_PORT}`);
     }
 }

@@ -1,3 +1,7 @@
+import { createLogger } from './logger';
+
+const log = createLogger('db-health');
+
 interface HealthCheckResult {
     success: boolean;
     message: string;
@@ -200,61 +204,47 @@ export async function runHealthChecks(): Promise<{
 }> {
     const url = process.env.CLICKHOUSE_URL || 'http://localhost:8123';
 
-    console.log('\n=== ClickHouse Database Health Check ===\n');
-    console.log(`Target URL: ${url}`);
-    console.log('');
+    log.info('ClickHouse Database Health Check', { url });
 
     // Check DNS resolution
-    console.log('1. Checking DNS resolution...');
+    log.info('Checking DNS resolution');
     const dnsCheck = await checkDNS(url);
     if (dnsCheck.success) {
-        console.log(`✓ ${dnsCheck.message}`);
-        if (dnsCheck.details?.ipAddresses) {
-            console.log(
-                `  IP Addresses: ${dnsCheck.details.ipAddresses.join(', ')}`,
-            );
-        }
+        log.info('DNS resolution successful', {
+            message: dnsCheck.message,
+            ipAddresses: dnsCheck.details?.ipAddresses,
+        });
     } else {
-        console.error(`✗ ${dnsCheck.message}`);
-        if (dnsCheck.details?.error) {
-            console.error(`  Error: ${dnsCheck.details.error}`);
-        }
+        log.error('DNS resolution failed', {
+            message: dnsCheck.message,
+            error: dnsCheck.details?.error,
+        });
     }
-    console.log('');
 
     // Check ClickHouse ping
-    console.log('2. Pinging ClickHouse server...');
+    log.info('Pinging ClickHouse server');
     const pingCheck = await pingClickHouse(url);
     if (pingCheck.success) {
-        console.log(`✓ ${pingCheck.message}`);
-        if (pingCheck.details?.pingResponse) {
-            console.log(`  Response: ${pingCheck.details.pingResponse.trim()}`);
-        }
+        log.info('ClickHouse server is reachable', {
+            message: pingCheck.message,
+            response: pingCheck.details?.pingResponse,
+        });
     } else {
-        console.error(`✗ ${pingCheck.message}`);
-        if (pingCheck.details?.error) {
-            console.error(`  Error: ${pingCheck.details.error}`);
-        }
-        if (pingCheck.details?.errorCode) {
-            console.error(`  Error Code: ${pingCheck.details.errorCode}`);
-        }
-        if (pingCheck.details?.attemptedAddress) {
-            console.error(
-                `  Attempted Address: ${pingCheck.details.attemptedAddress}`,
-            );
-        }
-        if (pingCheck.details?.timeout) {
-            console.error(`  Timeout: ${pingCheck.details.timeout}`);
-        }
+        log.error('ClickHouse ping failed', {
+            message: pingCheck.message,
+            error: pingCheck.details?.error,
+            errorCode: pingCheck.details?.errorCode,
+            attemptedAddress: pingCheck.details?.attemptedAddress,
+            timeout: pingCheck.details?.timeout,
+        });
     }
-    console.log('');
 
     const overall = dnsCheck.success && pingCheck.success;
 
     if (overall) {
-        console.log('✅ All health checks passed!\n');
+        log.info('All health checks passed');
     } else {
-        console.error('❌ Health checks failed!\n');
+        log.error('Health checks failed');
     }
 
     return {

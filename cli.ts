@@ -2,8 +2,11 @@
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { createLogger } from './lib/logger';
 import { startPrometheusServer, stopPrometheusServer } from './lib/prometheus';
 import { executeSqlSetup, promptClusterSelection } from './lib/setup';
+
+const log = createLogger('cli');
 
 // Read version from package.json
 const VERSION = JSON.parse(
@@ -150,10 +153,9 @@ async function runService(serviceName: string, options: any) {
     const service = SERVICES[serviceName as keyof typeof SERVICES];
 
     if (!service) {
-        console.error(`❌ Error: Unknown service '${serviceName}'`);
-        console.log(
-            `\n📋 Available services: ${Object.keys(SERVICES).join(', ')}`,
-        );
+        log.error(`Unknown service: ${serviceName}`, {
+            availableServices: Object.keys(SERVICES),
+        });
         process.exit(1);
     }
 
@@ -164,17 +166,18 @@ async function runService(serviceName: string, options: any) {
 
     // Validate autoRestartDelay
     if (Number.isNaN(autoRestartDelay) || autoRestartDelay < 1) {
-        console.error(
-            `❌ Error: Invalid auto-restart delay '${options.autoRestartDelay}'. Must be a positive number (minimum 1 second).`,
-        );
+        log.error('Invalid auto-restart delay', {
+            value: options.autoRestartDelay,
+            message: 'Must be a positive number (minimum 1 second)',
+        });
         process.exit(1);
     }
 
     if (options.verbose) {
-        console.log(`🚀 Starting service: ${serviceName}\n`);
-        console.log(
-            `🔄 Auto-restart enabled with ${autoRestartDelay}s delay\n`,
-        );
+        log.info('Starting service', {
+            service: serviceName,
+            autoRestartDelay: `${autoRestartDelay}s`,
+        });
     }
 
     const servicePath = resolve(__dirname, service.path);
@@ -201,7 +204,7 @@ async function runService(serviceName: string, options: any) {
     try {
         await startPrometheusServer(prometheusPort);
     } catch (error) {
-        console.error(`❌ Failed to start Prometheus server:`, error);
+        log.error('Failed to start Prometheus server', { error });
         process.exit(1);
     }
 
@@ -210,9 +213,7 @@ async function runService(serviceName: string, options: any) {
 
     // Check if the service module exports a run function
     if (typeof serviceModule.run !== 'function') {
-        console.error(
-            `❌ Error: Service '${serviceName}' does not export a run function`,
-        );
+        log.error('Service does not export a run function', { service: serviceName });
         await stopPrometheusServer();
         process.exit(1);
     }
@@ -224,27 +225,28 @@ async function runService(serviceName: string, options: any) {
         iteration++;
         try {
             if (options.verbose && iteration > 1) {
-                console.log(`\n🔄 Starting iteration ${iteration}...\n`);
+                log.info(`Starting iteration ${iteration}`);
             }
 
             // Run the service
             await serviceModule.run();
 
             if (options.verbose) {
-                console.log(
-                    `\n✅ Service '${serviceName}' iteration ${iteration} completed successfully`,
-                );
+                log.info('Service iteration completed', {
+                    service: serviceName,
+                    iteration,
+                });
             }
 
             // Wait before restarting
             if (options.verbose) {
-                console.log(`⏳ Restarting in ${autoRestartDelay} seconds...`);
+                log.info(`Restarting in ${autoRestartDelay} seconds`);
             }
             await new Promise((resolve) =>
                 setTimeout(resolve, autoRestartDelay * 1000),
             );
         } catch (error) {
-            console.error(`❌ Service error:`, error);
+            log.error('Service error', { error });
             // Close Prometheus server on error
             await stopPrometheusServer();
             process.exit(1);
@@ -293,11 +295,12 @@ program
     .command('list')
     .description('List all available services')
     .action(() => {
-        console.log('\n📋 Available Services:\n');
-        Object.entries(SERVICES).forEach(([name, info]) => {
-            console.log(`  ${name.padEnd(20)} ${info.description}`);
+        log.info('Available services:', {
+            services: Object.entries(SERVICES).map(([name, info]) => ({
+                name,
+                description: info.description,
+            })),
         });
-        console.log('');
     });
 
 // ============================================================================
@@ -353,7 +356,7 @@ Examples:
     `,
     )
     .action(async (files: string[], options: any) => {
-        console.log('🚀 SQL Setup Command\n');
+        log.info('SQL Setup Command');
 
         // Update ClickHouse client environment from CLI options
         // These options override existing environment variables
@@ -373,10 +376,10 @@ Examples:
         if (clusterName === true) {
             try {
                 clusterName = await promptClusterSelection();
-                console.log(`\n✅ Selected cluster: ${clusterName}\n`);
+                log.info('Cluster selected', { cluster: clusterName });
             } catch (error) {
                 const err = error as Error;
-                console.error(`\n❌ Failed to select cluster: ${err.message}`);
+                log.error('Failed to select cluster', { error: err.message });
                 process.exit(1);
             }
         }
@@ -391,7 +394,7 @@ Examples:
             process.exit(0);
         } catch (error) {
             const err = error as Error;
-            console.error(`\n❌ Setup failed: ${err.message}`);
+            log.error('Setup failed', { error: err.message });
             process.exit(1);
         }
     });

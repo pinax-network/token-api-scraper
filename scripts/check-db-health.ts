@@ -29,16 +29,15 @@ const envPath = resolve(process.cwd(), '.env');
 
 if (existsSync(envLocalPath)) {
     config({ path: envLocalPath });
-    console.log('Loaded environment from .env.local');
 } else if (existsSync(envPath)) {
     config({ path: envPath });
-    console.log('Loaded environment from .env');
-} else {
-    console.log('No .env file found, using environment variables or defaults');
 }
 
 // Import after loading env vars
+import { createLogger } from '../lib/logger.js';
 import { runHealthChecks } from '../lib/db-health.js';
+
+const log = createLogger('check-db-health');
 
 async function main() {
     try {
@@ -46,33 +45,26 @@ async function main() {
 
         if (!result.overall) {
             if (process.env.DB_CHECK_WARN_ONLY === '1') {
-                console.warn(
-                    '\n⚠️  Database health checks failed, but continuing (DB_CHECK_WARN_ONLY=1)',
-                );
-                console.warn(
-                    'Please verify your ClickHouse connection settings.\n',
+                log.warn(
+                    'Database health checks failed, but continuing (DB_CHECK_WARN_ONLY=1)',
                 );
                 process.exit(0);
             } else {
-                console.error(
-                    '\n❌ Database health checks failed. Please verify your ClickHouse connection settings.',
+                log.error(
+                    'Database health checks failed. Please verify your ClickHouse connection settings.',
                 );
-                console.error('To skip this check, set SKIP_DB_CHECK=1');
-                console.error(
-                    'To show warnings only, set DB_CHECK_WARN_ONLY=1\n',
-                );
+                log.info('To skip this check, set SKIP_DB_CHECK=1');
+                log.info('To show warnings only, set DB_CHECK_WARN_ONLY=1');
                 process.exit(1);
             }
         }
 
         process.exit(0);
     } catch (error) {
-        console.error('\nUnexpected error during health check:', error);
+        log.error('Unexpected error during health check', { error });
 
         if (process.env.DB_CHECK_WARN_ONLY === '1') {
-            console.warn(
-                '\n⚠️  Continuing despite errors (DB_CHECK_WARN_ONLY=1)\n',
-            );
+            log.warn('Continuing despite errors (DB_CHECK_WARN_ONLY=1)');
             process.exit(0);
         }
 

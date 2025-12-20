@@ -1,5 +1,4 @@
 import { client } from './clickhouse';
-import { VERBOSE } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('batch-insert');
@@ -200,14 +199,8 @@ export function getBatchInsertQueue(): BatchInsertQueue {
 export async function shutdownBatchInsertQueue(): Promise<void> {
     if (globalBatchQueue) {
         log.debug('Shutting down batch insert queue');
-        if (VERBOSE) {
-            console.log('⏳ Flushing remaining batch inserts...');
-        }
         await globalBatchQueue.shutdown();
         log.debug('Batch insert queue shutdown complete');
-        if (VERBOSE) {
-            console.log('✅ Batch inserts flushed successfully');
-        }
         globalBatchQueue = null;
     }
 }
