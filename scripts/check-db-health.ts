@@ -27,8 +27,8 @@ if (existsSync(envLocalPath)) {
     config({ path: envPath });
 }
 
-import { runHealthChecks } from '../lib/db-health.js';
 // Import after loading env vars
+import { runHealthChecks } from '../lib/db-health.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('check-db-health');
