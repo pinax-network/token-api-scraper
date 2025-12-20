@@ -21,10 +21,10 @@ const BASE_DELAY_MS = parseInt(
     process.env.BASE_DELAY_MS || String(DEFAULT_CONFIG.BASE_DELAY_MS),
     10,
 );
-const JITTER_MIN = Number.parseFloat(
+const JITTER_MIN = parseFloat(
     process.env.JITTER_MIN || String(DEFAULT_CONFIG.JITTER_MIN),
 );
-const JITTER_MAX = Number.parseFloat(
+const JITTER_MAX = parseFloat(
     process.env.JITTER_MAX || String(DEFAULT_CONFIG.JITTER_MAX),
 );
 const MAX_DELAY_MS = parseInt(
