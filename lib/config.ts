@@ -19,7 +19,7 @@ export const LOG_LEVEL = process.env.LOG_LEVEL ?? 'info'
  * Number of concurrent RPC requests
  * Default: 40
  */
-export const CONCURRENCY = parseInt(process.env.CONCURRENCY || '40', 40);
+export const CONCURRENCY = parseInt(process.env.CONCURRENCY || '40', 10);
 
 /**
  * HTTP port for Prometheus metrics endpoint
