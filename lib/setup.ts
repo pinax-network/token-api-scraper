@@ -2,6 +2,9 @@ import { select } from '@inquirer/prompts';
 import { existsSync, readFileSync } from 'fs';
 import { basename } from 'path';
 import { client } from './clickhouse';
+import { createLogger } from './logger';
+
+const log = createLogger('setup');
 
 /**
  * Options for SQL setup
@@ -38,7 +41,7 @@ export async function showClusters(): Promise<string[]> {
  * Prompt user to select a cluster from available clusters
  */
 export async function promptClusterSelection(): Promise<string> {
-    console.log('\n🔍 Fetching available clusters...\n');
+    log.info('Fetching available clusters');
 
     const clusters = await showClusters();
 
@@ -48,7 +51,7 @@ export async function promptClusterSelection(): Promise<string> {
         );
     }
 
-    console.log(`Found ${clusters.length} cluster(s):\n`);
+    log.info(`Found ${clusters.length} cluster(s)`, { clusters });
 
     const selectedCluster = await select({
         message: 'Select a cluster:',
@@ -191,10 +194,10 @@ export async function executeSqlSetup(
     filePaths: string[],
     options: SetupOptions = {},
 ): Promise<void> {
-    console.log('🔧 Starting SQL setup...\n');
+    log.info('Starting SQL setup', { files: filePaths.length });
 
     for (const filePath of filePaths) {
-        console.log(`📄 Processing: ${filePath}`);
+        log.info('Processing file', { file: filePath });
 
         try {
             // Check if file exists and provide helpful error message
@@ -225,7 +228,10 @@ export async function executeSqlSetup(
             // Split into individual statements
             const statements = splitSqlStatements(transformedSql);
 
-            console.log(`   Found ${statements.length} SQL statement(s)`);
+            log.info('Found SQL statements', {
+                file: filePath,
+                count: statements.length,
+            });
 
             // Execute each statement
             for (let i = 0; i < statements.length; i++) {
@@ -236,38 +242,41 @@ export async function executeSqlSetup(
 
                 try {
                     await client.exec({ query: statement });
-                    console.log(
-                        `   ✓ Statement ${i + 1}/${statements.length}: ${statementPreview}...`,
-                    );
+                    log.debug('Statement executed', {
+                        index: `${i + 1}/${statements.length}`,
+                        preview: statementPreview,
+                    });
                 } catch (error) {
                     const err = error as Error;
-                    console.error(
-                        `   ✗ Statement ${i + 1}/${statements.length} failed: ${err.message}`,
-                    );
-                    console.error(`   Statement: ${statementPreview}...`);
+                    log.error('Statement execution failed', {
+                        index: `${i + 1}/${statements.length}`,
+                        preview: statementPreview,
+                        error: err.message,
+                    });
                     throw error;
                 }
             }
 
-            console.log(`   ✅ Completed: ${filePath}\n`);
+            log.info('File completed', { file: filePath });
         } catch (error) {
             const err = error as Error;
-            console.error(
-                `   ❌ Failed to process ${filePath}: ${err.message}\n`,
-            );
+            log.error('Failed to process file', {
+                file: filePath,
+                error: err.message,
+            });
             throw error;
         }
     }
 
-    console.log('✅ SQL setup completed successfully!');
+    log.info('SQL setup completed successfully');
 
     if (options.cluster) {
-        console.log(`\n📊 Cluster: ${options.cluster}`);
-        console.log(
-            '   - ON CLUSTER clause added to CREATE TABLE, ALTER TABLE, CREATE FUNCTION, and CREATE MATERIALIZED VIEW statements',
-        );
-        console.log(
-            '   - Converted MergeTree engines to Replicated* variants (ReplicatedMergeTree, ReplicatedReplacingMergeTree)',
-        );
+        log.info('Cluster configuration applied', {
+            cluster: options.cluster,
+            transformations: [
+                'Added ON CLUSTER clauses',
+                'Converted to Replicated engines',
+            ],
+        });
     }
 }

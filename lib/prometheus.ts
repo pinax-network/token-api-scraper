@@ -1,11 +1,6 @@
 import * as http from 'http';
 import * as promClient from 'prom-client';
-import {
-    CLICKHOUSE_DATABASE,
-    CLICKHOUSE_URL,
-    NODE_URL,
-    VERBOSE,
-} from './config';
+import { CLICKHOUSE_DATABASE, CLICKHOUSE_URL, NODE_URL } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('prometheus');
@@ -97,11 +92,6 @@ export function startPrometheusServer(port: number): Promise<void> {
         });
 
         prometheusServer.listen(port, '0.0.0.0', () => {
-            if (VERBOSE) {
-                console.log(
-                    `📊 Prometheus metrics server listening on http://0.0.0.0:${port}`,
-                );
-            }
             log.info('Prometheus server started', { port });
             resolve();
         });

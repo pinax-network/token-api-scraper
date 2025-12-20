@@ -17,28 +17,35 @@ import { config } from 'dotenv';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 
-// Check if health check should be skipped
-if (process.env.SKIP_DB_CHECK === '1') {
-    console.log('⚠️  Database health check skipped (SKIP_DB_CHECK=1)');
-    process.exit(0);
-}
-
 // Load environment variables from .env.local or .env
 const envLocalPath = resolve(process.cwd(), '.env.local');
 const envPath = resolve(process.cwd(), '.env');
 
+let envFileLoaded = '';
 if (existsSync(envLocalPath)) {
     config({ path: envLocalPath });
-    console.log('Loaded environment from .env.local');
+    envFileLoaded = '.env.local';
 } else if (existsSync(envPath)) {
     config({ path: envPath });
-    console.log('Loaded environment from .env');
-} else {
-    console.log('No .env file found, using environment variables or defaults');
+    envFileLoaded = '.env';
 }
 
 // Import after loading env vars
 import { runHealthChecks } from '../lib/db-health.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('check-db-health');
+
+// Log environment file if loaded
+if (envFileLoaded) {
+    log.debug('Environment loaded', { file: envFileLoaded });
+}
+
+// Check if health check should be skipped
+if (process.env.SKIP_DB_CHECK === '1') {
+    log.warn('Database health check skipped (SKIP_DB_CHECK=1)');
+    process.exit(0);
+}
 
 async function main() {
     try {
@@ -46,33 +53,26 @@ async function main() {
 
         if (!result.overall) {
             if (process.env.DB_CHECK_WARN_ONLY === '1') {
-                console.warn(
-                    '\n⚠️  Database health checks failed, but continuing (DB_CHECK_WARN_ONLY=1)',
-                );
-                console.warn(
-                    'Please verify your ClickHouse connection settings.\n',
+                log.warn(
+                    'Database health checks failed, but continuing (DB_CHECK_WARN_ONLY=1)',
                 );
                 process.exit(0);
             } else {
-                console.error(
-                    '\n❌ Database health checks failed. Please verify your ClickHouse connection settings.',
+                log.error(
+                    'Database health checks failed. Please verify your ClickHouse connection settings.',
                 );
-                console.error('To skip this check, set SKIP_DB_CHECK=1');
-                console.error(
-                    'To show warnings only, set DB_CHECK_WARN_ONLY=1\n',
-                );
+                log.info('To skip this check, set SKIP_DB_CHECK=1');
+                log.info('To show warnings only, set DB_CHECK_WARN_ONLY=1');
                 process.exit(1);
             }
         }
 
         process.exit(0);
     } catch (error) {
-        console.error('\nUnexpected error during health check:', error);
+        log.error('Unexpected error during health check', { error });
 
         if (process.env.DB_CHECK_WARN_ONLY === '1') {
-            console.warn(
-                '\n⚠️  Continuing despite errors (DB_CHECK_WARN_ONLY=1)\n',
-            );
+            log.warn('Continuing despite errors (DB_CHECK_WARN_ONLY=1)');
             process.exit(0);
         }
 

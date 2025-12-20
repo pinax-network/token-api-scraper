@@ -1,6 +1,6 @@
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
-import { CONCURRENCY, VERBOSE } from '../../lib/config';
+import { CONCURRENCY } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
 import { setProgress, setTotalTasks } from '../../lib/prometheus';
 import { callContract } from '../../lib/rpc';
@@ -94,14 +94,6 @@ export async function run() {
         });
     }
 
-    if (VERBOSE) {
-        console.log(`\n📋 Task Overview:`);
-        console.log(`   Unique contracts: ${uniqueContracts.size}`);
-        console.log(`   Unique accounts: ${uniqueAccounts.size}`);
-        console.log(`   Total tasks to process: ${totalTasks}`);
-        console.log(``);
-    }
-
     // Set total tasks for Prometheus
     setTotalTasks(SERVICE_NAME, totalTasks);
     setProgress(SERVICE_NAME, 0);
@@ -156,13 +148,7 @@ export async function run() {
     });
 
     // Shutdown batch insert queue
-    if (VERBOSE) {
-        console.log('⏳ Flushing remaining batch inserts...');
-    }
     await shutdownBatchInsertQueue();
-    if (VERBOSE) {
-        console.log('✅ Batch inserts flushed successfully');
-    }
 }
 
 // Run the service if this is the main module
