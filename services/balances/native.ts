@@ -36,6 +36,14 @@ async function processNativeBalance(account: string) {
         });
     } catch (err) {
         const message = (err as Error).message || String(err);
+
+        // Emit warning for RPC errors with context
+        log.warn('Native balance RPC call failed - non-deterministic error', {
+            account,
+            error: message,
+            serviceName,
+        });
+
         await insert_error_native_balances(account, message, serviceName);
     }
 }

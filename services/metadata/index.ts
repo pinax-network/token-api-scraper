@@ -108,6 +108,15 @@ export async function processMetadata(
         }
     } catch (err) {
         const message = (err as Error).message || String(err);
+
+        // Emit warning for RPC errors with context
+        log.warn('Metadata RPC call failed - non-deterministic error', {
+            contract,
+            blockNum: block_num,
+            error: message,
+            serviceName,
+        });
+
         await insert_error_metadata(contract, message, serviceName);
     }
 }
@@ -127,6 +136,7 @@ export async function insert_metadata(
         'metadata',
         row,
         `Failed to insert metadata for contract ${row.contract}`,
+        { contract: row.contract },
     );
     if (serviceName) {
         if (success) incrementSuccess(serviceName);
@@ -177,6 +187,7 @@ export async function insert_error_metadata(
         'metadata_errors',
         { contract, error },
         `Failed to insert error metadata for contract ${contract}`,
+        { contract },
     );
     if (serviceName) {
         incrementError(serviceName);

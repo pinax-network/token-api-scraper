@@ -1,4 +1,5 @@
 import { client } from './clickhouse';
+import { NODE_URL } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('batch-insert');
@@ -67,8 +68,8 @@ export class BatchInsertQueue {
         }
     }
 
-    /**`
-     * Flush all pending inserts for all tables`
+    /**
+     * Flush all pending inserts for all tables
      */
     public async flushAll(): Promise<void> {
         const tables = Array.from(this.queues.keys());
@@ -124,10 +125,20 @@ export class BatchInsertQueue {
         count: number,
     ): void {
         const err = error as Error;
+        const errorMessage = err?.message || String(error);
+
+        // Emit warning for non-deterministic errors with retries
+        log.warn('Batch insert failed - non-deterministic error', {
+            table,
+            rowCount: count,
+            message: errorMessage,
+            rpcEndpoint: NODE_URL,
+        });
+
         log.error('Failed to insert batch', {
             table,
             rowCount: count,
-            message: err?.message || String(error),
+            message: errorMessage,
         });
     }
 

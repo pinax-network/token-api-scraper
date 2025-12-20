@@ -79,6 +79,7 @@ describe('Metadata processing with optional name() and symbol()', () => {
                 decimals: 18,
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementSuccess).toHaveBeenCalled();
     });
@@ -109,6 +110,7 @@ describe('Metadata processing with optional name() and symbol()', () => {
                 decimals: 18,
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementSuccess).toHaveBeenCalled();
     });
@@ -139,6 +141,7 @@ describe('Metadata processing with optional name() and symbol()', () => {
                 decimals: 18,
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementSuccess).toHaveBeenCalled();
     });
@@ -171,6 +174,7 @@ describe('Metadata processing with optional name() and symbol()', () => {
                 decimals: 18,
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementSuccess).toHaveBeenCalled();
     });
@@ -192,6 +196,7 @@ describe('Metadata processing with optional name() and symbol()', () => {
                 error: 'missing decimals()',
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementError).toHaveBeenCalled();
     });
@@ -295,6 +300,7 @@ describe('Self-destruct contract detection', () => {
                 error: 'self-destructed contract',
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementError).toHaveBeenCalled();
     });
@@ -318,6 +324,7 @@ describe('Self-destruct contract detection', () => {
                 error: 'missing decimals()',
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementError).toHaveBeenCalled();
     });
@@ -339,6 +346,7 @@ describe('Self-destruct contract detection', () => {
                 error: 'missing decimals()',
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementError).toHaveBeenCalled();
     });
@@ -358,6 +366,7 @@ describe('Self-destruct contract detection', () => {
                 error: 'self-destructed contract',
             }),
             expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementError).toHaveBeenCalled();
     });
