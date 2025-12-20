@@ -1,20 +1,20 @@
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
-import { CONCURRENCY, PROMETHEUS_PORT, VERBOSE } from '../../lib/config';
+import { CONCURRENCY, VERBOSE } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
-import { ProgressTracker } from '../../lib/progress';
+import { setProgress, setTotalTasks } from '../../lib/prometheus';
 import { callContract } from '../../lib/rpc';
 import { initService } from '../../lib/service-init';
 import { insert_balances, insert_error_balances } from '../../src/insert';
 import { get_latest_transfers } from '../../src/queries';
 
 const log = createLogger('balances-erc20');
+const SERVICE_NAME = 'ERC20 Balances';
 
 async function processBalanceOf(
     account: string,
     contract: string,
     block_num: number,
-    tracker: ProgressTracker,
 ) {
     // get `balanceOf` RPC call for the account
     const startTime = performance.now();
@@ -32,7 +32,7 @@ async function processBalanceOf(
                     balance_hex,
                     block_num,
                 },
-                tracker,
+                SERVICE_NAME,
             );
 
             log.info('Balance scraped successfully', {
@@ -46,7 +46,7 @@ async function processBalanceOf(
             await insert_error_balances(
                 { block_num, contract, account },
                 'zero balance',
-                tracker,
+                SERVICE_NAME,
             );
         }
     } catch (err) {
@@ -54,7 +54,7 @@ async function processBalanceOf(
         await insert_error_balances(
             { block_num, contract, account },
             message,
-            tracker,
+            SERVICE_NAME,
         );
     }
 }
@@ -63,7 +63,7 @@ function isBlackHoleAddress(address: string): boolean {
     return address === 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 }
 
-export async function run(tracker?: ProgressTracker) {
+export async function run() {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName: 'ERC20 balances RPC service' });
 
@@ -102,32 +102,51 @@ export async function run(tracker?: ProgressTracker) {
         console.log(``);
     }
 
-    // Initialize or reset progress tracker
-    if (!tracker) {
-        tracker = new ProgressTracker({
-            serviceName: 'ERC20 Balances',
-            totalTasks,
-            enablePrometheus: true,
-            prometheusPort: PROMETHEUS_PORT,
-        });
-    } else {
-        tracker.reset(totalTasks);
-    }
+    // Set total tasks for Prometheus
+    setTotalTasks(SERVICE_NAME, totalTasks);
+    setProgress(SERVICE_NAME, 0);
+
+    let completedTasks = 0;
+    const startTime = Date.now();
 
     // Process all accounts and their contracts
     for (const { log_address, from, to, block_num } of transfers) {
         if (!isBlackHoleAddress(from)) {
-            queue.add(() =>
-                processBalanceOf(from, log_address, block_num, tracker!),
-            );
+            queue.add(async () => {
+                await processBalanceOf(from, log_address, block_num);
+                completedTasks++;
+                
+                // Update progress periodically
+                if (completedTasks % 10 === 0 || completedTasks === totalTasks) {
+                    const percentage = (completedTasks / totalTasks) * 100;
+                    setProgress(SERVICE_NAME, percentage);
+                }
+            });
         }
-        queue.add(() => processBalanceOf(to, log_address, block_num, tracker!));
+        queue.add(async () => {
+            await processBalanceOf(to, log_address, block_num);
+            completedTasks++;
+            
+            // Update progress periodically
+            if (completedTasks % 10 === 0 || completedTasks === totalTasks) {
+                const percentage = (completedTasks / totalTasks) * 100;
+                setProgress(SERVICE_NAME, percentage);
+            }
+        });
     }
 
     // Wait for all tasks to complete
     await queue.onIdle();
-    // Always keep Prometheus alive for auto-restart
-    await tracker.complete({ keepPrometheusAlive: true });
+
+    const elapsed = (Date.now() - startTime) / 1000;
+    const rate = elapsed > 0 ? completedTasks / elapsed : 0;
+
+    log.info('Service completed', {
+        totalTasks,
+        completedTasks,
+        elapsedSeconds: elapsed.toFixed(2),
+        avgRate: rate.toFixed(2),
+    });
 
     // Shutdown batch insert queue
     if (VERBOSE) {
@@ -137,8 +156,6 @@ export async function run(tracker?: ProgressTracker) {
     if (VERBOSE) {
         console.log('✅ Batch inserts flushed successfully');
     }
-
-    return tracker;
 }
 
 // Run the service if this is the main module

@@ -1,31 +1,21 @@
-import { VERBOSE } from '../../lib/config';
 import {
     decodeNameHex,
     decodeNumberHex,
     decodeSymbolHex,
 } from '../../lib/hex-decode';
 import { createLogger } from '../../lib/logger';
-import type { ProgressTracker } from '../../lib/progress';
+import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { callContract } from '../../lib/rpc';
 import { insertRow } from '../../src/insert';
 
 const log = createLogger('metadata');
 
-let isFirstCall = true;
-
 export async function processMetadata(
     network: string,
     contract: string,
     block_num: number,
-    tracker: ProgressTracker,
+    serviceName: string,
 ) {
-    if (VERBOSE && isFirstCall) {
-        console.log(`\n🌐 Processing metadata for network: ${network}`);
-        console.log(`\n📋 Task Overview:`);
-        console.log(``);
-        isFirstCall = false;
-    }
-
     try {
         // Fetch decimals (required)
         const decimals_hex = await callContract(contract, 'decimals()'); // 313ce567
@@ -49,7 +39,7 @@ export async function processMetadata(
                     symbol,
                     decimals,
                 },
-                tracker,
+                serviceName,
             );
 
             log.info('Metadata scraped successfully', {
@@ -64,12 +54,12 @@ export async function processMetadata(
             await insert_error_metadata(
                 contract,
                 'missing decimals()',
-                tracker,
+                serviceName,
             );
         }
     } catch (err) {
         const message = (err as Error).message || String(err);
-        await insert_error_metadata(contract, message, tracker);
+        await insert_error_metadata(contract, message, serviceName);
     }
 }
 
@@ -82,16 +72,16 @@ export async function insert_metadata(
         name: string;
         decimals: number;
     },
-    tracker?: ProgressTracker,
+    serviceName?: string,
 ) {
     const success = await insertRow(
         'metadata',
         row,
         `Failed to insert metadata for contract ${row.contract}`,
     );
-    if (tracker) {
-        if (success) tracker.incrementSuccess();
-        else tracker.incrementError();
+    if (serviceName) {
+        if (success) incrementSuccess(serviceName);
+        else incrementError(serviceName);
     }
 }
 
@@ -124,12 +114,12 @@ function isInfrastructureError(error: string): boolean {
 export async function insert_error_metadata(
     contract: string,
     error: string,
-    tracker?: ProgressTracker,
+    serviceName?: string,
 ) {
     // Skip infrastructure-related errors
     if (isInfrastructureError(error)) {
-        if (tracker) {
-            tracker.incrementError();
+        if (serviceName) {
+            incrementError(serviceName);
         }
         return;
     }
@@ -139,7 +129,7 @@ export async function insert_error_metadata(
         { contract, error },
         `Failed to insert error metadata for contract ${contract}`,
     );
-    if (tracker) {
-        tracker.incrementError();
+    if (serviceName) {
+        incrementError(serviceName);
     }
 }

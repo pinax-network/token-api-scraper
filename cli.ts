@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import type { ProgressTracker } from './lib/progress';
+import { startPrometheusServer, stopPrometheusServer } from './lib/prometheus';
 import { executeSqlSetup, promptClusterSelection } from './lib/setup';
 
 // Read version from package.json
@@ -196,6 +196,15 @@ async function runService(serviceName: string, options: any) {
     process.env.PROMETHEUS_PORT = options.prometheusPort;
     process.env.VERBOSE = options.verbose ? 'true' : 'false';
 
+    // Start Prometheus server once before the loop
+    const prometheusPort = parseInt(options.prometheusPort, 10);
+    try {
+        await startPrometheusServer(prometheusPort);
+    } catch (error) {
+        console.error(`❌ Failed to start Prometheus server:`, error);
+        process.exit(1);
+    }
+
     // Import and run the service module directly
     const serviceModule = await import(servicePath);
 
@@ -204,11 +213,11 @@ async function runService(serviceName: string, options: any) {
         console.error(
             `❌ Error: Service '${serviceName}' does not export a run function`,
         );
+        await stopPrometheusServer();
         process.exit(1);
     }
 
     // Run the service in a continuous loop
-    let tracker: ProgressTracker | undefined;
     let iteration = 0;
 
     while (true) {
@@ -218,8 +227,8 @@ async function runService(serviceName: string, options: any) {
                 console.log(`\n🔄 Starting iteration ${iteration}...\n`);
             }
 
-            // Run the service, always keeping Prometheus alive for auto-restart
-            tracker = await serviceModule.run(tracker);
+            // Run the service
+            await serviceModule.run();
 
             if (options.verbose) {
                 console.log(
@@ -237,9 +246,7 @@ async function runService(serviceName: string, options: any) {
         } catch (error) {
             console.error(`❌ Service error:`, error);
             // Close Prometheus server on error
-            if (tracker && typeof tracker.stop === 'function') {
-                await tracker.stop();
-            }
+            await stopPrometheusServer();
             process.exit(1);
         }
     }

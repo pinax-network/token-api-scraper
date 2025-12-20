@@ -1,6 +1,6 @@
 import { getBatchInsertQueue } from '../lib/batch-insert';
 import { createLogger } from '../lib/logger';
-import type { ProgressTracker } from '../lib/progress';
+import { incrementError, incrementSuccess } from '../lib/prometheus';
 
 const log = createLogger('insert');
 
@@ -59,31 +59,31 @@ export async function insert_balances(
         balance_hex: string;
         block_num: number;
     },
-    tracker?: ProgressTracker,
+    serviceName?: string,
 ) {
     const success = await insertRow(
         'erc20_balances_rpc',
         row,
         `Failed to insert balance for account ${row.account}`,
     );
-    if (tracker) {
-        if (success) tracker.incrementSuccess();
-        else tracker.incrementError();
+    if (serviceName) {
+        if (success) incrementSuccess(serviceName);
+        else incrementError(serviceName);
     }
 }
 
 export async function insert_error_balances(
     row: { block_num: number; contract: string; account: string },
     error_msg: string,
-    tracker?: ProgressTracker,
+    serviceName?: string,
 ) {
     await insertRow(
         'erc20_balances_rpc',
         { ...row, error_msg },
         `Failed to insert error balance for account ${row.account}`,
     );
-    if (tracker) {
-        tracker.incrementError();
+    if (serviceName) {
+        incrementError(serviceName);
     }
 }
 
@@ -92,30 +92,30 @@ export async function insert_native_balances(
         account: string;
         balance_hex: string;
     },
-    tracker?: ProgressTracker,
+    serviceName?: string,
 ) {
     const success = await insertRow(
         'native_balances_rpc',
         row,
         `Failed to insert native balance for account ${row.account}`,
     );
-    if (tracker) {
-        if (success) tracker.incrementSuccess();
-        else tracker.incrementError();
+    if (serviceName) {
+        if (success) incrementSuccess(serviceName);
+        else incrementError(serviceName);
     }
 }
 
 export async function insert_error_native_balances(
     account: string,
     error: string,
-    tracker?: ProgressTracker,
+    serviceName?: string,
 ) {
     await insertRow(
         'native_balances_rpc',
         { account, error },
         `Failed to insert error native balance for account ${account}`,
     );
-    if (tracker) {
-        tracker.incrementError();
+    if (serviceName) {
+        incrementError(serviceName);
     }
 }
