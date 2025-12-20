@@ -69,19 +69,27 @@ export async function run() {
     let completedTasks = 0;
     const startTime = Date.now();
 
+    // Use a lock-free counter by tracking in the queue's onEmpty callback
+    let lastReportedProgress = 0;
+
     // Process all accounts
     for (const account of accounts) {
         queue.add(async () => {
             await processNativeBalance(account);
             completedTasks++;
 
-            // Update progress periodically
+            // Update progress periodically (every 10 tasks or at completion)
+            // Using modulo on a potentially racy counter is OK for periodic updates
+            const currentProgress = Math.floor(
+                (completedTasks / accounts.length) * 100,
+            );
             if (
-                completedTasks % 10 === 0 ||
-                completedTasks === accounts.length
+                currentProgress !== lastReportedProgress &&
+                (completedTasks % 10 === 0 ||
+                    completedTasks === accounts.length)
             ) {
-                const percentage = (completedTasks / accounts.length) * 100;
-                setProgress(SERVICE_NAME, percentage);
+                lastReportedProgress = currentProgress;
+                setProgress(SERVICE_NAME, currentProgress);
             }
         });
     }

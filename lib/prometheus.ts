@@ -139,49 +139,6 @@ export function stopPrometheusServer(): Promise<void> {
 }
 
 /**
- * Update Prometheus metrics for a service
- */
-export interface MetricsUpdate {
-    serviceName: string;
-    totalTasks?: number;
-    completedTasks?: number;
-    successfulTasks?: number;
-    errorTasks?: number;
-    requestRate?: number;
-    progressPercentage?: number;
-}
-
-export function updateMetrics(update: MetricsUpdate): void {
-    const { serviceName } = update;
-
-    if (update.totalTasks !== undefined) {
-        totalTasksGauge.labels(serviceName).set(update.totalTasks);
-    }
-
-    if (
-        update.completedTasks !== undefined &&
-        update.successfulTasks !== undefined
-    ) {
-        // Increment counters by the change since last update
-        // For simplicity, we'll just increment by 1 for each call
-        completedTasksCounter.labels(serviceName, 'success').inc();
-    }
-
-    if (update.errorTasks !== undefined) {
-        completedTasksCounter.labels(serviceName, 'error').inc();
-        errorTasksCounter.labels(serviceName).inc();
-    }
-
-    if (update.requestRate !== undefined) {
-        requestRateGauge.labels(serviceName).set(update.requestRate);
-    }
-
-    if (update.progressPercentage !== undefined) {
-        progressGauge.labels(serviceName).set(update.progressPercentage);
-    }
-}
-
-/**
  * Increment success counter for a service
  */
 export function incrementSuccess(serviceName: string): void {

@@ -109,6 +109,9 @@ export async function run() {
     let completedTasks = 0;
     const startTime = Date.now();
 
+    // Use a lock-free counter by tracking in the queue's onEmpty callback
+    let lastReportedProgress = 0;
+
     // Process all accounts and their contracts
     for (const { log_address, from, to, block_num } of transfers) {
         if (!isBlackHoleAddress(from)) {
@@ -116,13 +119,17 @@ export async function run() {
                 await processBalanceOf(from, log_address, block_num);
                 completedTasks++;
 
-                // Update progress periodically
+                // Update progress periodically (every 10 tasks or at completion)
+                // Using modulo on a potentially racy counter is OK for periodic updates
+                const currentProgress = Math.floor(
+                    (completedTasks / totalTasks) * 100,
+                );
                 if (
-                    completedTasks % 10 === 0 ||
-                    completedTasks === totalTasks
+                    currentProgress !== lastReportedProgress &&
+                    (completedTasks % 10 === 0 || completedTasks === totalTasks)
                 ) {
-                    const percentage = (completedTasks / totalTasks) * 100;
-                    setProgress(SERVICE_NAME, percentage);
+                    lastReportedProgress = currentProgress;
+                    setProgress(SERVICE_NAME, currentProgress);
                 }
             });
         }
@@ -130,10 +137,17 @@ export async function run() {
             await processBalanceOf(to, log_address, block_num);
             completedTasks++;
 
-            // Update progress periodically
-            if (completedTasks % 10 === 0 || completedTasks === totalTasks) {
-                const percentage = (completedTasks / totalTasks) * 100;
-                setProgress(SERVICE_NAME, percentage);
+            // Update progress periodically (every 10 tasks or at completion)
+            // Using modulo on a potentially racy counter is OK for periodic updates
+            const currentProgress = Math.floor(
+                (completedTasks / totalTasks) * 100,
+            );
+            if (
+                currentProgress !== lastReportedProgress &&
+                (completedTasks % 10 === 0 || completedTasks === totalTasks)
+            ) {
+                lastReportedProgress = currentProgress;
+                setProgress(SERVICE_NAME, currentProgress);
             }
         });
     }
