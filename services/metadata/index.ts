@@ -5,10 +5,13 @@ import {
 } from '../../lib/hex-decode';
 import { createLogger } from '../../lib/logger';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
-import { callContract } from '../../lib/rpc';
+import { callContract, getContractCode } from '../../lib/rpc';
 import { insertRow } from '../../src/insert';
 
 const log = createLogger('metadata');
+
+// Contract code constant for self-destruct detection
+const EMPTY_CONTRACT_CODE = '0x';
 
 export async function processMetadata(
     network: string,
@@ -72,11 +75,36 @@ export async function processMetadata(
                 queryTimeMs,
             });
         } else {
-            await insert_error_metadata(
-                contract,
-                'missing decimals()',
-                serviceName,
-            );
+            // Check if the contract is self-destructed (has no code)
+            try {
+                const code = await getContractCode(contract);
+                if (code.toLowerCase() === EMPTY_CONTRACT_CODE) {
+                    // Contract has no code - it's self-destructed or never existed
+                    await insert_error_metadata(
+                        contract,
+                        'self-destructed contract',
+                        serviceName,
+                    );
+                } else {
+                    // Contract has code but decimals() failed
+                    await insert_error_metadata(
+                        contract,
+                        'missing decimals()',
+                        serviceName,
+                    );
+                }
+            } catch (err) {
+                // If we can't check the code, fall back to the original error
+                log.debug('Failed to check contract code', {
+                    contract,
+                    error: (err as Error).message,
+                });
+                await insert_error_metadata(
+                    contract,
+                    'missing decimals()',
+                    serviceName,
+                );
+            }
         }
     } catch (err) {
         const message = (err as Error).message || String(err);

@@ -8,6 +8,7 @@ import { processMetadata } from '.';
 
 // Mock dependencies
 const mockCallContract = mock(() => Promise.resolve('0x'));
+const mockGetContractCode = mock(() => Promise.resolve('0x')); // Default: no code
 const mockDecodeSymbolHex = mock(() => '');
 const mockDecodeNameHex = mock(() => '');
 const mockDecodeNumberHex = mock(() => 18);
@@ -17,6 +18,7 @@ const mockIncrementError = mock(() => {});
 
 mock.module('../../lib/rpc', () => ({
     callContract: mockCallContract,
+    getContractCode: mockGetContractCode,
 }));
 
 mock.module('../../lib/hex-decode', () => ({
@@ -37,12 +39,20 @@ mock.module('../../lib/prometheus', () => ({
 describe('Metadata processing with optional name() and symbol()', () => {
     beforeEach(() => {
         mockCallContract.mockClear();
+        mockGetContractCode.mockClear();
         mockDecodeSymbolHex.mockClear();
         mockDecodeNameHex.mockClear();
         mockDecodeNumberHex.mockClear();
         mockInsertRow.mockClear();
         mockIncrementSuccess.mockClear();
         mockIncrementError.mockClear();
+
+        // Set default mock implementations
+        mockGetContractCode.mockReturnValue(
+            Promise.resolve(
+                '0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe',
+            ),
+        ); // Default: contract has code
     });
 
     test('should handle token with both name() and symbol()', async () => {
@@ -250,5 +260,105 @@ describe('Metadata error filtering', () => {
             error.toLowerCase().includes('non-json response (status 502)') ||
             error.toLowerCase().includes('non-json response (status 404)');
         expect(isInfra).toBe(false);
+    });
+});
+
+/**
+ * Tests for self-destruct contract detection
+ * Verifies that contracts with no code are detected as self-destructed
+ */
+
+describe('Self-destruct contract detection', () => {
+    beforeEach(() => {
+        mockCallContract.mockClear();
+        mockGetContractCode.mockClear();
+        mockDecodeSymbolHex.mockClear();
+        mockDecodeNameHex.mockClear();
+        mockDecodeNumberHex.mockClear();
+        mockInsertRow.mockClear();
+        mockIncrementSuccess.mockClear();
+        mockIncrementError.mockClear();
+    });
+
+    test('should detect self-destructed contract when decimals() returns null', async () => {
+        mockCallContract.mockReturnValue(Promise.resolve('0x'));
+        mockDecodeNumberHex.mockReturnValue(null); // decimals not available
+        mockGetContractCode.mockReturnValue(Promise.resolve('0x')); // No code = self-destructed
+
+        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+
+        // Should insert error with self-destructed message, not missing decimals()
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata_errors',
+            expect.objectContaining({
+                contract: '0xabc123',
+                error: 'self-destructed contract',
+            }),
+            expect.any(String),
+        );
+        expect(mockIncrementError).toHaveBeenCalled();
+    });
+
+    test('should report missing decimals() when contract has code but decimals() fails', async () => {
+        mockCallContract.mockReturnValue(Promise.resolve('0x'));
+        mockDecodeNumberHex.mockReturnValue(null); // decimals not available
+        mockGetContractCode.mockReturnValue(
+            Promise.resolve(
+                '0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe',
+            ),
+        ); // Has code
+
+        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+
+        // Should insert error with missing decimals() message
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata_errors',
+            expect.objectContaining({
+                contract: '0xabc123',
+                error: 'missing decimals()',
+            }),
+            expect.any(String),
+        );
+        expect(mockIncrementError).toHaveBeenCalled();
+    });
+
+    test('should fallback to missing decimals() when getContractCode fails', async () => {
+        mockCallContract.mockReturnValue(Promise.resolve('0x'));
+        mockDecodeNumberHex.mockReturnValue(null); // decimals not available
+        mockGetContractCode.mockReturnValue(
+            Promise.reject(new Error('RPC error -32000: server error')),
+        ); // getContractCode fails
+
+        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+
+        // Should fallback to missing decimals() error
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata_errors',
+            expect.objectContaining({
+                contract: '0xabc123',
+                error: 'missing decimals()',
+            }),
+            expect.any(String),
+        );
+        expect(mockIncrementError).toHaveBeenCalled();
+    });
+
+    test('should detect self-destructed contract with 0x code', async () => {
+        mockCallContract.mockReturnValue(Promise.resolve('0x'));
+        mockDecodeNumberHex.mockReturnValue(null); // decimals not available
+        mockGetContractCode.mockReturnValue(Promise.resolve('0x')); // 0x = no code
+
+        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+
+        // Should insert error with self-destructed message
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata_errors',
+            expect.objectContaining({
+                contract: '0xabc123',
+                error: 'self-destructed contract',
+            }),
+            expect.any(String),
+        );
+        expect(mockIncrementError).toHaveBeenCalled();
     });
 });
