@@ -629,12 +629,12 @@ const setupForkedBlocks = setupCommand
     )
     .option(
         '--days-back <days>',
-        'Number of days to look back for forked blocks (default: 30)',
+        'Number of days to look back for forked blocks (default: 30, minimum: 1)',
         '30',
     )
     .option(
         '--refresh-interval <seconds>',
-        'Refresh interval in seconds for the materialized view (default: 60)',
+        'Refresh interval in seconds for the materialized view (default: 60, minimum: 15)',
         '60',
     )
     .addHelpText(
@@ -684,6 +684,21 @@ Example:
         }
         if (!sourceDatabase) {
             log.error('--source-database is required');
+            process.exit(1);
+        }
+        if (Number.isNaN(daysBack) || daysBack < 1) {
+            log.error('Invalid --days-back', {
+                value: options.daysBack,
+                message: 'Must be a positive number (minimum 1 day)',
+            });
+            process.exit(1);
+        }
+        if (Number.isNaN(refreshInterval) || refreshInterval < 15) {
+            log.error('Invalid --refresh-interval', {
+                value: options.refreshInterval,
+                message:
+                    'Must be at least 15 seconds to avoid performance issues',
+            });
             process.exit(1);
         }
 
