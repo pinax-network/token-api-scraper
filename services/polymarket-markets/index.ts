@@ -28,45 +28,30 @@ interface RegisteredToken {
  * Interface for the Polymarket API market response
  */
 interface PolymarketMarket {
-    condition_id: string;
+    id: string;
     question: string;
+    conditionId: string;
+    slug: string;
+    resolutionSource: string;
+    endDate: string;
+    startDate: string;
+    image: string;
+    icon: string;
     description: string;
-    market_slug: string;
-    end_date_iso: string;
-    game_start_time: string;
-    seconds_delay: number;
-    fpmm: string;
-    maker_base_fee: number;
-    taker_base_fee: number;
-    clob_rewards: object;
-    active: boolean;
-    closed: boolean;
+    outcomes: string;
+    createdAt: string;
+    submitted_by: string;
+    questionID: string;
+    umaEndDate: string;
+    orderPriceMinTickSize: number;
+    orderMinSize: number;
+    endDateIso: string;
+    startDateIso: string;
+    negRisk: boolean;
+    negRiskRequestID: string;
+    clobTokenIds: string;
+    enableOrderBook: boolean;
     archived: boolean;
-    accepting_orders: boolean;
-    accepting_order_timestamp: string;
-    minimum_order_size: number;
-    minimum_tick_size: number;
-    neg_risk: boolean;
-    neg_risk_market_id: string;
-    neg_risk_request_id: string;
-    notification_preferences: object;
-    notifications_enabled: boolean;
-    competitive: number;
-    spread: number;
-    last_trade_price: number;
-    best_bid: number;
-    best_ask: number;
-    price: number;
-    volume: string;
-    volume_num: number;
-    liquidity: string;
-    liquidity_num: number;
-    tokens: Array<{
-        token_id: string;
-        outcome: string;
-        price: number;
-        winner: boolean;
-    }>;
 }
 
 /**
@@ -115,49 +100,38 @@ async function insertMarket(
     token1: string,
 ): Promise<boolean> {
     const row = {
-        condition_id: market.condition_id,
+        condition_id: market.conditionId || '',
         token0,
         token1,
+        market_id: market.id || '',
         question: market.question || '',
         description: market.description || '',
-        market_slug: market.market_slug || '',
-        end_date_iso: market.end_date_iso || '',
-        game_start_time: market.game_start_time || '',
-        seconds_delay: market.seconds_delay || 0,
-        fpmm: market.fpmm || '',
-        maker_base_fee: market.maker_base_fee || 0,
-        taker_base_fee: market.taker_base_fee || 0,
-        clob_rewards: JSON.stringify(market.clob_rewards || {}),
-        active: market.active || false,
-        closed: market.closed || false,
+        market_slug: market.slug || '',
+        outcomes: market.outcomes || '[]',
+        resolution_source: market.resolutionSource || '',
+        image: market.image || '',
+        icon: market.icon || '',
+        question_id: market.questionID || '',
+        clob_token_ids: market.clobTokenIds || '[]',
+        submitted_by: market.submitted_by || '',
+        enable_order_book: market.enableOrderBook || false,
+        order_price_min_tick_size: market.orderPriceMinTickSize || 0,
+        order_min_size: market.orderMinSize || 0,
+        neg_risk: market.negRisk || false,
+        neg_risk_request_id: market.negRiskRequestID || '',
         archived: market.archived || false,
-        accepting_orders: market.accepting_orders || false,
-        accepting_order_timestamp: market.accepting_order_timestamp || '',
-        minimum_order_size: market.minimum_order_size || 0,
-        minimum_tick_size: market.minimum_tick_size || 0,
-        neg_risk: market.neg_risk || false,
-        neg_risk_market_id: market.neg_risk_market_id || '',
-        neg_risk_request_id: market.neg_risk_request_id || '',
-        notification_preferences: JSON.stringify(
-            market.notification_preferences || {},
-        ),
-        notifications_enabled: market.notifications_enabled || false,
-        competitive: market.competitive || 0,
-        spread: market.spread || 0,
-        last_trade_price: market.last_trade_price || 0,
-        best_bid: market.best_bid || 0,
-        best_ask: market.best_ask || 0,
-        price: market.price || 0,
-        volume: parseFloat(market.volume) || 0,
-        volume_num: market.volume_num || 0,
-        liquidity: parseFloat(market.liquidity) || 0,
-        liquidity_num: market.liquidity_num || 0,
+        start_date: market.startDate || '',
+        end_date: market.endDate || '',
+        start_date_iso: market.startDateIso || '',
+        end_date_iso: market.endDateIso || '',
+        uma_end_date: market.umaEndDate || '',
+        created_at_api: market.createdAt || '',
     };
 
     return await insertRow(
         'polymarket_markets',
         row,
-        `Failed to insert market for condition_id ${market.condition_id}`,
+        `Failed to insert market for condition_id ${market.conditionId}`,
         {},
     );
 }
