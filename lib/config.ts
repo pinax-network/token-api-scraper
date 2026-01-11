@@ -16,7 +16,7 @@ export const DEFAULT_CONFIG = {
     CLICKHOUSE_URL: 'http://localhost:8123',
     CLICKHOUSE_USERNAME: 'default',
     CLICKHOUSE_PASSWORD: '',
-    CLICKHOUSE_DATABASE: 'default',
+    // CLICKHOUSE_DATABASE has no default to prevent accidental loading into wrong DB
 
     // RPC Node
     NODE_URL: 'https://tron-evm-rpc.publicnode.com',
@@ -113,8 +113,7 @@ export const CLICKHOUSE_USERNAME =
     process.env.CLICKHOUSE_USERNAME || DEFAULT_CONFIG.CLICKHOUSE_USERNAME;
 export const CLICKHOUSE_PASSWORD =
     process.env.CLICKHOUSE_PASSWORD || DEFAULT_CONFIG.CLICKHOUSE_PASSWORD;
-export const CLICKHOUSE_DATABASE =
-    process.env.CLICKHOUSE_DATABASE || DEFAULT_CONFIG.CLICKHOUSE_DATABASE;
+export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE;
 
 export const NODE_URL = process.env.NODE_URL || DEFAULT_CONFIG.NODE_URL;
 

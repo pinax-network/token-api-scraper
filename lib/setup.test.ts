@@ -2,8 +2,87 @@ import { describe, expect, test } from 'bun:test';
 import {
     executeSqlSetup,
     splitSqlStatements,
+    substituteQueryParams,
     transformSqlForCluster,
 } from './setup';
+
+describe('substituteQueryParams', () => {
+    test('should substitute numeric parameters with type annotation', () => {
+        const sql = 'REFRESH EVERY {refresh_interval:UInt32} SECOND';
+        const params = { refresh_interval: 60 };
+        const result = substituteQueryParams(sql, params);
+        expect(result).toBe('REFRESH EVERY 60 SECOND');
+    });
+
+    test('should substitute identifier parameters', () => {
+        const sql =
+            'SELECT * FROM {canonical_database:Identifier}.blocks WHERE block_num > {days_back:UInt32}';
+        const params = {
+            canonical_database: 'mainnet:blocks@v0.1.0',
+            days_back: 30,
+        };
+        const result = substituteQueryParams(sql, params);
+        expect(result).toBe(
+            'SELECT * FROM mainnet:blocks@v0.1.0.blocks WHERE block_num > 30',
+        );
+    });
+
+    test('should substitute multiple occurrences of the same parameter', () => {
+        const sql =
+            'SELECT * FROM {db:Identifier}.table1 JOIN {db:Identifier}.table2';
+        const params = { db: 'mydb' };
+        const result = substituteQueryParams(sql, params);
+        expect(result).toBe('SELECT * FROM mydb.table1 JOIN mydb.table2');
+    });
+
+    test('should handle string parameters', () => {
+        const sql = 'SELECT * FROM {source_database:Identifier}.blocks';
+        const params = { source_database: 'bsc:evm-dex@v0.2.6' };
+        const result = substituteQueryParams(sql, params);
+        expect(result).toBe('SELECT * FROM bsc:evm-dex@v0.2.6.blocks');
+    });
+
+    test('should leave SQL unchanged when no params provided', () => {
+        const sql = 'SELECT * FROM blocks';
+        const params = {};
+        const result = substituteQueryParams(sql, params);
+        expect(result).toBe('SELECT * FROM blocks');
+    });
+
+    test('should leave unmatched placeholders unchanged', () => {
+        const sql = 'REFRESH EVERY {refresh_interval:UInt32} SECOND';
+        const params = { other_param: 100 };
+        const result = substituteQueryParams(sql, params);
+        expect(result).toBe('REFRESH EVERY {refresh_interval:UInt32} SECOND');
+    });
+
+    test('should handle complex forked blocks MV SQL', () => {
+        const sql = `CREATE MATERIALIZED VIEW IF NOT EXISTS mv_blocks_forked
+REFRESH EVERY {refresh_interval:UInt32} SECOND
+TO blocks_forked
+AS
+WITH
+    (SELECT max(block_num) FROM {canonical_database:Identifier}.blocks) AS max_block,
+    (SELECT min(block_num) FROM {canonical_database:Identifier}.blocks WHERE toDate(timestamp) >= today() - {days_back:UInt32}) AS min_block
+SELECT * FROM {source_database:Identifier}.blocks`;
+
+        const params = {
+            refresh_interval: 60,
+            canonical_database: 'mainnet:blocks@v0.1.0',
+            source_database: 'bsc:evm-dex@v0.2.6',
+            days_back: 30,
+        };
+
+        const result = substituteQueryParams(sql, params);
+
+        expect(result).toContain('REFRESH EVERY 60 SECOND');
+        expect(result).toContain('FROM mainnet:blocks@v0.1.0.blocks');
+        expect(result).toContain('today() - 30');
+        expect(result).toContain('FROM bsc:evm-dex@v0.2.6.blocks');
+        expect(result).not.toContain('{');
+        expect(result).not.toContain('}');
+    });
+});
 
 describe('splitSqlStatements', () => {
     test('should split SQL statements correctly', () => {
