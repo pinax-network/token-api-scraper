@@ -166,6 +166,7 @@ interface ServiceOptions {
     clickhouseUsername: string;
     clickhousePassword: string;
     clickhouseDatabase: string;
+    clickhouseBlocksDatabase?: string;
     nodeUrl: string;
     concurrency: string;
     maxRetries: string;
@@ -224,6 +225,10 @@ async function runService(serviceName: string, options: ServiceOptions) {
     process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
     process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
     process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
+    if (options.clickhouseBlocksDatabase) {
+        process.env.CLICKHOUSE_BLOCKS_DATABASE =
+            options.clickhouseBlocksDatabase;
+    }
     process.env.NODE_URL = options.nodeUrl;
     process.env.CONCURRENCY = options.concurrency;
     process.env.MAX_RETRIES = options.maxRetries;
@@ -317,8 +322,8 @@ Examples:
   $ npm run cli run balances-erc20 --concurrency 20
   $ npm run cli run balances-native --prometheus-port 8080
 
-  # Forked blocks service (requires additional env vars)
-  $ CANONICAL_BLOCKS_DATABASE=mainnet:blocks@v0.1.0 SOURCE_BLOCKS_DATABASE=mainnet:evm-transfers@v0.2.1 npm run cli run forked-blocks
+  # Forked blocks service
+  $ npm run cli run forked-blocks --clickhouse-blocks-database mainnet:blocks@v0.1.0 --clickhouse-database mainnet:evm-transfers@v0.2.1
 
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
@@ -331,6 +336,13 @@ Examples:
 
 // Add common options to the run command
 addCommonOptions(runCommand);
+
+// Add forked-blocks specific options
+runCommand.option(
+    '--clickhouse-blocks-database <db>',
+    'Name of the ClickHouse database containing canonical/irreversible blocks (for forked-blocks service).',
+    process.env.CLICKHOUSE_BLOCKS_DATABASE,
+);
 
 // ============================================================================
 // COMMAND: list

@@ -49,34 +49,34 @@ describe('Forked blocks service', () => {
         mockShutdownBatchInsertQueue.mockClear();
 
         // Clear environment variables
-        delete process.env.CANONICAL_BLOCKS_DATABASE;
-        delete process.env.SOURCE_BLOCKS_DATABASE;
+        delete process.env.CLICKHOUSE_BLOCKS_DATABASE;
+        delete process.env.CLICKHOUSE_DATABASE;
         delete process.env.FORKED_BLOCKS_DAYS_BACK;
     });
 
-    test('should throw error when CANONICAL_BLOCKS_DATABASE is not set', async () => {
-        process.env.SOURCE_BLOCKS_DATABASE = 'mainnet:evm-transfers@v0.2.1';
+    test('should throw error when CLICKHOUSE_BLOCKS_DATABASE is not set', async () => {
+        process.env.CLICKHOUSE_DATABASE = 'mainnet:evm-transfers@v0.2.1';
 
         const { run } = await import('./index');
 
         await expect(run()).rejects.toThrow(
-            'CANONICAL_BLOCKS_DATABASE environment variable is required',
+            'CLICKHOUSE_BLOCKS_DATABASE environment variable is required',
         );
     });
 
-    test('should throw error when SOURCE_BLOCKS_DATABASE is not set', async () => {
-        process.env.CANONICAL_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
+    test('should throw error when CLICKHOUSE_DATABASE is not set', async () => {
+        process.env.CLICKHOUSE_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
 
         const { run } = await import('./index');
 
         await expect(run()).rejects.toThrow(
-            'SOURCE_BLOCKS_DATABASE environment variable is required',
+            'CLICKHOUSE_DATABASE environment variable is required',
         );
     });
 
     test('should handle empty result when no forked blocks found', async () => {
-        process.env.CANONICAL_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
-        process.env.SOURCE_BLOCKS_DATABASE = 'mainnet:evm-transfers@v0.2.1';
+        process.env.CLICKHOUSE_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
+        process.env.CLICKHOUSE_DATABASE = 'mainnet:evm-transfers@v0.2.1';
 
         mockQuery.mockReturnValue(
             Promise.resolve({
@@ -99,8 +99,8 @@ describe('Forked blocks service', () => {
     });
 
     test('should insert forked blocks when found', async () => {
-        process.env.CANONICAL_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
-        process.env.SOURCE_BLOCKS_DATABASE = 'mainnet:evm-transfers@v0.2.1';
+        process.env.CLICKHOUSE_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
+        process.env.CLICKHOUSE_DATABASE = 'mainnet:evm-transfers@v0.2.1';
 
         const forkedBlocks = [
             {
@@ -150,8 +150,8 @@ describe('Forked blocks service', () => {
     });
 
     test('should use custom FORKED_BLOCKS_DAYS_BACK when set', async () => {
-        process.env.CANONICAL_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
-        process.env.SOURCE_BLOCKS_DATABASE = 'mainnet:evm-transfers@v0.2.1';
+        process.env.CLICKHOUSE_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
+        process.env.CLICKHOUSE_DATABASE = 'mainnet:evm-transfers@v0.2.1';
         process.env.FORKED_BLOCKS_DAYS_BACK = '7';
 
         mockQuery.mockReturnValue(
@@ -176,8 +176,8 @@ describe('Forked blocks service', () => {
     });
 
     test('should increment error when insert fails', async () => {
-        process.env.CANONICAL_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
-        process.env.SOURCE_BLOCKS_DATABASE = 'mainnet:evm-transfers@v0.2.1';
+        process.env.CLICKHOUSE_BLOCKS_DATABASE = 'mainnet:blocks@v0.1.0';
+        process.env.CLICKHOUSE_DATABASE = 'mainnet:evm-transfers@v0.2.1';
 
         const forkedBlocks = [
             {
