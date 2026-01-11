@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { client } from './lib/clickhouse';
 import { DEFAULT_CONFIG } from './lib/config';
 import { createLogger } from './lib/logger';
 import { startPrometheusServer, stopPrometheusServer } from './lib/prometheus';
@@ -160,6 +161,12 @@ function addCommonOptions(command: Command): Command {
                 process.env.AUTO_RESTART_DELAY ||
                     String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
             )
+            .option(
+                '--allow-prune-errors <seconds>',
+                `Remove metadata_errors older than this many seconds. Set to 0 to disable pruning (default: ${DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS}, which is 1 week).`,
+                process.env.ALLOW_PRUNE_ERRORS ||
+                    String(DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS),
+            )
     );
 }
 
@@ -184,6 +191,7 @@ interface ServiceOptions {
     prometheusHostname: string;
     verbose: boolean;
     autoRestartDelay: string;
+    allowPruneErrors: string;
 }
 
 /**
@@ -215,10 +223,26 @@ async function runService(serviceName: string, options: ServiceOptions) {
         process.exit(1);
     }
 
+    const allowPruneErrors = parseInt(
+        options.allowPruneErrors || String(DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS),
+        10,
+    );
+
+    // Validate allowPruneErrors
+    if (Number.isNaN(allowPruneErrors) || allowPruneErrors < 0) {
+        log.error('Invalid allow-prune-errors', {
+            value: options.allowPruneErrors,
+            message: 'Must be a non-negative number (0 to disable)',
+        });
+        process.exit(1);
+    }
+
     if (options.verbose) {
         log.info('Starting service', {
             service: serviceName,
             autoRestartDelay: `${autoRestartDelay}s`,
+            allowPruneErrors:
+                allowPruneErrors > 0 ? `${allowPruneErrors}s` : 'disabled',
         });
     }
 
@@ -245,6 +269,7 @@ async function runService(serviceName: string, options: ServiceOptions) {
     process.env.PROMETHEUS_PORT = options.prometheusPort;
     process.env.PROMETHEUS_HOSTNAME = options.prometheusHostname;
     process.env.VERBOSE = options.verbose ? 'true' : 'false';
+    process.env.ALLOW_PRUNE_ERRORS = String(allowPruneErrors);
 
     // Start Prometheus server once before the loop
     const prometheusPort = parseInt(options.prometheusPort, 10);
@@ -268,6 +293,38 @@ async function runService(serviceName: string, options: ServiceOptions) {
         process.exit(1);
     }
 
+    /**
+     * Prune old errors from metadata_errors table
+     * Uses ALTER TABLE DELETE to remove errors older than the specified threshold
+     */
+    async function pruneOldErrors(): Promise<void> {
+        if (allowPruneErrors <= 0) {
+            return;
+        }
+
+        try {
+            // allowPruneErrors is safe to interpolate: it's parsed as parseInt() above
+            // and validated to be a non-negative integer, so SQL injection is not possible
+            const result = await client.command({
+                query: `
+                    ALTER TABLE metadata_errors
+                    DELETE WHERE created_at < now() - INTERVAL ${allowPruneErrors} SECOND
+                `,
+            });
+
+            if (options.verbose) {
+                log.info('Pruned old metadata errors', {
+                    thresholdSeconds: allowPruneErrors,
+                    queryId: result.query_id,
+                });
+            }
+        } catch (error) {
+            log.warn('Failed to prune old metadata errors', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
     // Run the service in a continuous loop
     let iteration = 0;
 
@@ -277,6 +334,9 @@ async function runService(serviceName: string, options: ServiceOptions) {
             if (options.verbose && iteration > 1) {
                 log.info(`Starting iteration ${iteration}`);
             }
+
+            // Prune old errors at the start of each iteration
+            await pruneOldErrors();
 
             // Run the service
             await serviceModule.run();
@@ -335,6 +395,13 @@ Examples:
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
   $ npm run cli run metadata-swaps --auto-restart-delay 60
+
+  # Prune old errors examples (delete errors older than 1 week)
+  $ npm run cli run metadata-transfers --allow-prune-errors 604800
+  $ npm run cli run metadata-swaps --allow-prune-errors 604800
+
+  # Disable pruning (default is 1 week)
+  $ npm run cli run metadata-transfers --allow-prune-errors 0
     `,
     )
     .action(async (service: string, options: any) => {
