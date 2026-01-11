@@ -44,6 +44,11 @@ const SERVICES = {
         description:
             'Detect and store forked blocks by comparing source blocks against canonical blocks',
     },
+    'polymarket-markets': {
+        path: './services/polymarket-markets/index.ts',
+        description:
+            'Fetch and store Polymarket market metadata from condition_id and token0/token1',
+    },
 };
 
 // Initialize Commander program
@@ -315,12 +320,14 @@ Services:
   balances-erc20    ${SERVICES['balances-erc20'].description}
   balances-native   ${SERVICES['balances-native'].description}
   forked-blocks     ${SERVICES['forked-blocks'].description}
+  polymarket-markets ${SERVICES['polymarket-markets'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
   $ npm run cli run balances-erc20 --concurrency 20
   $ npm run cli run balances-native --prometheus-port 8080
+  $ npm run cli run polymarket-markets
 
   # Forked blocks service
   $ npm run cli run forked-blocks --clickhouse-blocks-database mainnet:blocks@v0.1.0 --clickhouse-database mainnet:evm-transfers@v0.2.1
