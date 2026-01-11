@@ -62,30 +62,30 @@ export async function run(): Promise<void> {
     initService({ serviceName });
 
     // Get configuration from environment variables
-    const canonicalDatabase = process.env.CANONICAL_BLOCKS_DATABASE;
-    const sourceDatabase = process.env.SOURCE_BLOCKS_DATABASE;
+    const clickhouseBlocksDatabase = process.env.CLICKHOUSE_BLOCKS_DATABASE;
+    const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE;
     const daysBack = parseInt(process.env.FORKED_BLOCKS_DAYS_BACK || '30', 10);
 
     // Validate required environment variables
-    if (!canonicalDatabase) {
-        log.error('CANONICAL_BLOCKS_DATABASE environment variable is required');
+    if (!clickhouseBlocksDatabase) {
+        log.error(
+            'CLICKHOUSE_BLOCKS_DATABASE environment variable is required',
+        );
         throw new Error(
-            'CANONICAL_BLOCKS_DATABASE environment variable is required',
+            'CLICKHOUSE_BLOCKS_DATABASE environment variable is required',
         );
     }
 
-    if (!sourceDatabase) {
-        log.error('SOURCE_BLOCKS_DATABASE environment variable is required');
-        throw new Error(
-            'SOURCE_BLOCKS_DATABASE environment variable is required',
-        );
+    if (!clickhouseDatabase) {
+        log.error('CLICKHOUSE_DATABASE environment variable is required');
+        throw new Error('CLICKHOUSE_DATABASE environment variable is required');
     }
 
     const sinceDate = calculateSinceDate(daysBack);
 
     log.info('Starting forked blocks detection', {
-        canonicalDatabase,
-        sourceDatabase,
+        clickhouseBlocksDatabase,
+        clickhouseDatabase,
         sinceDate,
         daysBack,
     });
@@ -94,8 +94,8 @@ export async function run(): Promise<void> {
     const sql = await Bun.file(__dirname + '/get_forked_blocks.sql').text();
 
     const result = await query<ForkedBlock>(sql, {
-        canonical_database: canonicalDatabase,
-        source_database: sourceDatabase,
+        canonical_database: clickhouseBlocksDatabase,
+        source_database: clickhouseDatabase,
         since_date: sinceDate,
     });
 
