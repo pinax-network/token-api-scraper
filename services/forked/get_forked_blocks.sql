@@ -13,7 +13,7 @@ SELECT
     b.parent_hash,
     b.timestamp
 FROM {source_database:Identifier}.blocks AS b
-ANY LEFT ANTI JOIN
+LEFT ANTI JOIN
 (
     SELECT block_hash
     FROM {canonical_database:Identifier}.blocks
