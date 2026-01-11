@@ -3,6 +3,7 @@ import {
     BATCH_INSERT_INTERVAL_MS,
     BATCH_INSERT_MAX_SIZE,
     CONCURRENCY,
+    DEFAULT_CONFIG,
     NETWORK,
     PROMETHEUS_PORT,
 } from './config';
@@ -48,5 +49,29 @@ describe('config module', () => {
     test('NETWORK should be a non-empty string', () => {
         expect(typeof NETWORK).toBe('string');
         expect(NETWORK.length).toBeGreaterThan(0);
+    });
+});
+
+describe('DEFAULT_CONFIG', () => {
+    test('ALLOW_PRUNE_ERRORS should be a valid number', () => {
+        expect(typeof DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS).toBe('number');
+        expect(Number.isNaN(DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS)).toBe(false);
+    });
+
+    test('ALLOW_PRUNE_ERRORS should be 604800 (1 week in seconds)', () => {
+        expect(DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS).toBe(604800);
+    });
+
+    test('ALLOW_PRUNE_ERRORS should be non-negative', () => {
+        expect(DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS).toBeGreaterThanOrEqual(0);
+    });
+
+    test('AUTO_RESTART_DELAY should be a valid number', () => {
+        expect(typeof DEFAULT_CONFIG.AUTO_RESTART_DELAY).toBe('number');
+        expect(Number.isNaN(DEFAULT_CONFIG.AUTO_RESTART_DELAY)).toBe(false);
+    });
+
+    test('AUTO_RESTART_DELAY should be at least 1', () => {
+        expect(DEFAULT_CONFIG.AUTO_RESTART_DELAY).toBeGreaterThanOrEqual(1);
     });
 });

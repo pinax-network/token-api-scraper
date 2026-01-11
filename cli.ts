@@ -303,6 +303,8 @@ async function runService(serviceName: string, options: ServiceOptions) {
         }
 
         try {
+            // allowPruneErrors is safe to interpolate: it's parsed as parseInt() above
+            // and validated to be a non-negative integer, so SQL injection is not possible
             const result = await client.command({
                 query: `
                     ALTER TABLE metadata_errors
@@ -318,7 +320,7 @@ async function runService(serviceName: string, options: ServiceOptions) {
             }
         } catch (error) {
             log.warn('Failed to prune old metadata errors', {
-                error: (error as Error).message,
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
