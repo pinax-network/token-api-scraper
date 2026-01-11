@@ -39,6 +39,11 @@ const SERVICES = {
         description:
             'Query and update native token balances for accounts on the TRON network',
     },
+    'forked-blocks': {
+        path: './services/forked/index.ts',
+        description:
+            'Detect and store forked blocks by comparing source blocks against canonical blocks',
+    },
 };
 
 // Initialize Commander program
@@ -304,12 +309,16 @@ Services:
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
   balances-erc20    ${SERVICES['balances-erc20'].description}
   balances-native   ${SERVICES['balances-native'].description}
+  forked-blocks     ${SERVICES['forked-blocks'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
   $ npm run cli run balances-erc20 --concurrency 20
   $ npm run cli run balances-native --prometheus-port 8080
+
+  # Forked blocks service (requires additional env vars)
+  $ CANONICAL_BLOCKS_DATABASE=mainnet:blocks@v0.1.0 SOURCE_BLOCKS_DATABASE=mainnet:evm-transfers@v0.2.1 npm run cli run forked-blocks
 
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
