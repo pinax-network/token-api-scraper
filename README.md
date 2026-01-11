@@ -16,8 +16,12 @@ A specialized tool for scraping and indexing ERC-20 token data on the TRON block
 ### 1. Setup Database
 
 ```bash
-# Deploy database schema to ClickHouse
-npm run cli setup sql/schema.metadata.sql sql/schema.balances.sql
+# Deploy database schemas to ClickHouse
+npm run cli setup metadata
+npm run cli setup balances
+
+# Or deploy custom SQL files
+npm run cli setup files sql.schemas/schema.metadata.sql sql.schemas/schema.balances.sql
 ```
 
 See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and cluster deployment.
