@@ -218,7 +218,7 @@ async function processRegisteredToken(token: RegisteredToken): Promise<void> {
     if (marketSuccess && asset0Success && asset1Success) {
         log.info('Market data scraped successfully', {
             conditionId: condition_id,
-            question: market.question.substring(0, 50),
+            question: (market.question || '').substring(0, 50),
             queryTimeMs,
         });
         incrementSuccess(serviceName);

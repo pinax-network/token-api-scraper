@@ -35,10 +35,10 @@ CREATE TABLE IF NOT EXISTS polymarket_markets (
     best_bid                    Float64 COMMENT 'Best bid price',
     best_ask                    Float64 COMMENT 'Best ask price',
     price                       Float64 COMMENT 'Current price',
-    volume                      Float64 COMMENT 'Trading volume',
-    volume_num                  Float64 COMMENT 'Trading volume numeric',
-    liquidity                   Float64 COMMENT 'Market liquidity',
-    liquidity_num               Float64 COMMENT 'Market liquidity numeric',
+    volume                      Float64 COMMENT 'Trading volume (parsed from API string)',
+    volume_num                  Float64 COMMENT 'Trading volume (numeric value from API)',
+    liquidity                   Float64 COMMENT 'Market liquidity (parsed from API string)',
+    liquidity_num               Float64 COMMENT 'Market liquidity (numeric value from API)',
 
     -- inserter details --
     created_at                  DateTime('UTC') DEFAULT now(),
