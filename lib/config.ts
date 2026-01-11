@@ -120,14 +120,20 @@ export const NODE_URL = process.env.NODE_URL || DEFAULT_CONFIG.NODE_URL;
 /**
  * Network name extracted from CLICKHOUSE_DATABASE
  * The database format is expected to be "network:suffix"
+ * Returns empty string if CLICKHOUSE_DATABASE is not set properly
+ * Services that require NETWORK should validate it before use
+ */
+export const NETWORK = CLICKHOUSE_DATABASE?.split(':')[0] || '';
+
+/**
+ * Get the network name with validation
  * Throws error if CLICKHOUSE_DATABASE is not set properly
  */
-export const NETWORK = (() => {
-    const network = CLICKHOUSE_DATABASE?.split(':')[0] || '';
-    if (!network) {
+export function getNetwork(): string {
+    if (!NETWORK) {
         throw new Error(
             'CLICKHOUSE_DATABASE environment variable is not set properly.',
         );
     }
-    return network;
-})();
+    return NETWORK;
+}

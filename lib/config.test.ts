@@ -4,6 +4,7 @@ import {
     BATCH_INSERT_MAX_SIZE,
     CONCURRENCY,
     DEFAULT_CONFIG,
+    getNetwork,
     NETWORK,
     PROMETHEUS_PORT,
 } from './config';
@@ -46,9 +47,20 @@ describe('config module', () => {
         expect(BATCH_INSERT_MAX_SIZE).toBeGreaterThan(0);
     });
 
-    test('NETWORK should be a non-empty string', () => {
+    test('NETWORK should be a string', () => {
         expect(typeof NETWORK).toBe('string');
-        expect(NETWORK.length).toBeGreaterThan(0);
+    });
+
+    test('getNetwork should return network from CLICKHOUSE_DATABASE', () => {
+        // This test depends on whether CLICKHOUSE_DATABASE is set
+        if (process.env.CLICKHOUSE_DATABASE) {
+            expect(typeof getNetwork()).toBe('string');
+            expect(getNetwork().length).toBeGreaterThan(0);
+        } else {
+            expect(() => getNetwork()).toThrow(
+                'CLICKHOUSE_DATABASE environment variable is not set properly.',
+            );
+        }
     });
 });
 
