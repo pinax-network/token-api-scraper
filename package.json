@@ -3,8 +3,8 @@
     "version": "0.1.2",
     "private": true,
     "scripts": {
-        "cli": "bun run ./index.ts",
-        "build": "bun build --compile index.ts --outfile token-api-scraper",
+        "cli": "bun run ./cli.ts",
+        "build": "bun build --compile cli.ts --outfile token-api-scraper",
         "test": "bun test --coverage",
         "clean": "bun i --force",
         "fix": "biome check --write --unsafe",
