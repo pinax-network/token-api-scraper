@@ -40,15 +40,39 @@ const SERVICES = {
         description:
             'Query and update native token balances for accounts on the TRON network',
     },
-    'forked-blocks': {
-        path: './services/forked/index.ts',
-        description:
-            'Detect and store forked blocks by comparing source blocks against canonical blocks',
-    },
     'polymarket-markets': {
         path: './services/polymarket-markets/index.ts',
         description:
             'Fetch and store Polymarket market metadata from condition_id and token0/token1',
+    },
+};
+
+/**
+ * Available setup actions that can be run via the CLI
+ * Each setup action deploys SQL schemas or refreshable materialized views
+ */
+const SETUP_ACTIONS = {
+    metadata: {
+        files: ['./sql.schemas/schema.metadata.sql'],
+        description: 'Deploy metadata tables (metadata, metadata_errors)',
+    },
+    balances: {
+        files: ['./sql.schemas/schema.balances.sql'],
+        description: 'Deploy balances table for ERC-20 token balances',
+    },
+    polymarket: {
+        files: ['./sql.schemas/schema.polymarket.sql'],
+        description:
+            'Deploy polymarket tables (polymarket_markets, polymarket_assets)',
+    },
+    'forked-blocks': {
+        files: [
+            './sql.schemas/schema.blocks_forked.sql',
+            './sql.schemas/mv.blocks_forked.sql',
+        ],
+        description:
+            'Deploy blocks_forked table and refreshable materialized view for detecting forked blocks',
+        requiresParams: true,
     },
 };
 
@@ -178,7 +202,6 @@ interface ServiceOptions {
     clickhouseUsername: string;
     clickhousePassword: string;
     clickhouseDatabase: string;
-    clickhouseBlocksDatabase?: string;
     nodeUrl: string;
     concurrency: string;
     maxRetries: string;
@@ -254,10 +277,6 @@ async function runService(serviceName: string, options: ServiceOptions) {
     process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
     process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
     process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
-    if (options.clickhouseBlocksDatabase) {
-        process.env.CLICKHOUSE_BLOCKS_DATABASE =
-            options.clickhouseBlocksDatabase;
-    }
     process.env.NODE_URL = options.nodeUrl;
     process.env.CONCURRENCY = options.concurrency;
     process.env.MAX_RETRIES = options.maxRetries;
@@ -379,7 +398,6 @@ Services:
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
   balances-erc20    ${SERVICES['balances-erc20'].description}
   balances-native   ${SERVICES['balances-native'].description}
-  forked-blocks     ${SERVICES['forked-blocks'].description}
   polymarket-markets ${SERVICES['polymarket-markets'].description}
 
 Examples:
@@ -388,9 +406,6 @@ Examples:
   $ npm run cli run balances-erc20 --concurrency 20
   $ npm run cli run balances-native --prometheus-port 8080
   $ npm run cli run polymarket-markets
-
-  # Forked blocks service
-  $ npm run cli run forked-blocks --clickhouse-blocks-database mainnet:blocks@v0.1.0 --clickhouse-database mainnet:evm-transfers@v0.2.1
 
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
@@ -411,13 +426,6 @@ Examples:
 // Add common options to the run command
 addCommonOptions(runCommand);
 
-// Add forked-blocks specific options
-runCommand.option(
-    '--clickhouse-blocks-database <db>',
-    'Name of the ClickHouse database containing canonical/irreversible blocks (for forked-blocks service).',
-    process.env.CLICKHOUSE_BLOCKS_DATABASE,
-);
-
 // ============================================================================
 // COMMAND: list
 // ============================================================================
@@ -434,22 +442,294 @@ program
     });
 
 // ============================================================================
-// COMMAND: setup <files...>
+// COMMAND: setup (with subcommands for each table type)
 // ============================================================================
+
+/**
+ * Helper function to add common ClickHouse options to a command
+ */
+function addClickhouseOptions(command: Command): Command {
+    return command
+        .option(
+            '--clickhouse-url <url>',
+            'ClickHouse database connection URL',
+            process.env.CLICKHOUSE_URL || DEFAULT_CONFIG.CLICKHOUSE_URL,
+        )
+        .option(
+            '--clickhouse-username <user>',
+            'Username for authenticating with ClickHouse',
+            process.env.CLICKHOUSE_USERNAME ||
+                DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
+        )
+        .option(
+            '--clickhouse-password <password>',
+            'Password for authenticating with ClickHouse',
+            process.env.CLICKHOUSE_PASSWORD ||
+                DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
+        )
+        .option(
+            '--clickhouse-database <db>',
+            'ClickHouse database name',
+            process.env.CLICKHOUSE_DATABASE ||
+                DEFAULT_CONFIG.CLICKHOUSE_DATABASE,
+        )
+        .option(
+            '--cluster [name]',
+            'ClickHouse cluster name. If provided without a name, shows available clusters to choose from.',
+        );
+}
+
+/**
+ * Common handler for setup commands
+ */
+async function handleSetupCommand(
+    files: string[],
+    options: any,
+    queryParams?: Record<string, string | number>,
+): Promise<void> {
+    // Update ClickHouse client environment from CLI options
+    if (options.clickhouseUrl)
+        process.env.CLICKHOUSE_URL = options.clickhouseUrl;
+    if (options.clickhouseUsername)
+        process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
+    if (options.clickhousePassword)
+        process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
+    if (options.clickhouseDatabase)
+        process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
+
+    // Handle cluster option
+    let clusterName = options.cluster;
+
+    // If --cluster flag is provided without a value (true), prompt for selection
+    if (clusterName === true) {
+        try {
+            clusterName = await promptClusterSelection();
+            log.info('Cluster selected', { cluster: clusterName });
+        } catch (error) {
+            const err = error as Error;
+            log.error('Failed to select cluster', { error: err.message });
+            process.exit(1);
+        }
+    }
+
+    try {
+        await executeSqlSetup(files, {
+            cluster: clusterName,
+            queryParams,
+        });
+        process.exit(0);
+    } catch (error) {
+        const err = error as Error;
+        log.error('Setup failed', { error: err.message });
+        process.exit(1);
+    }
+}
+
+// Create setup command group
 const setupCommand = program
-    .command('setup <files...>')
-    .description('Deploy SQL schema files to ClickHouse database')
+    .command('setup')
+    .description('Deploy SQL schemas and materialized views to ClickHouse');
+
+// ---- setup metadata ----
+const setupMetadata = setupCommand
+    .command('metadata')
+    .description(SETUP_ACTIONS.metadata.description)
+    .addHelpText(
+        'after',
+        `
+This command deploys the metadata tables for storing ERC-20 token metadata.
+It only needs to be run once to initialize the tables.
+
+Tables created:
+  - metadata: Stores token metadata (name, symbol, decimals)
+  - metadata_errors: Tracks RPC errors during metadata fetching
+
+Example:
+  $ npm run cli setup metadata
+  $ npm run cli setup metadata --cluster my_cluster
+`,
+    )
+    .action(async (options: any) => {
+        log.info('Setting up metadata tables');
+        const files = SETUP_ACTIONS.metadata.files.map((f) =>
+            resolve(__dirname, f),
+        );
+        await handleSetupCommand(files, options);
+    });
+addClickhouseOptions(setupMetadata);
+
+// ---- setup balances ----
+const setupBalances = setupCommand
+    .command('balances')
+    .description(SETUP_ACTIONS.balances.description)
+    .addHelpText(
+        'after',
+        `
+This command deploys the balances table for storing ERC-20 token balances.
+It only needs to be run once to initialize the table.
+
+Tables created:
+  - balances: Stores latest token balances per account/contract
+
+Example:
+  $ npm run cli setup balances
+  $ npm run cli setup balances --cluster my_cluster
+`,
+    )
+    .action(async (options: any) => {
+        log.info('Setting up balances table');
+        const files = SETUP_ACTIONS.balances.files.map((f) =>
+            resolve(__dirname, f),
+        );
+        await handleSetupCommand(files, options);
+    });
+addClickhouseOptions(setupBalances);
+
+// ---- setup polymarket ----
+const setupPolymarket = setupCommand
+    .command('polymarket')
+    .description(SETUP_ACTIONS.polymarket.description)
+    .addHelpText(
+        'after',
+        `
+This command deploys the Polymarket tables for storing market metadata.
+It only needs to be run once to initialize the tables.
+
+Tables created:
+  - polymarket_markets: Stores Polymarket market metadata
+  - polymarket_assets: Links asset IDs to condition IDs
+
+Example:
+  $ npm run cli setup polymarket
+  $ npm run cli setup polymarket --cluster my_cluster
+`,
+    )
+    .action(async (options: any) => {
+        log.info('Setting up polymarket tables');
+        const files = SETUP_ACTIONS.polymarket.files.map((f) =>
+            resolve(__dirname, f),
+        );
+        await handleSetupCommand(files, options);
+    });
+addClickhouseOptions(setupPolymarket);
+
+// ---- setup forked-blocks ----
+const setupForkedBlocks = setupCommand
+    .command('forked-blocks')
+    .description(SETUP_ACTIONS['forked-blocks'].description)
+    .requiredOption(
+        '--canonical-database <db>',
+        'Database containing canonical/irreversible blocks (e.g., mainnet:blocks@v0.1.0)',
+        process.env.CLICKHOUSE_BLOCKS_DATABASE,
+    )
+    .requiredOption(
+        '--source-database <db>',
+        'Database containing source blocks to check for forks (e.g., mainnet:evm-transfers@v0.2.1)',
+        process.env.CLICKHOUSE_DATABASE,
+    )
     .option(
-        '--cluster [name]',
-        'ClickHouse cluster name. If provided without a name, shows available clusters to choose from.',
+        '--days-back <days>',
+        'Number of days to look back for forked blocks (default: 30, minimum: 1)',
+        '30',
+    )
+    .option(
+        '--refresh-interval <seconds>',
+        'Refresh interval in seconds for the materialized view (default: 60, minimum: 15)',
+        '60',
     )
     .addHelpText(
         'after',
         `
+This command deploys the blocks_forked table and a refreshable materialized view
+that periodically detects forked blocks by comparing source blocks against
+canonical/irreversible blocks from another database.
 
-Setup SQL Schema Files:
-  The setup command deploys SQL schema files to your ClickHouse database.
-  You can provide one or multiple SQL files to execute in sequence.
+NOTE: This is a refreshable MV and only needs to be run once to initialize.
+The MV will automatically refresh at the specified interval.
+
+Tables/Views created:
+  - blocks_forked: Stores detected forked blocks
+  - mv_blocks_forked: Refreshable MV that populates blocks_forked
+
+Example:
+  $ npm run cli setup forked-blocks \\
+      --canonical-database mainnet:blocks@v0.1.0 \\
+      --source-database mainnet:evm-transfers@v0.2.1
+
+  # With custom refresh interval (every 5 minutes)
+  $ npm run cli setup forked-blocks \\
+      --canonical-database mainnet:blocks@v0.1.0 \\
+      --source-database mainnet:evm-transfers@v0.2.1 \\
+      --refresh-interval 300
+
+  # With cluster support
+  $ npm run cli setup forked-blocks \\
+      --canonical-database mainnet:blocks@v0.1.0 \\
+      --source-database mainnet:evm-transfers@v0.2.1 \\
+      --cluster my_cluster
+`,
+    )
+    .action(async (options: any) => {
+        log.info('Setting up forked-blocks table and refreshable MV');
+
+        const canonicalDatabase = options.canonicalDatabase;
+        const sourceDatabase = options.sourceDatabase;
+        const daysBack = parseInt(options.daysBack || '30', 10);
+        const refreshInterval = parseInt(options.refreshInterval || '60', 10);
+
+        // Validate parameters
+        if (!canonicalDatabase) {
+            log.error('--canonical-database is required');
+            process.exit(1);
+        }
+        if (!sourceDatabase) {
+            log.error('--source-database is required');
+            process.exit(1);
+        }
+        if (Number.isNaN(daysBack) || daysBack < 1) {
+            log.error('Invalid --days-back', {
+                value: options.daysBack,
+                message: 'Must be a positive number (minimum 1 day)',
+            });
+            process.exit(1);
+        }
+        if (Number.isNaN(refreshInterval) || refreshInterval < 15) {
+            log.error('Invalid --refresh-interval', {
+                value: options.refreshInterval,
+                message:
+                    'Must be at least 15 seconds to avoid performance issues',
+            });
+            process.exit(1);
+        }
+
+        log.info('Forked blocks configuration', {
+            canonicalDatabase,
+            sourceDatabase,
+            daysBack,
+            refreshInterval,
+        });
+
+        const files = SETUP_ACTIONS['forked-blocks'].files.map((f) =>
+            resolve(__dirname, f),
+        );
+        await handleSetupCommand(files, options, {
+            canonical_database: canonicalDatabase,
+            source_database: sourceDatabase,
+            days_back: daysBack,
+            refresh_interval: refreshInterval,
+        });
+    });
+addClickhouseOptions(setupForkedBlocks);
+
+// ---- setup files (for backward compatibility) ----
+const setupFiles = setupCommand
+    .command('files <files...>')
+    .description('Deploy SQL schema files to ClickHouse database')
+    .addHelpText(
+        'after',
+        `
+Deploy custom SQL schema files to your ClickHouse database.
+You can provide one or multiple SQL files to execute in sequence.
 
 Cluster Support:
   Use --cluster flag to deploy schemas on a ClickHouse cluster:
@@ -459,98 +739,26 @@ Cluster Support:
   - Converts MergeTree engines to ReplicatedMergeTree
   - Converts ReplacingMergeTree to ReplicatedReplacingMergeTree
 
-  If --cluster is provided without a name, the tool will query available
-  clusters using "SHOW CLUSTERS" and prompt you to select one.
-
 Examples:
   # Deploy single schema file
-  $ npm run cli setup sql.schemas/schema.metadata.sql
+  $ npm run cli setup files sql.schemas/schema.metadata.sql
 
   # Deploy multiple schema files
-  $ npm run cli setup sql.schemas/schema.metadata.sql sql.schemas/schema.balances.sql
+  $ npm run cli setup files sql.schemas/schema.metadata.sql sql.schemas/schema.balances.sql
 
   # Deploy all schema files
-  $ npm run cli setup sql.schemas/schema.*.sql
+  $ npm run cli setup files sql.schemas/schema.*.sql
 
   # Deploy to a cluster
-  $ npm run cli setup sql.schemas/schema.metadata.sql --cluster my_cluster
-
-  # Interactively select a cluster
-  $ npm run cli setup sql.schemas/schema.metadata.sql --cluster
-
-  # Deploy all schemas with custom database
-  $ npm run cli setup sql.schemas/schema.*.sql \\
-      --clickhouse-url http://localhost:8123 \\
-      --clickhouse-database my_database \\
-      --cluster production_cluster
-    `,
+  $ npm run cli setup files sql.schemas/schema.metadata.sql --cluster my_cluster
+`,
     )
     .action(async (files: string[], options: any) => {
         log.info('SQL Setup Command');
-
-        // Update ClickHouse client environment from CLI options
-        // These options override existing environment variables
-        if (options.clickhouseUrl)
-            process.env.CLICKHOUSE_URL = options.clickhouseUrl;
-        if (options.clickhouseUsername)
-            process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
-        if (options.clickhousePassword)
-            process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
-        if (options.clickhouseDatabase)
-            process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
-
-        // Handle cluster option
-        let clusterName = options.cluster;
-
-        // If --cluster flag is provided without a value (true), prompt for selection
-        if (clusterName === true) {
-            try {
-                clusterName = await promptClusterSelection();
-                log.info('Cluster selected', { cluster: clusterName });
-            } catch (error) {
-                const err = error as Error;
-                log.error('Failed to select cluster', { error: err.message });
-                process.exit(1);
-            }
-        }
-
-        // Resolve file paths
         const resolvedFiles = files.map((f) => resolve(process.cwd(), f));
-
-        try {
-            await executeSqlSetup(resolvedFiles, {
-                cluster: clusterName,
-            });
-            process.exit(0);
-        } catch (error) {
-            const err = error as Error;
-            log.error('Setup failed', { error: err.message });
-            process.exit(1);
-        }
+        await handleSetupCommand(resolvedFiles, options);
     });
-
-// Add ClickHouse connection options to setup command
-setupCommand
-    .option(
-        '--clickhouse-url <url>',
-        'ClickHouse database connection URL',
-        process.env.CLICKHOUSE_URL || DEFAULT_CONFIG.CLICKHOUSE_URL,
-    )
-    .option(
-        '--clickhouse-username <user>',
-        'Username for authenticating with ClickHouse',
-        process.env.CLICKHOUSE_USERNAME || DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
-    )
-    .option(
-        '--clickhouse-password <password>',
-        'Password for authenticating with ClickHouse',
-        process.env.CLICKHOUSE_PASSWORD || DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
-    )
-    .option(
-        '--clickhouse-database <db>',
-        'ClickHouse database name',
-        process.env.CLICKHOUSE_DATABASE || DEFAULT_CONFIG.CLICKHOUSE_DATABASE,
-    );
+addClickhouseOptions(setupFiles);
 
 // ============================================================================
 // Parse CLI arguments

@@ -48,34 +48,97 @@ Available services:
 
 ### setup
 
-Deploy SQL schema files to your ClickHouse database. This is required before running any services.
+Deploy SQL schema files and materialized views to your ClickHouse database. This is required before running any services.
 
-#### Basic Usage
+The setup command has several subcommands for deploying different schemas:
+
+#### Named Setup Actions
+
+These are the recommended setup commands for deploying specific schemas:
 
 ```bash
-# Deploy all schema files
-npm run cli setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
+# Deploy metadata tables (metadata, metadata_errors)
+npm run cli setup metadata
 
-# Deploy individual files
-npm run cli setup sql/schema.metadata.sql
+# Deploy balances table for ERC-20 token balances
+npm run cli setup balances
 
-# Use wildcards to deploy multiple files
-npm run cli setup sql/schema.*.sql
+# Deploy polymarket tables (polymarket_markets, polymarket_assets)
+npm run cli setup polymarket
+
+# Deploy forked-blocks table and refreshable materialized view
+# NOTE: This is a refreshable MV and only needs to be run once to initialize
+npm run cli setup forked-blocks \
+  --canonical-database mainnet:blocks@v0.1.0 \
+  --source-database mainnet:evm-transfers@v0.2.1
+```
+
+#### Forked Blocks Setup (Refreshable MV)
+
+The `forked-blocks` setup deploys a refreshable materialized view that automatically detects forked blocks by comparing source blocks against canonical blocks. It only needs to be run once to initialize the tables and MV.
+
+```bash
+# Basic setup
+npm run cli setup forked-blocks \
+  --canonical-database mainnet:blocks@v0.1.0 \
+  --source-database mainnet:evm-transfers@v0.2.1
+
+# With custom refresh interval (every 5 minutes)
+npm run cli setup forked-blocks \
+  --canonical-database mainnet:blocks@v0.1.0 \
+  --source-database mainnet:evm-transfers@v0.2.1 \
+  --refresh-interval 300
+
+# With custom lookback period (7 days)
+npm run cli setup forked-blocks \
+  --canonical-database mainnet:blocks@v0.1.0 \
+  --source-database mainnet:evm-transfers@v0.2.1 \
+  --days-back 7
+```
+
+**Forked Blocks Options:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--canonical-database <db>` | Database containing canonical/irreversible blocks (required) | - |
+| `--source-database <db>` | Database containing source blocks to check (required) | - |
+| `--days-back <days>` | Number of days to look back for forked blocks | `30` |
+| `--refresh-interval <seconds>` | Refresh interval in seconds for the MV | `60` |
+
+#### Custom Files Setup
+
+For deploying custom SQL files, use the `files` subcommand:
+
+```bash
+# Deploy custom SQL files
+npm run cli setup files sql.schemas/custom.sql
+
+# Deploy multiple files
+npm run cli setup files sql.schemas/schema.metadata.sql sql.schemas/schema.balances.sql
+
+# Use wildcards
+npm run cli setup files sql.schemas/schema.*.sql
 ```
 
 #### Cluster Support
 
-For ClickHouse clusters, use the `--cluster` flag. This will:
+For ClickHouse clusters, use the `--cluster` flag with any setup command. This will:
 - Add `ON CLUSTER '<name>'` to all CREATE/ALTER statements
 - Convert `MergeTree` engines to `ReplicatedMergeTree`
 - Convert `ReplacingMergeTree` to `ReplicatedReplacingMergeTree`
 
 ```bash
 # Deploy to a cluster
-npm run cli setup sql/schema.*.sql --cluster my_cluster
+npm run cli setup metadata --cluster my_cluster
 
-# Deploy to cluster with custom database
-npm run cli setup sql/schema.*.sql \
+# Deploy forked-blocks to cluster
+npm run cli setup forked-blocks \
+  --canonical-database mainnet:blocks@v0.1.0 \
+  --source-database mainnet:evm-transfers@v0.2.1 \
+  --cluster production_cluster
+
+# Deploy files to cluster with custom database
+npm run cli setup files sql.schemas/schema.*.sql \
   --cluster production_cluster \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database evm_data
@@ -83,17 +146,24 @@ npm run cli setup sql/schema.*.sql \
 
 #### Schema Files
 
-The project includes two schema files:
+The project includes these schema files in `sql.schemas/`:
 
 1. **schema.metadata.sql**: Token metadata storage
-   - Helper functions: `hex_to_string()`, `hex_to_uint256()`
-   - `metadata_rpc` table - Stores token name, symbol, and decimals from smart contracts
-   - Uses ReplacingMergeTree for automatic deduplication
+   - `metadata` table - Stores token name, symbol, and decimals
+   - `metadata_errors` table - Tracks RPC errors during metadata fetching
 
-2. **schema.erc20_balances.sql**: Balance tables
-   - Helper functions: `hex_to_uint256()`, `format_balance()`
-   - `erc20_balances_rpc` - ERC-20 token balances with block number tracking
-   - `native_balances_rpc` - Native token balances
+2. **schema.balances.sql**: Balance table
+   - `balances` table - Stores latest token balances per account/contract
+
+3. **schema.polymarket.sql**: Polymarket tables
+   - `polymarket_markets` table - Stores Polymarket market metadata
+   - `polymarket_assets` table - Links asset IDs to condition IDs
+
+4. **schema.blocks_forked.sql**: Forked blocks table
+   - `blocks_forked` table - Stores detected forked blocks
+
+5. **mv.blocks_forked.sql**: Forked blocks materialized view
+   - `mv_blocks_forked` - Refreshable MV that populates blocks_forked
 
 ### run
 
@@ -229,14 +299,16 @@ Valid values for `--transfers-table`: `transfers`, `native_transfer`, `erc20_tra
 ### Complete Setup Workflow
 
 ```bash
-# 1. Setup database schema
-npm run cli setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
+# 1. Setup database schemas
+npm run cli setup metadata
+npm run cli setup balances
 
 # 2. Fetch token metadata
-npm run cli run metadata
+npm run cli run metadata-transfers
+npm run cli run metadata-swaps
 
 # 3. Start scraping ERC-20 balances (incremental)
-npm run cli run erc20-balances
+npm run cli run balances-erc20
 
 # 4. Optionally backfill historical data in parallel
 npm run cli run erc20-backfill --concurrency 15
@@ -274,19 +346,27 @@ npm run cli run erc20-backfill \
 ### Production Deployment
 
 ```bash
-# Deploy to ClickHouse cluster
-npm run cli setup sql/schema.*.sql \
+# Deploy to ClickHouse cluster using named setup commands
+npm run cli setup metadata --cluster production_cluster \
+  --clickhouse-url http://clickhouse-node1:8123 \
+  --clickhouse-database production_evm
+
+npm run cli setup balances --cluster production_cluster \
+  --clickhouse-url http://clickhouse-node1:8123 \
+  --clickhouse-database production_evm
+
+# Or deploy all files at once
+npm run cli setup files sql.schemas/schema.*.sql \
   --cluster production_cluster \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database production_evm
 
 # Run with production settings
-npm run cli run erc20-balances \
+npm run cli run balances-erc20 \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database production_evm \
   --concurrency 20 \
   --max-retries 5 \
-  --enable-prometheus \
   --prometheus-port 9090
 ```
 
