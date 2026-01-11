@@ -40,6 +40,9 @@ export const DEFAULT_CONFIG = {
 
     // Auto-restart
     AUTO_RESTART_DELAY: 10,
+
+    // Prune errors (1 week = 604800 seconds)
+    ALLOW_PRUNE_ERRORS: 604800,
 } as const;
 
 // ============================================================================

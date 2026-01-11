@@ -207,6 +207,14 @@ Services automatically run in continuous mode, restarting after each completion 
 |------|---------------------|-------------|---------|
 | `--auto-restart-delay <seconds>` | `AUTO_RESTART_DELAY` | Delay in seconds before restarting | `10` |
 
+### Error Pruning Options
+
+Services can automatically prune old errors from the `metadata_errors` table to allow retrying previously failed contracts (e.g., after smart contracts are updated).
+
+| Flag | Environment Variable | Description | Default |
+|------|---------------------|-------------|---------|
+| `--allow-prune-errors <seconds>` | `ALLOW_PRUNE_ERRORS` | Remove metadata_errors older than this many seconds. Set to 0 to disable. | `604800` (1 week) |
+
 ### Service-Specific Options
 
 | Flag | Description | Default |
@@ -453,6 +461,21 @@ npm run cli run metadata-transfers \
 - Simplified deployment (no need for external process managers)
 
 **Note:** The service only restarts after successful completion (exit code 0). Failures will not trigger a restart.
+
+### Error Pruning
+
+Old errors in `metadata_errors` can be automatically pruned to retry previously failed contracts. This is useful when smart contracts are updated and errors should be cleared.
+
+```bash
+# Prune errors older than 1 week (default behavior)
+npm run cli run metadata-transfers --allow-prune-errors 604800
+
+# Prune errors older than 3 days
+npm run cli run metadata-swaps --allow-prune-errors 259200
+
+# Disable pruning
+npm run cli run metadata-transfers --allow-prune-errors 0
+```
 
 ### Docker Integration
 
