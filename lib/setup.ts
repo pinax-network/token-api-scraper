@@ -11,6 +11,7 @@ const log = createLogger('setup');
  */
 export interface SetupOptions {
     cluster?: string;
+    queryParams?: Record<string, string | number>;
 }
 
 /**
@@ -241,7 +242,11 @@ export async function executeSqlSetup(
                     .replace(/\n/g, ' ');
 
                 try {
-                    await client.exec({ query: statement });
+                    await client.query({
+                        query: statement,
+                        query_params: options.queryParams || {},
+                        format: 'JSONEachRow',
+                    });
                     log.debug('Statement executed', {
                         index: `${i + 1}/${statements.length}`,
                         preview: statementPreview,
