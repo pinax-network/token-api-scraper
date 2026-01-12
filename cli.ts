@@ -114,8 +114,7 @@ function addCommonOptions(command: Command): Command {
             .option(
                 '--clickhouse-database <db>',
                 'Name of the ClickHouse database to use for data storage.',
-                process.env.CLICKHOUSE_DATABASE ||
-                    DEFAULT_CONFIG.CLICKHOUSE_DATABASE,
+                process.env.CLICKHOUSE_DATABASE,
             )
             // RPC Node Options
             .option(
@@ -470,8 +469,7 @@ function addClickhouseOptions(command: Command): Command {
         .option(
             '--clickhouse-database <db>',
             'ClickHouse database name',
-            process.env.CLICKHOUSE_DATABASE ||
-                DEFAULT_CONFIG.CLICKHOUSE_DATABASE,
+            process.env.CLICKHOUSE_DATABASE,
         )
         .option(
             '--cluster [name]',

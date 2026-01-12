@@ -151,6 +151,35 @@ export function transformSqlForCluster(
 }
 
 /**
+ * Substitute query parameters directly in SQL string
+ * This is needed because ClickHouse's query_params doesn't work with DDL statements
+ * like CREATE MATERIALIZED VIEW ... REFRESH EVERY
+ *
+ * Handles parameters in the format:
+ * - {param_name:Type} - Replaces with the parameter value
+ * - {param_name:Identifier} - Replaces with the identifier value (for database/table names)
+ *
+ * @param sql - The SQL string with parameter placeholders
+ * @param params - The parameters to substitute
+ * @returns The SQL string with parameters substituted
+ */
+export function substituteQueryParams(
+    sql: string,
+    params: Record<string, string | number>,
+): string {
+    let result = sql;
+
+    for (const [key, value] of Object.entries(params)) {
+        // Match patterns like {param_name:Type} where Type can be any ClickHouse type
+        // e.g., {refresh_interval:UInt32}, {canonical_database:Identifier}
+        const pattern = new RegExp(`\\{${key}:[^}]+\\}`, 'g');
+        result = result.replace(pattern, String(value));
+    }
+
+    return result;
+}
+
+/**
  * Split SQL content into individual statements
  * Handles comments and multi-line statements
  */
@@ -221,10 +250,16 @@ export async function executeSqlSetup(
             // Read SQL file
             const sqlContent = readFileSync(filePath, 'utf8');
 
+            // Substitute query parameters directly in SQL string
+            // This is needed because ClickHouse's query_params doesn't work with DDL statements
+            const substitutedSql = options.queryParams
+                ? substituteQueryParams(sqlContent, options.queryParams)
+                : sqlContent;
+
             // Transform SQL if cluster is specified
             const transformedSql = options.cluster
-                ? transformSqlForCluster(sqlContent, options.cluster)
-                : sqlContent;
+                ? transformSqlForCluster(substitutedSql, options.cluster)
+                : substitutedSql;
 
             // Split into individual statements
             const statements = splitSqlStatements(transformedSql);
@@ -244,7 +279,6 @@ export async function executeSqlSetup(
                 try {
                     await client.query({
                         query: statement,
-                        query_params: options.queryParams || {},
                         format: 'JSONEachRow',
                     });
                     log.debug('Statement executed', {
