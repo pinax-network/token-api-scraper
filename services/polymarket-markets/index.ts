@@ -1,3 +1,4 @@
+import { sleep } from 'bun';
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
@@ -6,6 +7,11 @@ import { createLogger } from '../../lib/logger';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import { insertRow } from '../../src/insert';
+
+/**
+ * Delay between requests in milliseconds to avoid overwhelming the API
+ */
+const REQUEST_DELAY_MS = 100;
 
 const serviceName = 'polymarket-markets';
 const log = createLogger(serviceName);
@@ -55,14 +61,14 @@ interface PolymarketMarket {
 }
 
 /**
- * Fetch market data from Polymarket API using clob_token_ids
- * @param tokenId - The token ID to query (token0 or token1)
+ * Fetch market data from Polymarket API using condition_id
+ * @param conditionId - The condition ID to query
  * @returns The market data or null if not found
  */
 async function fetchMarketFromApi(
-    tokenId: string,
+    conditionId: string,
 ): Promise<PolymarketMarket | null> {
-    const url = `${POLYMARKET_API_BASE}/markets?condition_ids=${tokenId}&limit=1`;
+    const url = `${POLYMARKET_API_BASE}/markets?condition_ids=${conditionId}&limit=1`;
 
     try {
         const response = await fetch(url);
@@ -70,21 +76,21 @@ async function fetchMarketFromApi(
             log.warn('Polymarket API returned non-OK status', {
                 status: response.status,
                 statusText: response.statusText,
-                tokenId,
+                conditionId,
             });
             return null;
         }
 
         const markets: PolymarketMarket[] = await response.json();
         if (markets.length === 0) {
-            log.debug('No market found for token', { tokenId });
+            log.debug('No market found for condition_id', { conditionId });
             return null;
         }
 
         return markets[0];
     } catch (error) {
         log.warn('Failed to fetch market from Polymarket API', {
-            tokenId,
+            conditionId,
             error: (error as Error).message,
         });
         return null;
@@ -162,19 +168,12 @@ async function processRegisteredToken(token: RegisteredToken): Promise<void> {
     const { condition_id, token0, token1 } = token;
     const startTime = performance.now();
 
-    // Try fetching with token0 first
-    let market = await fetchMarketFromApi(token0);
-
-    // If not found, try with token1
-    if (!market) {
-        market = await fetchMarketFromApi(token1);
-    }
+    // Fetch market data using condition_id
+    const market = await fetchMarketFromApi(condition_id);
 
     if (!market) {
         log.warn('No market found for condition_id', {
             conditionId: condition_id,
-            token0,
-            token1,
         });
         incrementError(serviceName);
         return;
@@ -205,6 +204,9 @@ async function processRegisteredToken(token: RegisteredToken): Promise<void> {
         });
         incrementError(serviceName);
     }
+
+    // Add delay between requests to avoid overwhelming the API
+    await sleep(REQUEST_DELAY_MS);
 }
 
 /**
