@@ -4,14 +4,16 @@ WITH processed_conditions AS (
 ),
 error_conditions AS (
     SELECT condition_id
-    FROM polymarket_assets_errors
+    FROM polymarket_markets_errors
 ),
 registered_tokens AS (
     SELECT
         condition_id,
         token0,
-        token1
+        token1,
+        timestamp
     FROM ctfexchange_token_registered
+    ORDER BY timestamp DESC
 )
 SELECT
     condition_id,
@@ -20,4 +22,4 @@ SELECT
 FROM registered_tokens
 WHERE condition_id NOT IN processed_conditions
 AND condition_id NOT IN error_conditions
-ORDER BY condition_id;
+ORDER BY timestamp DESC;

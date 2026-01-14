@@ -143,25 +143,7 @@ async function insertMarket(
 }
 
 /**
- * Insert asset data into the polymarket_assets table
- */
-async function insertAsset(
-    assetId: string,
-    conditionId: string,
-): Promise<boolean> {
-    return await insertRow(
-        'polymarket_assets',
-        {
-            asset_id: assetId,
-            condition_id: conditionId,
-        },
-        `Failed to insert asset ${assetId} for condition_id ${conditionId}`,
-        {},
-    );
-}
-
-/**
- * Insert error record into the polymarket_assets_errors table
+ * Insert error record into the polymarket_markets_errors table
  */
 async function insertError(
     conditionId: string,
@@ -170,7 +152,7 @@ async function insertError(
     errorReason: string,
 ): Promise<boolean> {
     return await insertRow(
-        'polymarket_assets_errors',
+        'polymarket_markets_errors',
         {
             condition_id: conditionId,
             token0,
@@ -205,13 +187,9 @@ async function processRegisteredToken(token: RegisteredToken): Promise<void> {
     // Insert market data
     const marketSuccess = await insertMarket(market, token0, token1);
 
-    // Insert asset data for both token0 and token1
-    const asset0Success = await insertAsset(token0, condition_id);
-    const asset1Success = await insertAsset(token1, condition_id);
-
     const queryTimeMs = Math.round(performance.now() - startTime);
 
-    if (marketSuccess && asset0Success && asset1Success) {
+    if (marketSuccess) {
         log.info('Market data scraped successfully', {
             conditionId: condition_id,
             question: (market.question || '').substring(0, 50),
@@ -222,8 +200,6 @@ async function processRegisteredToken(token: RegisteredToken): Promise<void> {
         log.warn('Partial insert failure', {
             conditionId: condition_id,
             marketSuccess,
-            asset0Success,
-            asset1Success,
         });
         incrementError(serviceName);
     }

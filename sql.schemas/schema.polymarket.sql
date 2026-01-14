@@ -52,9 +52,22 @@ CREATE TABLE IF NOT EXISTS polymarket_assets (
 ENGINE = ReplacingMergeTree(created_at)
 ORDER BY (asset_id);
 
+-- create MV to load data from polymarket_markets into polymarket_assets
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_polymarket_assets
+TO polymarket_assets AS
+SELECT
+    token0 AS asset_id,
+    condition_id
+FROM polymarket_markets
+UNION ALL
+SELECT
+    token1 AS asset_id,
+    condition_id
+FROM polymarket_markets;
+
 -- Polymarket Assets Errors
 -- Tracks errors when market data cannot be fetched for a condition_id
-CREATE TABLE IF NOT EXISTS polymarket_assets_errors (
+CREATE TABLE IF NOT EXISTS polymarket_markets_errors (
     -- identifiers --
     condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)',
     token0                      UInt256 COMMENT 'Token0 ID',
