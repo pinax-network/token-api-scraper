@@ -161,6 +161,28 @@ async function insertAsset(
 }
 
 /**
+ * Insert error record into the polymarket_assets_errors table
+ */
+async function insertError(
+    conditionId: string,
+    token0: string,
+    token1: string,
+    errorReason: string,
+): Promise<boolean> {
+    return await insertRow(
+        'polymarket_assets_errors',
+        {
+            condition_id: conditionId,
+            token0,
+            token1,
+            error_reason: errorReason,
+        },
+        `Failed to insert error for condition_id ${conditionId}`,
+        {},
+    );
+}
+
+/**
  * Process a single registered token entry
  * Fetches market data and inserts into both tables
  */
@@ -175,6 +197,7 @@ async function processRegisteredToken(token: RegisteredToken): Promise<void> {
         log.warn('No market found for condition_id', {
             conditionId: condition_id,
         });
+        await insertError(condition_id, token0, token1, 'Market not found');
         incrementError(serviceName);
         return;
     }

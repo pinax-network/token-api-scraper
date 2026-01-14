@@ -192,7 +192,7 @@ describe('Polymarket markets service', () => {
         expect(mockShutdownBatchInsertQueue).toHaveBeenCalled();
     });
 
-    test('should handle API error and increment error counter', async () => {
+    test('should handle API error, insert error record and increment error counter', async () => {
         const registeredTokens = [
             {
                 condition_id:
@@ -227,12 +227,23 @@ describe('Polymarket markets service', () => {
 
         expect(mockQuery).toHaveBeenCalled();
         expect(mockFetch).toHaveBeenCalled();
-        expect(mockInsertRow).not.toHaveBeenCalled();
+        // Should insert error record when market not found
+        expect(mockInsertRow).toHaveBeenCalledTimes(1);
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'polymarket_assets_errors',
+            expect.objectContaining({
+                condition_id:
+                    '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
+                error_reason: 'Market not found',
+            }),
+            expect.any(String),
+            expect.any(Object),
+        );
         expect(mockIncrementError).toHaveBeenCalled();
         expect(mockShutdownBatchInsertQueue).toHaveBeenCalled();
     });
 
-    test('should handle API non-OK response', async () => {
+    test('should handle API non-OK response, insert error record and increment error counter', async () => {
         const registeredTokens = [
             {
                 condition_id:
@@ -268,7 +279,18 @@ describe('Polymarket markets service', () => {
 
         expect(mockQuery).toHaveBeenCalled();
         expect(mockFetch).toHaveBeenCalled();
-        expect(mockInsertRow).not.toHaveBeenCalled();
+        // Should insert error record when API returns non-OK response
+        expect(mockInsertRow).toHaveBeenCalledTimes(1);
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'polymarket_assets_errors',
+            expect.objectContaining({
+                condition_id:
+                    '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
+                error_reason: 'Market not found',
+            }),
+            expect.any(String),
+            expect.any(Object),
+        );
         expect(mockIncrementError).toHaveBeenCalled();
         expect(mockShutdownBatchInsertQueue).toHaveBeenCalled();
     });
