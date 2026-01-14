@@ -9,8 +9,8 @@ error_conditions AS (
 registered_tokens AS (
     SELECT
         condition_id,
-        token0,
-        token1,
+        toString(token0) as token0,
+        toString(token1) as token1,
         timestamp
     FROM ctfexchange_token_registered
     ORDER BY timestamp DESC

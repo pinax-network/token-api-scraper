@@ -13,9 +13,9 @@ const mockQuery = mock(() =>
     }),
 );
 const mockInsertRow = mock(() => Promise.resolve(true));
-const mockIncrementSuccess = mock(() => { });
-const mockIncrementError = mock(() => { });
-const mockInitService = mock(() => { });
+const mockIncrementSuccess = mock(() => {});
+const mockIncrementError = mock(() => {});
+const mockInitService = mock(() => {});
 const mockShutdownBatchInsertQueue = mock(() => Promise.resolve());
 
 // Mock fetch for Polymarket API
@@ -154,36 +154,16 @@ describe('Polymarket markets service', () => {
 
         expect(mockQuery).toHaveBeenCalled();
         expect(mockFetch).toHaveBeenCalled();
-        // Should insert market and both assets
-        expect(mockInsertRow).toHaveBeenCalledTimes(3);
+        // Should insert market data (polymarket_assets is populated via MV)
+        expect(mockInsertRow).toHaveBeenCalledTimes(1);
         expect(mockInsertRow).toHaveBeenCalledWith(
             'polymarket_markets',
             expect.objectContaining({
                 condition_id:
                     '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
                 question: 'Will this happen?',
-            }),
-            expect.any(String),
-            expect.any(Object),
-        );
-        expect(mockInsertRow).toHaveBeenCalledWith(
-            'polymarket_assets',
-            expect.objectContaining({
-                asset_id:
-                    '73573462648297901921820359655254719595698016068614764024444333650003658804359',
-                condition_id:
-                    '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
-            }),
-            expect.any(String),
-            expect.any(Object),
-        );
-        expect(mockInsertRow).toHaveBeenCalledWith(
-            'polymarket_assets',
-            expect.objectContaining({
-                asset_id:
-                    '40994777680727308978134257890301046935140301632248767098913980978862053200065',
-                condition_id:
-                    '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
+                token0: '73573462648297901921820359655254719595698016068614764024444333650003658804359',
+                token1: '40994777680727308978134257890301046935140301632248767098913980978862053200065',
             }),
             expect.any(String),
             expect.any(Object),
