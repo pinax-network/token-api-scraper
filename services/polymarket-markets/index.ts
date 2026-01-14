@@ -80,11 +80,9 @@ async function fetchMarketsFromApi(
         return result;
     }
 
-    // Build URL with multiple condition_id query parameters
+    // Build URL with condition_ids as comma-separated list
     const params = new URLSearchParams();
-    for (const conditionId of conditionIds) {
-        params.append('condition_id', conditionId);
-    }
+    params.append('condition_ids', conditionIds.join(','));
     params.append('limit', String(conditionIds.length));
 
     const url = `${POLYMARKET_API_BASE}/markets?${params.toString()}`;
@@ -205,7 +203,13 @@ async function processBatch(tokens: RegisteredToken[]): Promise<void> {
     const conditionIds = tokens.map((t) => t.condition_id);
     const marketsMap = await fetchMarketsFromApi(conditionIds);
 
-    const queryTimeMs = Math.round(performance.now() - startTime);
+    const batchQueryTimeMs = Math.round(performance.now() - startTime);
+
+    log.debug('Batch API request completed', {
+        requested: conditionIds.length,
+        found: marketsMap.size,
+        batchQueryTimeMs,
+    });
 
     // Process each token in the batch
     for (const token of tokens) {
@@ -228,7 +232,6 @@ async function processBatch(tokens: RegisteredToken[]): Promise<void> {
             log.info('Market data scraped successfully', {
                 conditionId: condition_id,
                 question: (market.question || '').substring(0, 50),
-                queryTimeMs,
             });
             incrementSuccess(serviceName);
         } else {
