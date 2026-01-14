@@ -62,7 +62,7 @@ interface PolymarketMarket {
 async function fetchMarketFromApi(
     tokenId: string,
 ): Promise<PolymarketMarket | null> {
-    const url = `${POLYMARKET_API_BASE}/markets?clob_token_ids=${tokenId}&limit=1`;
+    const url = `${POLYMARKET_API_BASE}/markets?condition_ids=${tokenId}&limit=1`;
 
     try {
         const response = await fetch(url);
