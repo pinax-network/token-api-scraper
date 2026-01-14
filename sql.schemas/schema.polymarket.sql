@@ -51,3 +51,20 @@ CREATE TABLE IF NOT EXISTS polymarket_assets (
 )
 ENGINE = ReplacingMergeTree(created_at)
 ORDER BY (asset_id);
+
+-- Polymarket Assets Errors
+-- Tracks errors when market data cannot be fetched for a condition_id
+CREATE TABLE IF NOT EXISTS polymarket_assets_errors (
+    -- identifiers --
+    condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)',
+    token0                      UInt256 COMMENT 'Token0 ID',
+    token1                      UInt256 COMMENT 'Token1 ID',
+
+    -- error details --
+    error_reason                String COMMENT 'Reason for the error',
+
+    -- inserter details --
+    created_at                  DateTime('UTC') DEFAULT now(),
+)
+ENGINE = ReplacingMergeTree(created_at)
+ORDER BY (condition_id);
