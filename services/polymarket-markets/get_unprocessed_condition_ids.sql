@@ -14,6 +14,7 @@ registered_tokens AS (
         timestamp
     FROM ctfexchange_token_registered
     ORDER BY timestamp DESC
+    LIMIT 10000
 )
 SELECT
     condition_id,
