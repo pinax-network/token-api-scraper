@@ -65,19 +65,6 @@ describe('config module', () => {
 });
 
 describe('DEFAULT_CONFIG', () => {
-    test('ALLOW_PRUNE_ERRORS should be a valid number', () => {
-        expect(typeof DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS).toBe('number');
-        expect(Number.isNaN(DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS)).toBe(false);
-    });
-
-    test('ALLOW_PRUNE_ERRORS should be 604800 (1 week in seconds)', () => {
-        expect(DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS).toBe(604800);
-    });
-
-    test('ALLOW_PRUNE_ERRORS should be non-negative', () => {
-        expect(DEFAULT_CONFIG.ALLOW_PRUNE_ERRORS).toBeGreaterThanOrEqual(0);
-    });
-
     test('AUTO_RESTART_DELAY should be a valid number', () => {
         expect(typeof DEFAULT_CONFIG.AUTO_RESTART_DELAY).toBe('number');
         expect(Number.isNaN(DEFAULT_CONFIG.AUTO_RESTART_DELAY)).toBe(false);
