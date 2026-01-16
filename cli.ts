@@ -40,7 +40,7 @@ const SERVICES = {
             'Query and update native token balances for accounts on the TRON network',
     },
     polymarket: {
-        path: './services/polymarket-markets/index.ts',
+        path: './services/polymarket/index.ts',
         description:
             'Fetch and store Polymarket market metadata from condition_id and token0/token1',
     },
@@ -335,9 +335,9 @@ const runCommand = program
 Services:
   metadata-transfers          ${SERVICES['metadata-transfers'].description}
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
-  balances-erc20    ${SERVICES['balances-erc20'].description}
-  balances-native   ${SERVICES['balances-native'].description}
-  polymarket        ${SERVICES['polymarket'].description}
+  balances-erc20              ${SERVICES['balances-erc20'].description}
+  balances-native             ${SERVICES['balances-native'].description}
+  polymarket                  ${SERVICES['polymarket'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
