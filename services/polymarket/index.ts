@@ -28,6 +28,9 @@ interface RegisteredToken {
     condition_id: string;
     token0: string;
     token1: string;
+    timestamp: string;
+    block_hash: string;
+    block_num: number;
 }
 
 /**
@@ -104,11 +107,17 @@ async function insertMarket(
     market: PolymarketMarket,
     token0: string,
     token1: string,
+    timestamp: string,
+    block_hash: string,
+    block_num: number,
 ): Promise<boolean> {
     const row = {
         condition_id: market.conditionId || '',
         token0,
         token1,
+        timestamp,
+        block_hash,
+        block_num,
         market_id: market.id || '',
         question: market.question || '',
         description: market.description || '',
@@ -169,7 +178,8 @@ async function insertError(
  * Fetches market data for the token and inserts into tables
  */
 async function processToken(token: RegisteredToken): Promise<void> {
-    const { condition_id, token0, token1 } = token;
+    const { condition_id, token0, token1, timestamp, block_hash, block_num } =
+        token;
     const startTime = performance.now();
 
     const market = await fetchMarketFromApi(condition_id);
@@ -192,7 +202,14 @@ async function processToken(token: RegisteredToken): Promise<void> {
     }
 
     // Insert market data
-    const marketSuccess = await insertMarket(market, token0, token1);
+    const marketSuccess = await insertMarket(
+        market,
+        token0,
+        token1,
+        timestamp,
+        block_hash,
+        block_num,
+    );
 
     if (marketSuccess) {
         log.info('Market data scraped successfully', {
