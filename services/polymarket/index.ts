@@ -22,6 +22,23 @@ const log = createLogger(serviceName);
 const POLYMARKET_API_BASE = 'https://gamma-api.polymarket.com';
 
 /**
+ * Parse a JSON array string into a string array
+ * Returns an empty array if parsing fails
+ */
+function parseJsonArray(jsonStr: string | undefined | null): string[] {
+    if (!jsonStr) return [];
+    try {
+        const parsed = JSON.parse(jsonStr);
+        if (Array.isArray(parsed)) {
+            return parsed.map((item) => String(item));
+        }
+        return [];
+    } catch {
+        return [];
+    }
+}
+
+/**
  * Interface for the registered token data from the database
  */
 interface RegisteredToken {
@@ -48,8 +65,10 @@ interface PolymarketMarket {
     icon: string;
     description: string;
     outcomes: string;
+    outcomePrices: string;
     createdAt: string;
     submitted_by: string;
+    marketMakerAddress: string;
     questionID: string;
     umaEndDate: string;
     orderPriceMinTickSize: number;
@@ -58,9 +77,40 @@ interface PolymarketMarket {
     startDateIso: string;
     negRisk: boolean;
     negRiskRequestID: string;
+    negRiskOther: boolean;
     clobTokenIds: string;
     enableOrderBook: boolean;
     archived: boolean;
+    new: boolean;
+    featured: boolean;
+    resolvedBy: string;
+    restricted: boolean;
+    hasReviewedDates: boolean;
+    umaBond: string;
+    umaReward: string;
+    customLiveness: number;
+    acceptingOrders: boolean;
+    ready: boolean;
+    funded: boolean;
+    acceptingOrdersTimestamp: string;
+    cyom: boolean;
+    competitive: number;
+    pagerDutyNotificationEnabled: boolean;
+    approved: boolean;
+    rewardsMinSize: number;
+    rewardsMaxSpread: number;
+    spread: number;
+    automaticallyActive: boolean;
+    clearBookOnStart: boolean;
+    manualActivation: boolean;
+    pendingDeployment: boolean;
+    deploying: boolean;
+    deployingTimestamp: string;
+    rfqEnabled: boolean;
+    eventStartTime: string;
+    holdingRewardsEnabled: boolean;
+    feesEnabled: boolean;
+    requiresTranslation: boolean;
 }
 
 /**
@@ -122,19 +172,53 @@ async function insertMarket(
         question: market.question || '',
         description: market.description || '',
         market_slug: market.slug || '',
-        outcomes: market.outcomes || '[]',
+        outcomes: parseJsonArray(market.outcomes),
         resolution_source: market.resolutionSource || '',
         image: market.image || '',
         icon: market.icon || '',
         question_id: market.questionID || '',
-        clob_token_ids: market.clobTokenIds || '[]',
+        clob_token_ids: parseJsonArray(market.clobTokenIds),
+        outcome_prices: parseJsonArray(market.outcomePrices),
         submitted_by: market.submitted_by || '',
+        market_maker_address: market.marketMakerAddress || '',
         enable_order_book: market.enableOrderBook || false,
         order_price_min_tick_size: market.orderPriceMinTickSize || 0,
         order_min_size: market.orderMinSize || 0,
         neg_risk: market.negRisk || false,
         neg_risk_request_id: market.negRiskRequestID || '',
+        neg_risk_other: market.negRiskOther || false,
         archived: market.archived || false,
+        new: market.new || false,
+        featured: market.featured || false,
+        resolved_by: market.resolvedBy || '',
+        restricted: market.restricted || false,
+        has_reviewed_dates: market.hasReviewedDates || false,
+        uma_bond: market.umaBond || '',
+        uma_reward: market.umaReward || '',
+        custom_liveness: market.customLiveness || 0,
+        accepting_orders: market.acceptingOrders || false,
+        ready: market.ready || false,
+        funded: market.funded || false,
+        accepting_orders_timestamp: market.acceptingOrdersTimestamp || '',
+        cyom: market.cyom || false,
+        competitive: market.competitive || 0,
+        pager_duty_notification_enabled:
+            market.pagerDutyNotificationEnabled || false,
+        approved: market.approved || false,
+        rewards_min_size: market.rewardsMinSize || 0,
+        rewards_max_spread: market.rewardsMaxSpread || 0,
+        spread: market.spread || 0,
+        automatically_active: market.automaticallyActive || false,
+        clear_book_on_start: market.clearBookOnStart || false,
+        manual_activation: market.manualActivation || false,
+        pending_deployment: market.pendingDeployment || false,
+        deploying: market.deploying || false,
+        deploying_timestamp: market.deployingTimestamp || '',
+        rfq_enabled: market.rfqEnabled || false,
+        event_start_time: market.eventStartTime || '',
+        holding_rewards_enabled: market.holdingRewardsEnabled || false,
+        fees_enabled: market.feesEnabled || false,
+        requires_translation: market.requiresTranslation || false,
         start_date: market.startDate || '',
         end_date: market.endDate || '',
         start_date_iso: market.startDateIso || '',
