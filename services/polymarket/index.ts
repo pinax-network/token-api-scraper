@@ -67,6 +67,7 @@ interface PolymarketMarket {
     outcomes: string;
     outcomePrices: string;
     createdAt: string;
+    updatedAt: string;
     submitted_by: string;
     marketMakerAddress: string;
     questionID: string;
@@ -110,6 +111,107 @@ interface PolymarketMarket {
     eventStartTime: string;
     holdingRewardsEnabled: boolean;
     feesEnabled: boolean;
+    requiresTranslation: boolean;
+    // Volume and liquidity fields
+    liquidity: string;
+    volume: string;
+    volumeNum: number;
+    liquidityNum: number;
+    volume24hr: number;
+    volume1wk: number;
+    volume1mo: number;
+    volume1yr: number;
+    volume24hrClob: number;
+    volume1wkClob: number;
+    volume1moClob: number;
+    volume1yrClob: number;
+    volumeClob: number;
+    liquidityClob: number;
+    // Market status
+    active: boolean;
+    closed: boolean;
+    // Pricing
+    oneDayPriceChange: number;
+    oneHourPriceChange: number;
+    lastTradePrice: number;
+    bestBid: number;
+    bestAsk: number;
+    // UMA
+    umaResolutionStatuses: string;
+    // Events
+    events: PolymarketEvent[];
+}
+
+/**
+ * Interface for the Polymarket API event response
+ */
+interface PolymarketEvent {
+    id: string;
+    ticker: string;
+    slug: string;
+    title: string;
+    description: string;
+    resolutionSource: string;
+    startDate: string;
+    creationDate: string;
+    endDate: string;
+    image: string;
+    icon: string;
+    active: boolean;
+    closed: boolean;
+    archived: boolean;
+    new: boolean;
+    featured: boolean;
+    restricted: boolean;
+    liquidity: number;
+    volume: number;
+    openInterest: number;
+    createdAt: string;
+    updatedAt: string;
+    competitive: number;
+    volume24hr: number;
+    volume1wk: number;
+    volume1mo: number;
+    volume1yr: number;
+    enableOrderBook: boolean;
+    liquidityClob: number;
+    negRisk: boolean;
+    commentCount: number;
+    cyom: boolean;
+    showAllOutcomes: boolean;
+    showMarketImages: boolean;
+    enableNegRisk: boolean;
+    automaticallyActive: boolean;
+    seriesSlug: string;
+    negRiskAugmented: boolean;
+    pendingDeployment: boolean;
+    deploying: boolean;
+    requiresTranslation: boolean;
+    series: PolymarketSeries[];
+}
+
+/**
+ * Interface for the Polymarket API series response
+ */
+interface PolymarketSeries {
+    id: string;
+    ticker: string;
+    slug: string;
+    title: string;
+    seriesType: string;
+    recurrence: string;
+    image: string;
+    icon: string;
+    active: boolean;
+    closed: boolean;
+    archived: boolean;
+    featured: boolean;
+    restricted: boolean;
+    createdAt: string;
+    updatedAt: string;
+    volume: number;
+    liquidity: number;
+    commentCount: number;
     requiresTranslation: boolean;
 }
 
@@ -219,12 +321,40 @@ async function insertMarket(
         holding_rewards_enabled: market.holdingRewardsEnabled || false,
         fees_enabled: market.feesEnabled || false,
         requires_translation: market.requiresTranslation || false,
+        // Volume and liquidity fields
+        liquidity: market.liquidity || '',
+        volume: market.volume || '',
+        volume_num: market.volumeNum || 0,
+        liquidity_num: market.liquidityNum || 0,
+        volume_24hr: market.volume24hr || 0,
+        volume_1wk: market.volume1wk || 0,
+        volume_1mo: market.volume1mo || 0,
+        volume_1yr: market.volume1yr || 0,
+        volume_24hr_clob: market.volume24hrClob || 0,
+        volume_1wk_clob: market.volume1wkClob || 0,
+        volume_1mo_clob: market.volume1moClob || 0,
+        volume_1yr_clob: market.volume1yrClob || 0,
+        volume_clob: market.volumeClob || 0,
+        liquidity_clob: market.liquidityClob || 0,
+        // Market status
+        active: market.active || false,
+        closed: market.closed || false,
+        // Pricing
+        one_day_price_change: market.oneDayPriceChange || 0,
+        one_hour_price_change: market.oneHourPriceChange || 0,
+        last_trade_price: market.lastTradePrice || 0,
+        best_bid: market.bestBid || 0,
+        best_ask: market.bestAsk || 0,
+        // UMA
+        uma_resolution_statuses: market.umaResolutionStatuses || '',
+        // Dates
         start_date: market.startDate || '',
         end_date: market.endDate || '',
         start_date_iso: market.startDateIso || '',
         end_date_iso: market.endDateIso || '',
         uma_end_date: market.umaEndDate || '',
         created_at_api: market.createdAt || '',
+        updated_at_api: market.updatedAt || '',
     };
 
     return await insertRow(
@@ -255,6 +385,129 @@ async function insertError(
         `Failed to insert error for condition_id ${condition_id}`,
         {},
     );
+}
+
+/**
+ * Insert event data into the polymarket_events table
+ */
+async function insertEvent(
+    event: PolymarketEvent,
+    condition_id: string,
+): Promise<boolean> {
+    const row = {
+        condition_id,
+        event_id: event.id || '',
+        ticker: event.ticker || '',
+        slug: event.slug || '',
+        title: event.title || '',
+        description: event.description || '',
+        resolution_source: event.resolutionSource || '',
+        image: event.image || '',
+        icon: event.icon || '',
+        active: event.active || false,
+        closed: event.closed || false,
+        archived: event.archived || false,
+        new: event.new || false,
+        featured: event.featured || false,
+        restricted: event.restricted || false,
+        enable_order_book: event.enableOrderBook || false,
+        neg_risk: event.negRisk || false,
+        cyom: event.cyom || false,
+        show_all_outcomes: event.showAllOutcomes || false,
+        show_market_images: event.showMarketImages || false,
+        enable_neg_risk: event.enableNegRisk || false,
+        automatically_active: event.automaticallyActive || false,
+        neg_risk_augmented: event.negRiskAugmented || false,
+        pending_deployment: event.pendingDeployment || false,
+        deploying: event.deploying || false,
+        requires_translation: event.requiresTranslation || false,
+        liquidity: event.liquidity || 0,
+        volume: event.volume || 0,
+        open_interest: event.openInterest || 0,
+        competitive: event.competitive || 0,
+        volume_24hr: event.volume24hr || 0,
+        volume_1wk: event.volume1wk || 0,
+        volume_1mo: event.volume1mo || 0,
+        volume_1yr: event.volume1yr || 0,
+        liquidity_clob: event.liquidityClob || 0,
+        comment_count: event.commentCount || 0,
+        series_slug: event.seriesSlug || '',
+        start_date: event.startDate || '',
+        creation_date: event.creationDate || '',
+        end_date: event.endDate || '',
+        created_at_api: event.createdAt || '',
+        updated_at_api: event.updatedAt || '',
+    };
+
+    return await insertRow(
+        'polymarket_events',
+        row,
+        `Failed to insert event ${event.id} for condition_id ${condition_id}`,
+        {},
+    );
+}
+
+/**
+ * Insert series data into the polymarket_series table
+ */
+async function insertSeries(
+    series: PolymarketSeries,
+    condition_id: string,
+    event_id: string,
+): Promise<boolean> {
+    const row = {
+        condition_id,
+        event_id,
+        series_id: series.id || '',
+        ticker: series.ticker || '',
+        slug: series.slug || '',
+        title: series.title || '',
+        series_type: series.seriesType || '',
+        recurrence: series.recurrence || '',
+        image: series.image || '',
+        icon: series.icon || '',
+        active: series.active || false,
+        closed: series.closed || false,
+        archived: series.archived || false,
+        featured: series.featured || false,
+        restricted: series.restricted || false,
+        requires_translation: series.requiresTranslation || false,
+        volume: series.volume || 0,
+        liquidity: series.liquidity || 0,
+        comment_count: series.commentCount || 0,
+        created_at_api: series.createdAt || '',
+        updated_at_api: series.updatedAt || '',
+    };
+
+    return await insertRow(
+        'polymarket_series',
+        row,
+        `Failed to insert series ${series.id} for event ${event_id}`,
+        {},
+    );
+}
+
+/**
+ * Insert events and series data for a market
+ */
+async function insertEventsAndSeries(
+    market: PolymarketMarket,
+    condition_id: string,
+): Promise<void> {
+    if (!market.events || !Array.isArray(market.events)) {
+        return;
+    }
+
+    for (const event of market.events) {
+        await insertEvent(event, condition_id);
+
+        // Insert series for each event
+        if (event.series && Array.isArray(event.series)) {
+            for (const series of event.series) {
+                await insertSeries(series, condition_id, event.id);
+            }
+        }
+    }
 }
 
 /**
@@ -301,6 +554,9 @@ async function processToken(token: RegisteredToken): Promise<void> {
             question: (market.question || '').substring(0, 50),
         });
         incrementSuccess(serviceName);
+
+        // Insert events and series data
+        await insertEventsAndSeries(market, condition_id);
     } else {
         log.warn('Insert failure', {
             conditionId: condition_id,

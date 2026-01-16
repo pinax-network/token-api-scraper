@@ -63,6 +63,36 @@ CREATE TABLE IF NOT EXISTS polymarket_markets (
     fees_enabled                Bool COMMENT 'Whether fees are enabled',
     requires_translation        Bool COMMENT 'Whether the market requires translation',
 
+    -- volume and liquidity --
+    liquidity                   String COMMENT 'Market liquidity',
+    volume                      String COMMENT 'Total market volume',
+    volume_num                  Float64 COMMENT 'Total market volume (numeric)',
+    liquidity_num               Float64 COMMENT 'Market liquidity (numeric)',
+    volume_24hr                 Float64 COMMENT '24 hour trading volume',
+    volume_1wk                  Float64 COMMENT '1 week trading volume',
+    volume_1mo                  Float64 COMMENT '1 month trading volume',
+    volume_1yr                  Float64 COMMENT '1 year trading volume',
+    volume_24hr_clob            Float64 COMMENT '24 hour CLOB trading volume',
+    volume_1wk_clob             Float64 COMMENT '1 week CLOB trading volume',
+    volume_1mo_clob             Float64 COMMENT '1 month CLOB trading volume',
+    volume_1yr_clob             Float64 COMMENT '1 year CLOB trading volume',
+    volume_clob                 Float64 COMMENT 'Total CLOB volume',
+    liquidity_clob              Float64 COMMENT 'CLOB liquidity',
+
+    -- market status --
+    active                      Bool COMMENT 'Whether the market is active',
+    closed                      Bool COMMENT 'Whether the market is closed',
+
+    -- pricing --
+    one_day_price_change        Float64 COMMENT 'Price change over the last day',
+    one_hour_price_change       Float64 COMMENT 'Price change over the last hour',
+    last_trade_price            Float64 COMMENT 'Last trade price',
+    best_bid                    Float64 COMMENT 'Best bid price',
+    best_ask                    Float64 COMMENT 'Best ask price',
+
+    -- UMA --
+    uma_resolution_statuses     String COMMENT 'UMA resolution statuses (JSON string)',
+
     -- dates --
     start_date                  String COMMENT 'Market start date (ISO 8601)',
     end_date                    String COMMENT 'Market end date (ISO 8601)',
@@ -70,6 +100,7 @@ CREATE TABLE IF NOT EXISTS polymarket_markets (
     end_date_iso                String COMMENT 'Market end date (YYYY-MM-DD)',
     uma_end_date                String COMMENT 'UMA end date (ISO 8601)',
     created_at_api              String COMMENT 'Market creation timestamp from API',
+    updated_at_api              String COMMENT 'Market update timestamp from API',
 
     -- inserter details --
     created_at                  DateTime('UTC') DEFAULT now(),
@@ -116,3 +147,106 @@ CREATE TABLE IF NOT EXISTS polymarket_markets_errors (
 )
 ENGINE = ReplacingMergeTree(created_at)
 ORDER BY (condition_id);
+
+-- Polymarket Events
+-- Stores event data associated with markets
+CREATE TABLE IF NOT EXISTS polymarket_events (
+    -- identifiers --
+    condition_id                String COMMENT 'Condition ID of the associated market (bytes32 as hex with 0x prefix)',
+    event_id                    String COMMENT 'Polymarket event ID',
+
+    -- event metadata --
+    ticker                      String COMMENT 'Event ticker',
+    slug                        String COMMENT 'Event slug for URL',
+    title                       String COMMENT 'Event title',
+    description                 String COMMENT 'Event description',
+    resolution_source           String COMMENT 'Resolution source URL',
+    image                       String COMMENT 'Event image URL',
+    icon                        String COMMENT 'Event icon URL',
+
+    -- status flags --
+    active                      Bool COMMENT 'Whether the event is active',
+    closed                      Bool COMMENT 'Whether the event is closed',
+    archived                    Bool COMMENT 'Whether the event is archived',
+    new                         Bool COMMENT 'Whether the event is new',
+    featured                    Bool COMMENT 'Whether the event is featured',
+    restricted                  Bool COMMENT 'Whether the event is restricted',
+    enable_order_book           Bool COMMENT 'Whether order book is enabled',
+    neg_risk                    Bool COMMENT 'Negative risk flag',
+    cyom                        Bool COMMENT 'CYOM flag',
+    show_all_outcomes           Bool COMMENT 'Whether to show all outcomes',
+    show_market_images          Bool COMMENT 'Whether to show market images',
+    enable_neg_risk             Bool COMMENT 'Whether negative risk is enabled',
+    automatically_active        Bool COMMENT 'Whether the event is automatically active',
+    neg_risk_augmented          Bool COMMENT 'Negative risk augmented flag',
+    pending_deployment          Bool COMMENT 'Whether deployment is pending',
+    deploying                   Bool COMMENT 'Whether the event is deploying',
+    requires_translation        Bool COMMENT 'Whether the event requires translation',
+
+    -- volume and liquidity --
+    liquidity                   Float64 COMMENT 'Event liquidity',
+    volume                      Float64 COMMENT 'Total event volume',
+    open_interest               Float64 COMMENT 'Open interest',
+    competitive                 Float64 COMMENT 'Competitive score',
+    volume_24hr                 Float64 COMMENT '24 hour trading volume',
+    volume_1wk                  Float64 COMMENT '1 week trading volume',
+    volume_1mo                  Float64 COMMENT '1 month trading volume',
+    volume_1yr                  Float64 COMMENT '1 year trading volume',
+    liquidity_clob              Float64 COMMENT 'CLOB liquidity',
+    comment_count               UInt32 COMMENT 'Number of comments',
+
+    -- series reference --
+    series_slug                 String COMMENT 'Associated series slug',
+
+    -- dates --
+    start_date                  String COMMENT 'Event start date (ISO 8601)',
+    creation_date               String COMMENT 'Event creation date (ISO 8601)',
+    end_date                    String COMMENT 'Event end date (ISO 8601)',
+    created_at_api              String COMMENT 'Event creation timestamp from API',
+    updated_at_api              String COMMENT 'Event update timestamp from API',
+
+    -- inserter details --
+    created_at                  DateTime('UTC') DEFAULT now(),
+)
+ENGINE = ReplacingMergeTree(created_at)
+ORDER BY (condition_id, event_id);
+
+-- Polymarket Series
+-- Stores series data associated with events
+CREATE TABLE IF NOT EXISTS polymarket_series (
+    -- identifiers --
+    condition_id                String COMMENT 'Condition ID of the associated market (bytes32 as hex with 0x prefix)',
+    event_id                    String COMMENT 'Polymarket event ID this series belongs to',
+    series_id                   String COMMENT 'Polymarket series ID',
+
+    -- series metadata --
+    ticker                      String COMMENT 'Series ticker',
+    slug                        String COMMENT 'Series slug for URL',
+    title                       String COMMENT 'Series title',
+    series_type                 String COMMENT 'Series type (e.g., single)',
+    recurrence                  String COMMENT 'Recurrence pattern (e.g., hourly)',
+    image                       String COMMENT 'Series image URL',
+    icon                        String COMMENT 'Series icon URL',
+
+    -- status flags --
+    active                      Bool COMMENT 'Whether the series is active',
+    closed                      Bool COMMENT 'Whether the series is closed',
+    archived                    Bool COMMENT 'Whether the series is archived',
+    featured                    Bool COMMENT 'Whether the series is featured',
+    restricted                  Bool COMMENT 'Whether the series is restricted',
+    requires_translation        Bool COMMENT 'Whether the series requires translation',
+
+    -- volume and liquidity --
+    volume                      Float64 COMMENT 'Total series volume',
+    liquidity                   Float64 COMMENT 'Series liquidity',
+    comment_count               UInt32 COMMENT 'Number of comments',
+
+    -- dates --
+    created_at_api              String COMMENT 'Series creation timestamp from API',
+    updated_at_api              String COMMENT 'Series update timestamp from API',
+
+    -- inserter details --
+    created_at                  DateTime('UTC') DEFAULT now(),
+)
+ENGINE = ReplacingMergeTree(created_at)
+ORDER BY (condition_id, event_id, series_id);
