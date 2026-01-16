@@ -217,7 +217,7 @@ describe('Polymarket markets service', () => {
             expect.objectContaining({
                 condition_id:
                     '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
-                error_reason: 'Market not found',
+                error: 'Market not found',
             }),
             expect.any(String),
             expect.any(Object),
@@ -269,7 +269,7 @@ describe('Polymarket markets service', () => {
             expect.objectContaining({
                 condition_id:
                     '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
-                error_reason: 'Market not found',
+                error: 'Market not found',
             }),
             expect.any(String),
             expect.any(Object),
@@ -573,7 +573,7 @@ describe('Polymarket markets service', () => {
             expect.objectContaining({
                 condition_id:
                     '0xnotfound1234567890123456789012345678901234567890123456789012345',
-                error_reason: 'Market not found',
+                error: 'Market not found',
             }),
             expect.any(String),
             expect.any(Object),
