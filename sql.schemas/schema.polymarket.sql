@@ -1,6 +1,11 @@
 -- Polymarket Markets Metadata
 -- Stores market data fetched from Polymarket API using condition_id
 CREATE TABLE IF NOT EXISTS polymarket_markets (
+    -- block --
+    block_num                   UInt32,
+    block_hash                  String,
+    timestamp                   DateTime('UTC'),
+
     -- identifiers --
     condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)',
     token0                      UInt256 COMMENT 'Token0 ID',
@@ -44,12 +49,9 @@ ORDER BY (condition_id);
 CREATE TABLE IF NOT EXISTS polymarket_assets (
     -- identifiers --
     asset_id                    UInt256 COMMENT 'Asset ID (token0 or token1)',
-    condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)',
-
-    -- inserter details --
-    created_at                  DateTime('UTC') DEFAULT now(),
+    condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)'
 )
-ENGINE = ReplacingMergeTree(created_at)
+ENGINE = ReplacingMergeTree
 ORDER BY (asset_id);
 
 -- create MV to load data from polymarket_markets into polymarket_assets
@@ -74,7 +76,7 @@ CREATE TABLE IF NOT EXISTS polymarket_markets_errors (
     token1                      UInt256 COMMENT 'Token1 ID',
 
     -- error details --
-    error_reason                String COMMENT 'Reason for the error',
+    error                       String COMMENT 'Reason for the error',
 
     -- inserter details --
     created_at                  DateTime('UTC') DEFAULT now(),

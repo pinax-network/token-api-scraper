@@ -10,6 +10,8 @@ SELECT
     condition_id,
     toString(token0) as token0,
     toString(token1) as token1,
+    block_num,
+    block_hash,
     timestamp
 FROM ctfexchange_token_registered
 WHERE

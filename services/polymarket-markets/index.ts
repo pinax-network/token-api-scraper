@@ -146,20 +146,20 @@ async function insertMarket(
  * Insert error record into the polymarket_markets_errors table
  */
 async function insertError(
-    conditionId: string,
+    condition_id: string,
     token0: string,
     token1: string,
-    errorReason: string,
+    error: string,
 ): Promise<boolean> {
     return await insertRow(
         'polymarket_markets_errors',
         {
-            condition_id: conditionId,
+            condition_id,
             token0,
             token1,
-            error_reason: errorReason,
+            error,
         },
-        `Failed to insert error for condition_id ${conditionId}`,
+        `Failed to insert error for condition_id ${condition_id}`,
         {},
     );
 }
