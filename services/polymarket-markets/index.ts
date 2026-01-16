@@ -13,12 +13,6 @@ import { insertRow } from '../../src/insert';
  */
 const REQUEST_DELAY_MS = 100;
 
-/**
- * Number of condition_ids to fetch in a single API batch request
- * Polymarket API supports multiple condition_id query parameters
- */
-const BATCH_SIZE = 50;
-
 const serviceName = 'polymarket-markets';
 const log = createLogger(serviceName);
 
@@ -67,25 +61,14 @@ interface PolymarketMarket {
 }
 
 /**
- * Fetch market data from Polymarket API using multiple condition_ids in a single batch request
- * @param conditionIds - Array of condition IDs to query
- * @returns Map of conditionId to market data (markets not found will not be in the map)
+ * Fetch market data from Polymarket API for a single condition ID
+ * @param conditionId - The condition ID to query
+ * @returns Market data or null if not found
  */
-async function fetchMarketsFromApi(
-    conditionIds: string[],
-): Promise<Map<string, PolymarketMarket>> {
-    const result = new Map<string, PolymarketMarket>();
-
-    if (conditionIds.length === 0) {
-        return result;
-    }
-
-    // Build URL with condition_ids as comma-separated list
-    const params = new URLSearchParams();
-    params.append('condition_ids', conditionIds.join(','));
-    params.append('limit', String(conditionIds.length));
-
-    const url = `${POLYMARKET_API_BASE}/markets?${params.toString()}`;
+async function fetchMarketFromApi(
+    conditionId: string,
+): Promise<PolymarketMarket | null> {
+    const url = `${POLYMARKET_API_BASE}/markets?condition_ids=${conditionId}&limit=1`;
 
     try {
         const response = await fetch(url);
@@ -93,32 +76,25 @@ async function fetchMarketsFromApi(
             log.warn('Polymarket API returned non-OK status', {
                 status: response.status,
                 statusText: response.statusText,
-                conditionIdCount: conditionIds.length,
+                conditionId,
             });
-            return result;
+            return null;
         }
 
         const markets: PolymarketMarket[] = await response.json();
 
-        // Create a map from conditionId to market for easy lookup
-        for (const market of markets) {
-            if (market.conditionId) {
-                result.set(market.conditionId, market);
-            }
+        if (markets.length === 0) {
+            return null;
         }
 
-        log.debug('Fetched markets from API', {
-            requested: conditionIds.length,
-            found: result.size,
-        });
+        return markets[0];
     } catch (error) {
-        log.warn('Failed to fetch markets from Polymarket API', {
-            conditionIdCount: conditionIds.length,
+        log.warn('Failed to fetch market from Polymarket API', {
+            conditionId,
             error: (error as Error).message,
         });
+        return null;
     }
-
-    return result;
 }
 
 /**
@@ -189,61 +165,49 @@ async function insertError(
 }
 
 /**
- * Process a batch of registered tokens
- * Fetches market data for all tokens in a single API request and inserts into tables
+ * Process a single registered token
+ * Fetches market data for the token and inserts into tables
  */
-async function processBatch(tokens: RegisteredToken[]): Promise<void> {
-    if (tokens.length === 0) {
+async function processToken(token: RegisteredToken): Promise<void> {
+    const { condition_id, token0, token1 } = token;
+    const startTime = performance.now();
+
+    const market = await fetchMarketFromApi(condition_id);
+
+    const queryTimeMs = Math.round(performance.now() - startTime);
+
+    log.debug('API request completed', {
+        conditionId: condition_id,
+        found: !!market,
+        queryTimeMs,
+    });
+
+    if (!market) {
+        log.warn('No market found for condition_id', {
+            conditionId: condition_id,
+        });
+        await insertError(condition_id, token0, token1, 'Market not found');
+        incrementError(serviceName);
         return;
     }
 
-    const startTime = performance.now();
+    // Insert market data
+    const marketSuccess = await insertMarket(market, token0, token1);
 
-    // Fetch all markets in a single batch request
-    const conditionIds = tokens.map((t) => t.condition_id);
-    const marketsMap = await fetchMarketsFromApi(conditionIds);
-
-    const batchQueryTimeMs = Math.round(performance.now() - startTime);
-
-    log.debug('Batch API request completed', {
-        requested: conditionIds.length,
-        found: marketsMap.size,
-        batchQueryTimeMs,
-    });
-
-    // Process each token in the batch
-    for (const token of tokens) {
-        const { condition_id, token0, token1 } = token;
-        const market = marketsMap.get(condition_id);
-
-        if (!market) {
-            log.warn('No market found for condition_id', {
-                conditionId: condition_id,
-            });
-            await insertError(condition_id, token0, token1, 'Market not found');
-            incrementError(serviceName);
-            continue;
-        }
-
-        // Insert market data
-        const marketSuccess = await insertMarket(market, token0, token1);
-
-        if (marketSuccess) {
-            log.info('Market data scraped successfully', {
-                conditionId: condition_id,
-                question: (market.question || '').substring(0, 50),
-            });
-            incrementSuccess(serviceName);
-        } else {
-            log.warn('Partial insert failure', {
-                conditionId: condition_id,
-                marketSuccess,
-            });
-            incrementError(serviceName);
-        }
+    if (marketSuccess) {
+        log.info('Market data scraped successfully', {
+            conditionId: condition_id,
+            question: (market.question || '').substring(0, 50),
+        });
+        incrementSuccess(serviceName);
+    } else {
+        log.warn('Insert failure', {
+            conditionId: condition_id,
+        });
+        incrementError(serviceName);
     }
 
-    // Add delay between batch requests to avoid overwhelming the API
+    // Add delay between requests to avoid overwhelming the API
     await sleep(REQUEST_DELAY_MS);
 }
 
@@ -270,11 +234,10 @@ export async function run(): Promise<void> {
         log.info('No new condition_ids to process');
     }
 
-    // Process tokens in batches
-    for (let i = 0; i < tokens.data.length; i += BATCH_SIZE) {
-        const batch = tokens.data.slice(i, i + BATCH_SIZE);
+    // Process each token individually
+    for (const token of tokens.data) {
         queue.add(async () => {
-            await processBatch(batch);
+            await processToken(token);
         });
     }
 
