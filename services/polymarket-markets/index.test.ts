@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 /**
- * Tests for polymarket-markets service
+ * Tests for polymarket service
  * Verifies that the service correctly fetches and stores Polymarket market data
  */
 

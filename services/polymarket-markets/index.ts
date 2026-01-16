@@ -13,7 +13,7 @@ import { insertRow } from '../../src/insert';
  */
 const REQUEST_DELAY_MS = 100;
 
-const serviceName = 'polymarket-markets';
+const serviceName = 'polymarket';
 const log = createLogger(serviceName);
 
 /**
@@ -212,7 +212,7 @@ async function processToken(token: RegisteredToken): Promise<void> {
 }
 
 /**
- * Main run function for the polymarket-markets service
+ * Main run function for the polymarket service
  */
 export async function run(): Promise<void> {
     // Initialize service (must be called before using batch insert queue)

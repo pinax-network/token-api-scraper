@@ -39,7 +39,7 @@ const SERVICES = {
         description:
             'Query and update native token balances for accounts on the TRON network',
     },
-    'polymarket-markets': {
+    polymarket: {
         path: './services/polymarket-markets/index.ts',
         description:
             'Fetch and store Polymarket market metadata from condition_id and token0/token1',
@@ -102,13 +102,13 @@ function addCommonOptions(command: Command): Command {
                 '--clickhouse-username <user>',
                 'Username for authenticating with the ClickHouse database.',
                 process.env.CLICKHOUSE_USERNAME ||
-                    DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
+                DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
             )
             .option(
                 '--clickhouse-password <password>',
                 'Password for authenticating with the ClickHouse database. Keep this secure!',
                 process.env.CLICKHOUSE_PASSWORD ||
-                    DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
+                DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
             )
             .option(
                 '--clickhouse-database <db>',
@@ -136,7 +136,7 @@ function addCommonOptions(command: Command): Command {
                 '--base-delay-ms <number>',
                 'Base delay in milliseconds for exponential backoff between retries.',
                 process.env.BASE_DELAY_MS ||
-                    String(DEFAULT_CONFIG.BASE_DELAY_MS),
+                String(DEFAULT_CONFIG.BASE_DELAY_MS),
             )
             .option(
                 '--jitter-min <number>',
@@ -163,13 +163,13 @@ function addCommonOptions(command: Command): Command {
                 '--prometheus-port <port>',
                 'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
                 process.env.PROMETHEUS_PORT ||
-                    String(DEFAULT_CONFIG.PROMETHEUS_PORT),
+                String(DEFAULT_CONFIG.PROMETHEUS_PORT),
             )
             .option(
                 '--prometheus-hostname <hostname>',
                 'Hostname for the Prometheus server to bind to.',
                 process.env.PROMETHEUS_HOSTNAME ||
-                    DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
+                DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
             )
             // Logging Options
             .option(
@@ -181,7 +181,7 @@ function addCommonOptions(command: Command): Command {
                 '--auto-restart-delay <seconds>',
                 `Delay in seconds before restarting the service (default: ${DEFAULT_CONFIG.AUTO_RESTART_DELAY}).`,
                 process.env.AUTO_RESTART_DELAY ||
-                    String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
+                String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
             )
     );
 }
@@ -337,14 +337,14 @@ Services:
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
   balances-erc20    ${SERVICES['balances-erc20'].description}
   balances-native   ${SERVICES['balances-native'].description}
-  polymarket-markets ${SERVICES['polymarket-markets'].description}
+  polymarket        ${SERVICES['polymarket'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
   $ npm run cli run balances-erc20 --concurrency 20
   $ npm run cli run balances-native --prometheus-port 8080
-  $ npm run cli run polymarket-markets
+  $ npm run cli run polymarket
 
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
@@ -391,13 +391,13 @@ function addClickhouseOptions(command: Command): Command {
             '--clickhouse-username <user>',
             'Username for authenticating with ClickHouse',
             process.env.CLICKHOUSE_USERNAME ||
-                DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
+            DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
         )
         .option(
             '--clickhouse-password <password>',
             'Password for authenticating with ClickHouse',
             process.env.CLICKHOUSE_PASSWORD ||
-                DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
+            DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
         )
         .option(
             '--clickhouse-database <db>',
