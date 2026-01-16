@@ -499,12 +499,31 @@ async function insertEventsAndSeries(
     }
 
     for (const event of market.events) {
-        await insertEvent(event, condition_id);
+        const eventSuccess = await insertEvent(event, condition_id);
+        if (!eventSuccess) {
+            log.warn('Failed to insert event', {
+                conditionId: condition_id,
+                eventId: event.id,
+            });
+            // Continue to next event, don't insert series for failed event
+            continue;
+        }
 
         // Insert series for each event
         if (event.series && Array.isArray(event.series)) {
             for (const series of event.series) {
-                await insertSeries(series, condition_id, event.id);
+                const seriesSuccess = await insertSeries(
+                    series,
+                    condition_id,
+                    event.id,
+                );
+                if (!seriesSuccess) {
+                    log.warn('Failed to insert series', {
+                        conditionId: condition_id,
+                        eventId: event.id,
+                        seriesId: series.id,
+                    });
+                }
             }
         }
     }
