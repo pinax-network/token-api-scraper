@@ -13,9 +13,9 @@ const mockQuery = mock(() =>
     }),
 );
 const mockInsertRow = mock(() => Promise.resolve(true));
-const mockIncrementSuccess = mock(() => { });
-const mockIncrementError = mock(() => { });
-const mockInitService = mock(() => { });
+const mockIncrementSuccess = mock(() => {});
+const mockIncrementError = mock(() => {});
+const mockInitService = mock(() => {});
 const mockShutdownBatchInsertQueue = mock(() => Promise.resolve());
 
 // Mock fetch for Polymarket API
