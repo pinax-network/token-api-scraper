@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS metadata_errors (
 ENGINE = MergeTree
 ORDER BY (
     contract
-);
+)
+TTL created_at + INTERVAL 1 WEEK;
 
 -- base,avalanche,unichain,tron,bsc,polygon,mainnet,arbitrum-one,optimism
 INSERT INTO metadata (network, contract, decimals, name, symbol) VALUES
