@@ -46,7 +46,7 @@ ORDER BY (condition_id);
 
 -- Polymarket Assets
 -- Links asset_id (token0/token1) to condition_id for lookup
-CREATE TABLE IF NOT EXISTS polymarket_assets (
+CREATE TABLE IF NOT EXISTS polymarket_markets_by_asset_id (
     -- identifiers --
     asset_id                    UInt256 COMMENT 'Asset ID (token0 or token1)',
     condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)'
@@ -54,9 +54,9 @@ CREATE TABLE IF NOT EXISTS polymarket_assets (
 ENGINE = ReplacingMergeTree
 ORDER BY (asset_id);
 
--- create MV to load data from polymarket_markets into polymarket_assets
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_polymarket_assets
-TO polymarket_assets AS
+-- create MV to load data from polymarket_markets into polymarket_markets_by_asset_id
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_polymarket_markets_by_asset_id
+TO polymarket_markets_by_asset_id AS
 SELECT
     token0 AS asset_id,
     condition_id
@@ -67,7 +67,7 @@ SELECT
     condition_id
 FROM polymarket_markets;
 
--- Polymarket Assets Errors
+-- Polymarket Markets Errors
 -- Tracks errors when market data cannot be fetched for a condition_id
 CREATE TABLE IF NOT EXISTS polymarket_markets_errors (
     -- identifiers --

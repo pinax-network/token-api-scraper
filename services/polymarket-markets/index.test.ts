@@ -345,7 +345,7 @@ describe('Polymarket markets service', () => {
         expect(mockIncrementSuccess).not.toHaveBeenCalled();
     });
 
-    test('should batch multiple condition_ids in a single API request', async () => {
+    test('should process multiple condition_ids with individual API requests', async () => {
         const registeredTokens = [
             {
                 condition_id:
@@ -361,66 +361,65 @@ describe('Polymarket markets service', () => {
             },
         ];
 
-        const mockMarkets = [
-            {
-                id: '1137135',
-                conditionId:
-                    '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
-                question: 'Will this happen?',
-                description: 'A test market',
-                slug: 'test-market',
-                outcomes: '["Yes", "No"]',
-                resolutionSource: 'https://example.com',
-                image: 'https://example.com/image.png',
-                icon: 'https://example.com/icon.png',
-                questionID:
-                    '0xb66ff94419161a6877f128059eb8d45f5eaeb3789f3d7b5e9071b0777926272a',
-                clobTokenIds:
-                    '["73573462648297901921820359655254719595698016068614764024444333650003658804359"]',
-                submitted_by: '0x91430CaD2d3975766499717fA0D66A78D814E5c5',
-                enableOrderBook: true,
-                orderPriceMinTickSize: 0.001,
-                orderMinSize: 5,
-                negRisk: false,
-                negRiskRequestID: '',
-                archived: false,
-                startDate: '2025-01-01T00:00:00Z',
-                endDate: '2025-12-31T00:00:00Z',
-                startDateIso: '2025-01-01',
-                endDateIso: '2025-12-31',
-                umaEndDate: '2025-12-31T17:00:00Z',
-                createdAt: '2025-01-01T00:00:00Z',
-            },
-            {
-                id: '1137136',
-                conditionId:
-                    '0xabc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd',
-                question: 'Another market question?',
-                description: 'Another test market',
-                slug: 'another-test-market',
-                outcomes: '["Yes", "No"]',
-                resolutionSource: 'https://example.com',
-                image: 'https://example.com/image2.png',
-                icon: 'https://example.com/icon2.png',
-                questionID:
-                    '0xc77ff94419161a6877f128059eb8d45f5eaeb3789f3d7b5e9071b0777926272b',
-                clobTokenIds:
-                    '["11111111111111111111111111111111111111111111111111111111111111111"]',
-                submitted_by: '0x91430CaD2d3975766499717fA0D66A78D814E5c5',
-                enableOrderBook: true,
-                orderPriceMinTickSize: 0.001,
-                orderMinSize: 5,
-                negRisk: false,
-                negRiskRequestID: '',
-                archived: false,
-                startDate: '2025-01-01T00:00:00Z',
-                endDate: '2025-12-31T00:00:00Z',
-                startDateIso: '2025-01-01',
-                endDateIso: '2025-12-31',
-                umaEndDate: '2025-12-31T17:00:00Z',
-                createdAt: '2025-01-01T00:00:00Z',
-            },
-        ];
+        const mockMarket1 = {
+            id: '1137135',
+            conditionId:
+                '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
+            question: 'Will this happen?',
+            description: 'A test market',
+            slug: 'test-market',
+            outcomes: '["Yes", "No"]',
+            resolutionSource: 'https://example.com',
+            image: 'https://example.com/image.png',
+            icon: 'https://example.com/icon.png',
+            questionID:
+                '0xb66ff94419161a6877f128059eb8d45f5eaeb3789f3d7b5e9071b0777926272a',
+            clobTokenIds:
+                '["73573462648297901921820359655254719595698016068614764024444333650003658804359"]',
+            submitted_by: '0x91430CaD2d3975766499717fA0D66A78D814E5c5',
+            enableOrderBook: true,
+            orderPriceMinTickSize: 0.001,
+            orderMinSize: 5,
+            negRisk: false,
+            negRiskRequestID: '',
+            archived: false,
+            startDate: '2025-01-01T00:00:00Z',
+            endDate: '2025-12-31T00:00:00Z',
+            startDateIso: '2025-01-01',
+            endDateIso: '2025-12-31',
+            umaEndDate: '2025-12-31T17:00:00Z',
+            createdAt: '2025-01-01T00:00:00Z',
+        };
+
+        const mockMarket2 = {
+            id: '1137136',
+            conditionId:
+                '0xabc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd',
+            question: 'Another market question?',
+            description: 'Another test market',
+            slug: 'another-test-market',
+            outcomes: '["Yes", "No"]',
+            resolutionSource: 'https://example.com',
+            image: 'https://example.com/image2.png',
+            icon: 'https://example.com/icon2.png',
+            questionID:
+                '0xc77ff94419161a6877f128059eb8d45f5eaeb3789f3d7b5e9071b0777926272b',
+            clobTokenIds:
+                '["11111111111111111111111111111111111111111111111111111111111111111"]',
+            submitted_by: '0x91430CaD2d3975766499717fA0D66A78D814E5c5',
+            enableOrderBook: true,
+            orderPriceMinTickSize: 0.001,
+            orderMinSize: 5,
+            negRisk: false,
+            negRiskRequestID: '',
+            archived: false,
+            startDate: '2025-01-01T00:00:00Z',
+            endDate: '2025-12-31T00:00:00Z',
+            startDateIso: '2025-01-01',
+            endDateIso: '2025-12-31',
+            umaEndDate: '2025-12-31T17:00:00Z',
+            createdAt: '2025-01-01T00:00:00Z',
+        };
 
         mockQuery.mockReturnValue(
             Promise.resolve({
@@ -433,20 +432,28 @@ describe('Polymarket markets service', () => {
             }),
         );
 
-        mockFetch.mockReturnValue(
-            Promise.resolve({
-                ok: true,
-                json: () => Promise.resolve(mockMarkets),
-            }),
-        );
+        // Return different markets for each individual request
+        mockFetch
+            .mockReturnValueOnce(
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([mockMarket1]),
+                }),
+            )
+            .mockReturnValueOnce(
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([mockMarket2]),
+                }),
+            );
 
         const { run } = await import('./index');
 
         await run();
 
         expect(mockQuery).toHaveBeenCalled();
-        // Should only make ONE fetch call for both condition_ids (batch request)
-        expect(mockFetch).toHaveBeenCalledTimes(1);
+        // Should make TWO fetch calls (one per condition_id)
+        expect(mockFetch).toHaveBeenCalledTimes(2);
         // Should insert market data for both tokens
         expect(mockInsertRow).toHaveBeenCalledTimes(2);
         expect(mockInsertRow).toHaveBeenCalledWith(
@@ -473,7 +480,7 @@ describe('Polymarket markets service', () => {
         expect(mockShutdownBatchInsertQueue).toHaveBeenCalled();
     });
 
-    test('should handle partial batch response where some markets are not found', async () => {
+    test('should handle some markets not found with individual API requests', async () => {
         const registeredTokens = [
             {
                 condition_id:
@@ -489,36 +496,33 @@ describe('Polymarket markets service', () => {
             },
         ];
 
-        const mockMarkets = [
-            {
-                id: '1137135',
-                conditionId:
-                    '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
-                question: 'Will this happen?',
-                description: 'A test market',
-                slug: 'test-market',
-                outcomes: '["Yes", "No"]',
-                resolutionSource: '',
-                image: '',
-                icon: '',
-                questionID: '',
-                clobTokenIds: '[]',
-                submitted_by: '',
-                enableOrderBook: true,
-                orderPriceMinTickSize: 0,
-                orderMinSize: 0,
-                negRisk: false,
-                negRiskRequestID: '',
-                archived: false,
-                startDate: '',
-                endDate: '',
-                startDateIso: '',
-                endDateIso: '',
-                umaEndDate: '',
-                createdAt: '',
-            },
-            // Second market is NOT returned (not found)
-        ];
+        const mockMarket = {
+            id: '1137135',
+            conditionId:
+                '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
+            question: 'Will this happen?',
+            description: 'A test market',
+            slug: 'test-market',
+            outcomes: '["Yes", "No"]',
+            resolutionSource: '',
+            image: '',
+            icon: '',
+            questionID: '',
+            clobTokenIds: '[]',
+            submitted_by: '',
+            enableOrderBook: true,
+            orderPriceMinTickSize: 0,
+            orderMinSize: 0,
+            negRisk: false,
+            negRiskRequestID: '',
+            archived: false,
+            startDate: '',
+            endDate: '',
+            startDateIso: '',
+            endDateIso: '',
+            umaEndDate: '',
+            createdAt: '',
+        };
 
         mockQuery.mockReturnValue(
             Promise.resolve({
@@ -531,19 +535,28 @@ describe('Polymarket markets service', () => {
             }),
         );
 
-        mockFetch.mockReturnValue(
-            Promise.resolve({
-                ok: true,
-                json: () => Promise.resolve(mockMarkets),
-            }),
-        );
+        // First request returns market, second returns empty (not found)
+        mockFetch
+            .mockReturnValueOnce(
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([mockMarket]),
+                }),
+            )
+            .mockReturnValueOnce(
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([]),
+                }),
+            );
 
         const { run } = await import('./index');
 
         await run();
 
         expect(mockQuery).toHaveBeenCalled();
-        expect(mockFetch).toHaveBeenCalledTimes(1);
+        // Should make TWO fetch calls (one per condition_id)
+        expect(mockFetch).toHaveBeenCalledTimes(2);
         // Should insert 1 market and 1 error
         expect(mockInsertRow).toHaveBeenCalledTimes(2);
         expect(mockInsertRow).toHaveBeenCalledWith(
