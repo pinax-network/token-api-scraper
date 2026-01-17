@@ -1,12 +1,11 @@
 SELECT
     log_address AS contract,
-    minute,
-    timestamp,
-    block_num
+    max(block_num) as block_num,
+    max(timestamp) as timestamp
 FROM transfers
 WHERE
     log_address NOT IN (SELECT contract FROM metadata_errors) AND
     log_address NOT IN (SELECT contract FROM metadata)
-QUALIFY ROW_NUMBER() OVER (PARTITION BY log_address ORDER BY minute DESC) = 1
-ORDER BY minute DESC
+GROUP BY log_address
+ORDER BY timestamp DESC
 LIMIT 10000;
