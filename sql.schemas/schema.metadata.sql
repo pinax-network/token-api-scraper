@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS metadata (
     symbol                      String,
 
     -- inserter details --
-    created_at                  DateTime('UTC') DEFAULT now(),
+    created_at                  DateTime('UTC') DEFAULT now()
 )
 ENGINE = ReplacingMergeTree(block_num)
 ORDER BY (
@@ -22,13 +22,11 @@ ORDER BY (
 CREATE TABLE IF NOT EXISTS metadata_errors (
     contract                    String,
     error                       LowCardinality(String) DEFAULT '',
-    created_at                  DateTime('UTC') DEFAULT now(),
+    created_at                  DateTime('UTC') DEFAULT now()
 )
 ENGINE = MergeTree
-ORDER BY (
-    contract
-)
-TTL created_at + INTERVAL 1 WEEK;
+TTL created_at + INTERVAL 1 WEEK
+ORDER BY ( contract );
 
 -- base,avalanche,unichain,tron,bsc,polygon,mainnet,arbitrum-one,optimism
 INSERT INTO metadata (network, contract, decimals, name, symbol) VALUES
