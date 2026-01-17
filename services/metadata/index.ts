@@ -17,6 +17,7 @@ export async function processMetadata(
     network: string,
     contract: string,
     block_num: number,
+    timestamp: number,
     serviceName: string,
 ) {
     try {
@@ -59,6 +60,7 @@ export async function processMetadata(
                     network,
                     contract,
                     block_num,
+                    timestamp,
                     name,
                     symbol,
                     decimals,
@@ -81,6 +83,7 @@ export async function processMetadata(
                 if (code.toLowerCase() === EMPTY_CONTRACT_CODE) {
                     // Contract has no code - it's self-destructed or never existed
                     await insert_error_metadata(
+                        network,
                         contract,
                         'self-destructed contract',
                         serviceName,
@@ -88,6 +91,7 @@ export async function processMetadata(
                 } else {
                     // Contract has code but decimals() failed
                     await insert_error_metadata(
+                        network,
                         contract,
                         'missing decimals()',
                         serviceName,
@@ -100,6 +104,7 @@ export async function processMetadata(
                     error: (err as Error).message,
                 });
                 await insert_error_metadata(
+                    network,
                     contract,
                     'missing decimals()',
                     serviceName,
@@ -117,7 +122,7 @@ export async function processMetadata(
             serviceName,
         });
 
-        await insert_error_metadata(contract, message, serviceName);
+        await insert_error_metadata(network, contract, message, serviceName);
     }
 }
 
@@ -126,6 +131,7 @@ export async function insert_metadata(
         network: string;
         contract: string;
         block_num: number;
+        timestamp: number;
         symbol: string;
         name: string;
         decimals: number;
@@ -171,6 +177,7 @@ function isInfrastructureError(error: string): boolean {
 }
 
 export async function insert_error_metadata(
+    network: string,
     contract: string,
     error: string,
     serviceName?: string,
@@ -185,7 +192,7 @@ export async function insert_error_metadata(
 
     await insertRow(
         'metadata_errors',
-        { contract, error },
+        { network, contract, error },
         `Failed to insert error metadata for contract ${contract}`,
         { contract },
     );

@@ -1,11 +1,14 @@
 -- Raw Token Metadata from RPC
 CREATE TABLE IF NOT EXISTS metadata (
     -- block --
-    block_num                   UInt32 COMMENT 'block number from last successful transfer/swap involving this token',
+    block_num                   UInt32,
+    timestamp                   DateTime('UTC'),
 
-    -- token metadata --
+    -- token identity --
     network                     String,
     contract                    String,
+
+    -- token metadata --
     decimals                    UInt8,
     name                        String,
     symbol                      String,
@@ -20,13 +23,14 @@ ORDER BY (
 
 -- RPC error handling for metadata --
 CREATE TABLE IF NOT EXISTS metadata_errors (
+    network                     String,
     contract                    String,
     error                       LowCardinality(String) DEFAULT '',
     created_at                  DateTime('UTC') DEFAULT now()
 )
-ENGINE = MergeTree
+ENGINE = ReplacingMergeTree(created_at)
 TTL created_at + INTERVAL 1 WEEK
-ORDER BY ( contract );
+ORDER BY ( network, contract );
 
 -- base,avalanche,unichain,tron,bsc,polygon,mainnet,arbitrum-one,optimism --
 INSERT INTO metadata (network, contract, decimals, name, symbol) VALUES

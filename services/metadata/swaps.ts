@@ -18,7 +18,7 @@ export async function run() {
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
-    const contracts = await query<{ contract: string; block_num: number }>(
+    const contracts = await query<{ contract: string; block_num: number; block_hash: string; timestamp: number }>(
         await Bun.file(__dirname + '/get_contracts_by_swaps.sql').text(),
     );
 
@@ -29,9 +29,9 @@ export async function run() {
     });
 
     // Process all contracts
-    for (const { contract, block_num } of contracts.data) {
+    for (const { contract, block_num, timestamp } of contracts.data) {
         queue.add(async () => {
-            await processMetadata(network, contract, block_num, serviceName);
+            await processMetadata(network, contract, block_num, timestamp, serviceName);
         });
     }
 
