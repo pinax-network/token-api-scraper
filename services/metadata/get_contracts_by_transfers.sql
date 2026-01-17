@@ -1,21 +1,8 @@
-WITH metadata_contracts AS (
-    SELECT contract
-    FROM metadata
-
-    UNION ALL
-
-    SELECT contract
-    FROM metadata_errors
-),
-contracts AS (
-    SELECT
-        log_address AS contract,
-        max(block_num) as block_num
-    FROM transfers
-    WHERE transfer_type = 'transfer'
-    GROUP BY log_address
-)
-SELECT *
-FROM contracts
-WHERE contract NOT IN metadata_contracts
-ORDER BY block_num DESC;
+SELECT
+    log_address AS contract,
+    block_num
+FROM erc20_transfers
+WHERE
+    log_address NOT IN (SELECT contract FROM metadata_errors) AND
+    log_address NOT IN (SELECT contract FROM metadata)
+LIMIT 10000;
