@@ -430,7 +430,7 @@ async function insertEvent(
         volume_1mo: event.volume1mo || 0,
         volume_1yr: event.volume1yr || 0,
         liquidity_clob: event.liquidityClob || 0,
-        comment_count: event.commentCount || 0,
+        comment_count: Math.max(0, event.commentCount || 0),
         series_slug: event.seriesSlug || '',
         start_date: event.startDate || '',
         creation_date: event.creationDate || '',
@@ -474,7 +474,7 @@ async function insertSeries(
         requires_translation: series.requiresTranslation || false,
         volume: series.volume || 0,
         liquidity: series.liquidity || 0,
-        comment_count: series.commentCount || 0,
+        comment_count: Math.max(0, series.commentCount || 0),
         created_at_api: series.createdAt || '',
         updated_at_api: series.updatedAt || '',
     };

@@ -779,4 +779,199 @@ describe('Polymarket markets service', () => {
         expect(mockIncrementError).toHaveBeenCalledTimes(1);
         expect(mockShutdownBatchInsertQueue).toHaveBeenCalled();
     });
+
+    test('should handle negative commentCount by converting to 0', async () => {
+        const registeredTokens = [
+            {
+                condition_id:
+                    '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
+                token0: '73573462648297901921820359655254719595698016068614764024444333650003658804359',
+                token1: '40994777680727308978134257890301046935140301632248767098913980978862053200065',
+                timestamp: '2025-01-01 00:00:00',
+                block_hash:
+                    '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+                block_num: 12345678,
+            },
+        ];
+
+        const mockMarket = {
+            id: '1137135',
+            conditionId:
+                '0xd0b5c36fd640807d245eca4adff6481fb3ac88bf1acb404782aa0cb3cb4bae09',
+            question: 'Will this happen?',
+            description: 'A test market',
+            slug: 'test-market',
+            outcomes: '["Yes", "No"]',
+            outcomePrices: '["0.5", "0.5"]',
+            resolutionSource: 'https://example.com',
+            image: 'https://example.com/image.png',
+            icon: 'https://example.com/icon.png',
+            questionID:
+                '0xb66ff94419161a6877f128059eb8d45f5eaeb3789f3d7b5e9071b0777926272a',
+            clobTokenIds:
+                '["73573462648297901921820359655254719595698016068614764024444333650003658804359"]',
+            submitted_by: '0x91430CaD2d3975766499717fA0D66A78D814E5c5',
+            marketMakerAddress: '0x1234567890123456789012345678901234567890',
+            enableOrderBook: true,
+            orderPriceMinTickSize: 0.001,
+            orderMinSize: 5,
+            negRisk: false,
+            negRiskRequestID: '',
+            negRiskOther: false,
+            archived: false,
+            new: false,
+            featured: false,
+            resolvedBy: '',
+            restricted: false,
+            hasReviewedDates: false,
+            umaBond: '500',
+            umaReward: '2',
+            customLiveness: 3600,
+            acceptingOrders: true,
+            ready: true,
+            funded: true,
+            acceptingOrdersTimestamp: '2025-01-01T00:00:00Z',
+            cyom: false,
+            competitive: 0.5,
+            pagerDutyNotificationEnabled: false,
+            approved: true,
+            rewardsMinSize: 0,
+            rewardsMaxSpread: 0,
+            spread: 0.01,
+            automaticallyActive: true,
+            clearBookOnStart: false,
+            manualActivation: false,
+            pendingDeployment: false,
+            deploying: false,
+            deployingTimestamp: '',
+            rfqEnabled: false,
+            eventStartTime: '',
+            holdingRewardsEnabled: false,
+            feesEnabled: false,
+            requiresTranslation: false,
+            startDate: '2025-01-01T00:00:00Z',
+            endDate: '2025-12-31T00:00:00Z',
+            startDateIso: '2025-01-01',
+            endDateIso: '2025-12-31',
+            umaEndDate: '2025-12-31T17:00:00Z',
+            createdAt: '2025-01-01T00:00:00Z',
+            // Events with negative commentCount
+            events: [
+                {
+                    id: 'event1',
+                    ticker: 'TEST',
+                    slug: 'test-event',
+                    title: 'Test Event',
+                    description: 'A test event',
+                    resolutionSource: '',
+                    startDate: '',
+                    creationDate: '',
+                    endDate: '',
+                    image: '',
+                    icon: '',
+                    active: true,
+                    closed: false,
+                    archived: false,
+                    new: false,
+                    featured: false,
+                    restricted: false,
+                    liquidity: 1000,
+                    volume: 5000,
+                    openInterest: 100,
+                    createdAt: '',
+                    updatedAt: '',
+                    competitive: 0,
+                    volume24hr: 0,
+                    volume1wk: 0,
+                    volume1mo: 0,
+                    volume1yr: 0,
+                    enableOrderBook: true,
+                    liquidityClob: 0,
+                    negRisk: false,
+                    commentCount: -5, // Negative commentCount
+                    cyom: false,
+                    showAllOutcomes: false,
+                    showMarketImages: false,
+                    enableNegRisk: false,
+                    automaticallyActive: false,
+                    seriesSlug: '',
+                    negRiskAugmented: false,
+                    pendingDeployment: false,
+                    deploying: false,
+                    requiresTranslation: false,
+                    series: [
+                        {
+                            id: 'series1',
+                            ticker: 'SERIES',
+                            slug: 'test-series',
+                            title: 'Test Series',
+                            seriesType: 'single',
+                            recurrence: '',
+                            image: '',
+                            icon: '',
+                            active: true,
+                            closed: false,
+                            archived: false,
+                            featured: false,
+                            restricted: false,
+                            createdAt: '',
+                            updatedAt: '',
+                            volume: 1000,
+                            liquidity: 500,
+                            commentCount: -10, // Negative commentCount
+                            requiresTranslation: false,
+                        },
+                    ],
+                },
+            ],
+        };
+
+        mockQuery.mockReturnValue(
+            Promise.resolve({
+                data: registeredTokens,
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
+            }),
+        );
+
+        mockFetch.mockReturnValue(
+            Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve([mockMarket]),
+            }),
+        );
+
+        const { run } = await import('./index');
+
+        await run();
+
+        expect(mockQuery).toHaveBeenCalled();
+        expect(mockFetch).toHaveBeenCalled();
+        // Should insert market, event, and series
+        expect(mockInsertRow).toHaveBeenCalledTimes(3);
+        // Verify event is inserted with comment_count = 0 (not -5)
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'polymarket_events',
+            expect.objectContaining({
+                event_id: 'event1',
+                comment_count: 0,
+            }),
+            expect.any(String),
+            expect.any(Object),
+        );
+        // Verify series is inserted with comment_count = 0 (not -10)
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'polymarket_series',
+            expect.objectContaining({
+                series_id: 'series1',
+                comment_count: 0,
+            }),
+            expect.any(String),
+            expect.any(Object),
+        );
+        expect(mockIncrementSuccess).toHaveBeenCalled();
+    });
 });
