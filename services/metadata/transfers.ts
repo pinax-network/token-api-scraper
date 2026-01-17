@@ -27,6 +27,9 @@ export async function run() {
             count: contracts.data.length,
             source: 'transfers',
         });
+    } else {
+        log.info('No contracts found to scrape, exiting');
+        return;
     }
 
     // Process all contracts
