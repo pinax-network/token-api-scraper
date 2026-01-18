@@ -7,13 +7,8 @@ import { initBatchInsertQueue } from './batch-insert';
 import {
     BATCH_INSERT_INTERVAL_MS,
     BATCH_INSERT_MAX_SIZE,
-    CLICKHOUSE_DATABASE,
-    CLICKHOUSE_URL,
     CONCURRENCY,
-    LOG_LEVEL,
-    NODE_URL,
-    PROMETHEUS_HOSTNAME,
-    PROMETHEUS_PORT,
+    DEFAULT_CONFIG,
 } from './config';
 import { createLogger } from './logger';
 
@@ -39,17 +34,23 @@ export function initService(options: ServiceInitOptions): void {
     });
 
     // Log startup info (always at INFO level)
+    // Read env vars at runtime to capture CLI overrides
     if (!serviceInitialized) {
         log.info('Service starting', {
             service: options.serviceName,
             config: {
-                LOG_LEVEL,
-                CLICKHOUSE_URL,
-                CLICKHOUSE_DATABASE,
-                NODE_URL,
+                LOG_LEVEL: process.env.LOG_LEVEL ?? 'info',
+                CLICKHOUSE_URL:
+                    process.env.CLICKHOUSE_URL ?? DEFAULT_CONFIG.CLICKHOUSE_URL,
+                CLICKHOUSE_DATABASE: process.env.CLICKHOUSE_DATABASE,
+                NODE_URL: process.env.NODE_URL,
                 CONCURRENCY,
-                PROMETHEUS_PORT,
-                PROMETHEUS_HOSTNAME,
+                PROMETHEUS_PORT:
+                    process.env.PROMETHEUS_PORT ??
+                    DEFAULT_CONFIG.PROMETHEUS_PORT,
+                PROMETHEUS_HOSTNAME:
+                    process.env.PROMETHEUS_HOSTNAME ??
+                    DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
                 BATCH_INSERT_INTERVAL_MS,
                 BATCH_INSERT_MAX_SIZE,
             },
