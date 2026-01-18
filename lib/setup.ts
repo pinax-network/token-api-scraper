@@ -239,8 +239,8 @@ export async function executeSqlSetup(
                 if (!hasValidExtension) {
                     throw new Error(
                         `File not found: ${filePath}\n\n` +
-                        `💡 Tip: If '${fileName}' is a cluster name, use: --cluster ${fileName}\n` +
-                        `   Example: bun run cli.ts setup file1.sql file2.sql --cluster ${fileName}`,
+                            `💡 Tip: If '${fileName}' is a cluster name, use: --cluster ${fileName}\n` +
+                            `   Example: bun run cli.ts setup file1.sql file2.sql --cluster ${fileName}`,
                     );
                 } else {
                     throw new Error(`File not found: ${filePath}`);

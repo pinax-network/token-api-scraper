@@ -311,8 +311,8 @@ describe('schema files', () => {
         );
         expect(tableMatches?.length).toBe(tableClusterMatches?.length);
 
-        // Check MergeTree converted
-        expect(transformed).toContain('ReplicatedMergeTree');
+        // Check ReplacingMergeTree converted to ReplicatedReplacingMergeTree
+        // (metadata schema only uses ReplacingMergeTree, not plain MergeTree)
         expect(transformed).toContain('ReplicatedReplacingMergeTree');
 
         // Ensure no plain MergeTree left
