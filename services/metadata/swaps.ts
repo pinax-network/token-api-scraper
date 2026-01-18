@@ -3,6 +3,7 @@ import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { CONCURRENCY, getNetwork } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
+import { ProcessingStats } from '../../lib/processing-stats';
 import { initService } from '../../lib/service-init';
 import { processMetadata } from '.';
 
@@ -12,6 +13,9 @@ const log = createLogger(serviceName);
 export async function run() {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName });
+
+    // Track processing stats for summary logging
+    const stats = new ProcessingStats(serviceName);
 
     // Validate network is set
     const network = getNetwork();
@@ -33,6 +37,7 @@ export async function run() {
         });
     } else {
         log.info('No contracts to process');
+        await shutdownBatchInsertQueue();
         return;
     }
 
@@ -45,6 +50,7 @@ export async function run() {
                 block_num,
                 timestamp,
                 serviceName,
+                stats,
             );
         });
     }
@@ -52,9 +58,7 @@ export async function run() {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed', {
-        contractsProcessed: contracts.data.length,
-    });
+    stats.logCompletion();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

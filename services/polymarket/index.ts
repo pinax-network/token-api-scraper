@@ -4,6 +4,7 @@ import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { CONCURRENCY } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
+import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import { insertRow } from '../../src/insert';
@@ -533,7 +534,10 @@ async function insertEventsAndSeries(
  * Process a single registered token
  * Fetches market data for the token and inserts into tables
  */
-async function processToken(token: RegisteredToken): Promise<void> {
+async function processToken(
+    token: RegisteredToken,
+    stats: ProcessingStats,
+): Promise<void> {
     const { condition_id, token0, token1, timestamp, block_hash, block_num } =
         token;
     const startTime = performance.now();
@@ -554,6 +558,7 @@ async function processToken(token: RegisteredToken): Promise<void> {
         });
         await insertError(condition_id, token0, token1, 'Market not found');
         incrementError(serviceName);
+        stats.incrementError();
         return;
     }
 
@@ -573,6 +578,7 @@ async function processToken(token: RegisteredToken): Promise<void> {
             question: (market.question || '').substring(0, 50),
         });
         incrementSuccess(serviceName);
+        stats.incrementSuccess();
 
         // Insert events and series data
         await insertEventsAndSeries(market, condition_id);
@@ -581,6 +587,7 @@ async function processToken(token: RegisteredToken): Promise<void> {
             conditionId: condition_id,
         });
         incrementError(serviceName);
+        stats.incrementError();
     }
 
     // Add delay between requests to avoid overwhelming the API
@@ -593,6 +600,9 @@ async function processToken(token: RegisteredToken): Promise<void> {
 export async function run(): Promise<void> {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName });
+
+    // Track processing stats for summary logging
+    const stats = new ProcessingStats(serviceName);
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
@@ -608,21 +618,21 @@ export async function run(): Promise<void> {
         });
     } else {
         log.info('No new condition_ids to process');
+        await shutdownBatchInsertQueue();
+        return;
     }
 
     // Process each token individually
     for (const token of tokens.data) {
         queue.add(async () => {
-            await processToken(token);
+            await processToken(token, stats);
         });
     }
 
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed', {
-        conditionsProcessed: tokens.data.length,
-    });
+    stats.logCompletion();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();
