@@ -4,8 +4,19 @@ import { sleep } from 'bun';
 import { AbiCoder, keccak256, toUtf8Bytes } from 'ethers'; // ethers v6+
 import PQueue from 'p-queue';
 import { TronWeb } from 'tronweb';
-import { DEFAULT_CONFIG, NODE_URL } from './config';
+import { DEFAULT_CONFIG } from './config';
 import { createLogger } from './logger';
+
+const log = createLogger('rpc');
+
+/** Get NODE_URL at runtime to support CLI overrides */
+function getNodeUrl(): string {
+    const url = process.env.NODE_URL;
+    if (!url) {
+        throw new Error('NODE_URL environment variable is not set.');
+    }
+    return url;
+}
 
 const log = createLogger('rpc');
 
@@ -201,7 +212,7 @@ async function makeJsonRpcRequest(
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
 
     try {
-        const res = await fetch(NODE_URL, {
+        const res = await fetch(getNodeUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -306,7 +317,7 @@ async function makeJsonRpcCall(
                 attempt,
                 maxAttempts: attempts,
                 error: err.message,
-                endpoint: NODE_URL,
+                endpoint: getNodeUrl(),
                 context: errorContext,
             });
 
@@ -374,7 +385,7 @@ async function makeBatchJsonRpcRequest(
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
 
     try {
-        const res = await fetch(NODE_URL, {
+        const res = await fetch(getNodeUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -509,7 +520,7 @@ export async function makeBatchJsonRpcCall(
                 attempt,
                 maxAttempts: attempts,
                 error: err.message,
-                endpoint: NODE_URL,
+                endpoint: getNodeUrl(),
             });
 
             // Exponential backoff with jitter

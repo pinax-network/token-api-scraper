@@ -1,14 +1,38 @@
-import { createClient } from '@clickhouse/client';
+import { ClickHouseClient, createClient } from '@clickhouse/client';
 import { createLogger } from './logger';
 
 const log = createLogger('clickhouse');
 
-export const client = createClient({
-    url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
-    username: process.env.CLICKHOUSE_USERNAME || 'default',
-    password: process.env.CLICKHOUSE_PASSWORD || '',
-    database: process.env.CLICKHOUSE_DATABASE,
-});
+// Lazy initialization of ClickHouse client to allow CLI to set env vars first
+let _client: ClickHouseClient | null = null;
+
+function getClient(): ClickHouseClient {
+    if (!_client) {
+        _client = createClient({
+            url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+            username: process.env.CLICKHOUSE_USERNAME || 'default',
+            password: process.env.CLICKHOUSE_PASSWORD || '',
+            database: process.env.CLICKHOUSE_DATABASE,
+        });
+    }
+    return _client;
+}
+
+/** @deprecated Use getClient() internally - exported for backward compatibility */
+export const client = {
+    get query() {
+        return getClient().query.bind(getClient());
+    },
+    get command() {
+        return getClient().command.bind(getClient());
+    },
+    get insert() {
+        return getClient().insert.bind(getClient());
+    },
+    get close() {
+        return getClient().close.bind(getClient());
+    },
+};
 
 export interface TokenData {
     token: string;
