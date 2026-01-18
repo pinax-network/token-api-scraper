@@ -99,13 +99,13 @@ function addCommonOptions(command: Command): Command {
                 '--clickhouse-username <user>',
                 'Username for authenticating with the ClickHouse database.',
                 process.env.CLICKHOUSE_USERNAME ||
-                DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
+                    DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
             )
             .option(
                 '--clickhouse-password <password>',
                 'Password for authenticating with the ClickHouse database. Keep this secure!',
                 process.env.CLICKHOUSE_PASSWORD ||
-                DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
+                    DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
             )
             .option(
                 '--clickhouse-database <db>',
@@ -133,7 +133,7 @@ function addCommonOptions(command: Command): Command {
                 '--base-delay-ms <number>',
                 'Base delay in milliseconds for exponential backoff between retries.',
                 process.env.BASE_DELAY_MS ||
-                String(DEFAULT_CONFIG.BASE_DELAY_MS),
+                    String(DEFAULT_CONFIG.BASE_DELAY_MS),
             )
             .option(
                 '--jitter-min <number>',
@@ -160,13 +160,13 @@ function addCommonOptions(command: Command): Command {
                 '--prometheus-port <port>',
                 'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
                 process.env.PROMETHEUS_PORT ||
-                String(DEFAULT_CONFIG.PROMETHEUS_PORT),
+                    String(DEFAULT_CONFIG.PROMETHEUS_PORT),
             )
             .option(
                 '--prometheus-hostname <hostname>',
                 'Hostname for the Prometheus server to bind to.',
                 process.env.PROMETHEUS_HOSTNAME ||
-                DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
+                    DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
             )
             // Logging Options
             .option(
@@ -178,7 +178,7 @@ function addCommonOptions(command: Command): Command {
                 '--auto-restart-delay <seconds>',
                 `Delay in seconds before restarting the service (default: ${DEFAULT_CONFIG.AUTO_RESTART_DELAY}).`,
                 process.env.AUTO_RESTART_DELAY ||
-                String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
+                    String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
             )
     );
 }
@@ -388,13 +388,13 @@ function addClickhouseOptions(command: Command): Command {
             '--clickhouse-username <user>',
             'Username for authenticating with ClickHouse',
             process.env.CLICKHOUSE_USERNAME ||
-            DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
+                DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
         )
         .option(
             '--clickhouse-password <password>',
             'Password for authenticating with ClickHouse',
             process.env.CLICKHOUSE_PASSWORD ||
-            DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
+                DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
         )
         .option(
             '--clickhouse-database <db>',
@@ -550,15 +550,10 @@ const setupForkedBlocks = setupCommand
         'Database containing canonical/irreversible blocks (e.g., mainnet:blocks@v0.1.0)',
         process.env.CLICKHOUSE_BLOCKS_DATABASE,
     )
-    .requiredOption(
-        '--source-database <db>',
-        'Database containing source blocks to check for forks (e.g., mainnet:evm-transfers@v0.2.1)',
-        process.env.CLICKHOUSE_DATABASE,
-    )
     .option(
         '--days-back <days>',
         'Number of days to look back for forked blocks (default: 30, minimum: 1)',
-        '30',
+        process.env.FORKED_BLOCKS_DAYS_BACK || '30',
     )
     .option(
         '--refresh-interval <seconds>',
@@ -575,6 +570,9 @@ canonical/irreversible blocks from another database.
 NOTE: This is a refreshable MV and only needs to be run once to initialize.
 The MV will automatically refresh at the specified interval.
 
+The source database (blocks to check for forks) is taken from --clickhouse-database
+or the CLICKHOUSE_DATABASE environment variable, consistent with other setup commands.
+
 Tables/Views created:
   - blocks_forked: Stores detected forked blocks
   - mv_blocks_forked: Refreshable MV that populates blocks_forked
@@ -582,26 +580,30 @@ Tables/Views created:
 Example:
   $ npm run cli setup forked-blocks \\
       --canonical-database mainnet:blocks@v0.1.0 \\
-      --source-database mainnet:evm-transfers@v0.2.1
+      --clickhouse-database mainnet:evm-transfers@v0.2.1
 
   # With custom refresh interval (every 5 minutes)
   $ npm run cli setup forked-blocks \\
       --canonical-database mainnet:blocks@v0.1.0 \\
-      --source-database mainnet:evm-transfers@v0.2.1 \\
+      --clickhouse-database mainnet:evm-transfers@v0.2.1 \\
       --refresh-interval 300
 
   # With cluster support
   $ npm run cli setup forked-blocks \\
       --canonical-database mainnet:blocks@v0.1.0 \\
-      --source-database mainnet:evm-transfers@v0.2.1 \\
+      --clickhouse-database mainnet:evm-transfers@v0.2.1 \\
       --cluster my_cluster
+
+  # Using environment variables
+  $ CLICKHOUSE_DATABASE=mainnet:evm-transfers@v0.2.1 npm run cli setup forked-blocks \\
+      --canonical-database mainnet:blocks@v0.1.0
 `,
     )
     .action(async (options: any) => {
         log.info('Setting up forked-blocks table and refreshable MV');
 
         const canonicalDatabase = options.canonicalDatabase;
-        const sourceDatabase = options.sourceDatabase;
+        const sourceDatabase = options.clickhouseDatabase;
         const daysBack = parseInt(options.daysBack || '30', 10);
         const refreshInterval = parseInt(options.refreshInterval || '60', 10);
 
@@ -611,7 +613,9 @@ Example:
             process.exit(1);
         }
         if (!sourceDatabase) {
-            log.error('--source-database is required');
+            log.error(
+                '--clickhouse-database is required (or set CLICKHOUSE_DATABASE environment variable)',
+            );
             process.exit(1);
         }
         if (Number.isNaN(daysBack) || daysBack < 1) {

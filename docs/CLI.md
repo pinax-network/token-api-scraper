@@ -71,29 +71,35 @@ npm run cli setup polymarket
 # NOTE: This is a refreshable MV and only needs to be run once to initialize
 npm run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
-  --source-database mainnet:evm-transfers@v0.2.1
+  --clickhouse-database mainnet:evm-transfers@v0.2.1
 ```
 
 #### Forked Blocks Setup (Refreshable MV)
 
 The `forked-blocks` setup deploys a refreshable materialized view that automatically detects forked blocks by comparing source blocks against canonical blocks. It only needs to be run once to initialize the tables and MV.
 
+The source database (blocks to check for forks) is taken from `--clickhouse-database` or the `CLICKHOUSE_DATABASE` environment variable, consistent with other setup commands.
+
 ```bash
 # Basic setup
 npm run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
-  --source-database mainnet:evm-transfers@v0.2.1
+  --clickhouse-database mainnet:evm-transfers@v0.2.1
+
+# Using environment variable for source database
+CLICKHOUSE_DATABASE=mainnet:evm-transfers@v0.2.1 npm run cli setup forked-blocks \
+  --canonical-database mainnet:blocks@v0.1.0
 
 # With custom refresh interval (every 5 minutes)
 npm run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
-  --source-database mainnet:evm-transfers@v0.2.1 \
+  --clickhouse-database mainnet:evm-transfers@v0.2.1 \
   --refresh-interval 300
 
 # With custom lookback period (7 days)
 npm run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
-  --source-database mainnet:evm-transfers@v0.2.1 \
+  --clickhouse-database mainnet:evm-transfers@v0.2.1 \
   --days-back 7
 ```
 
@@ -101,8 +107,8 @@ npm run cli setup forked-blocks \
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--canonical-database <db>` | Database containing canonical/irreversible blocks (required) | - |
-| `--source-database <db>` | Database containing source blocks to check (required) | - |
+| `--canonical-database <db>` | Database containing canonical/irreversible blocks (required) | `CLICKHOUSE_BLOCKS_DATABASE` env var |
+| `--clickhouse-database <db>` | Database containing source blocks to check (required) | `CLICKHOUSE_DATABASE` env var |
 | `--days-back <days>` | Number of days to look back for forked blocks | `30` |
 | `--refresh-interval <seconds>` | Refresh interval in seconds for the MV | `60` |
 
@@ -136,7 +142,7 @@ npm run cli setup metadata --cluster my_cluster
 # Deploy forked-blocks to cluster
 npm run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
-  --source-database mainnet:evm-transfers@v0.2.1 \
+  --clickhouse-database mainnet:evm-transfers@v0.2.1 \
   --cluster production_cluster
 
 # Deploy files to cluster with custom database
