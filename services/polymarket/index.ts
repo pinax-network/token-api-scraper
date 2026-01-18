@@ -4,6 +4,7 @@ import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { CONCURRENCY } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
+import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import { insertRow } from '../../src/insert';
@@ -530,15 +531,6 @@ async function insertEventsAndSeries(
 }
 
 /**
- * Counter object for tracking success and error counts
- * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
- */
-interface ProcessingStats {
-    successCount: number;
-    errorCount: number;
-}
-
-/**
  * Process a single registered token
  * Fetches market data for the token and inserts into tables
  */
@@ -566,7 +558,7 @@ async function processToken(
         });
         await insertError(condition_id, token0, token1, 'Market not found');
         incrementError(serviceName);
-        stats.errorCount++;
+        stats.incrementError();
         return;
     }
 
@@ -586,7 +578,7 @@ async function processToken(
             question: (market.question || '').substring(0, 50),
         });
         incrementSuccess(serviceName);
-        stats.successCount++;
+        stats.incrementSuccess();
 
         // Insert events and series data
         await insertEventsAndSeries(market, condition_id);
@@ -595,7 +587,7 @@ async function processToken(
             conditionId: condition_id,
         });
         incrementError(serviceName);
-        stats.errorCount++;
+        stats.incrementError();
     }
 
     // Add delay between requests to avoid overwhelming the API
@@ -610,7 +602,7 @@ export async function run(): Promise<void> {
     initService({ serviceName });
 
     // Track processing stats for summary logging
-    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
+    const stats = new ProcessingStats(serviceName);
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
@@ -638,11 +630,7 @@ export async function run(): Promise<void> {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed', {
-        successCount: stats.successCount,
-        errorCount: stats.errorCount,
-        totalProcessed: stats.successCount + stats.errorCount,
-    });
+    stats.logCompletion();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

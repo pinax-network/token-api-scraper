@@ -1,6 +1,7 @@
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { createLogger } from '../../lib/logger';
+import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import { insertRow } from '../../src/insert';
@@ -16,15 +17,6 @@ interface ForkedBlock {
     block_hash: string;
     parent_hash: string;
     timestamp: string;
-}
-
-/**
- * Counter object for tracking success and error counts
- * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
- */
-interface ProcessingStats {
-    successCount: number;
-    errorCount: number;
 }
 
 /**
@@ -48,10 +40,10 @@ async function insertForkedBlock(
     );
     if (success) {
         incrementSuccess(serviceName);
-        stats.successCount++;
+        stats.incrementSuccess();
     } else {
         incrementError(serviceName);
-        stats.errorCount++;
+        stats.incrementError();
     }
 }
 
@@ -74,7 +66,7 @@ export async function run(): Promise<void> {
     initService({ serviceName });
 
     // Track processing stats for summary logging
-    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
+    const stats = new ProcessingStats(serviceName);
 
     // Get configuration from environment variables
     const clickhouseBlocksDatabase = process.env.CLICKHOUSE_BLOCKS_DATABASE;
@@ -135,11 +127,7 @@ export async function run(): Promise<void> {
         });
     }
 
-    log.info('Service completed', {
-        successCount: stats.successCount,
-        errorCount: stats.errorCount,
-        totalProcessed: stats.successCount + stats.errorCount,
-    });
+    stats.logCompletion();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

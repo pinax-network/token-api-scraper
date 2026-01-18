@@ -3,20 +3,12 @@ import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { CONCURRENCY, getNetwork } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
+import { ProcessingStats } from '../../lib/processing-stats';
 import { initService } from '../../lib/service-init';
 import { processMetadata } from '.';
 
 const serviceName = 'metadata-transfers';
 const log = createLogger(serviceName);
-
-/**
- * Counter object for tracking success and error counts
- * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
- */
-interface ProcessingStats {
-    successCount: number;
-    errorCount: number;
-}
 
 export async function run() {
     // Initialize service (must be called before using batch insert queue)
@@ -26,7 +18,7 @@ export async function run() {
     const network = getNetwork();
 
     // Track processing stats for summary logging
-    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
+    const stats = new ProcessingStats(serviceName);
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
@@ -57,9 +49,9 @@ export async function run() {
                 serviceName,
             );
             if (success) {
-                stats.successCount++;
+                stats.incrementSuccess();
             } else {
-                stats.errorCount++;
+                stats.incrementError();
             }
         });
     }
@@ -67,11 +59,7 @@ export async function run() {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed', {
-        successCount: stats.successCount,
-        errorCount: stats.errorCount,
-        totalProcessed: stats.successCount + stats.errorCount,
-    });
+    stats.logCompletion();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();
