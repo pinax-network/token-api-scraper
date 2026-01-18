@@ -193,10 +193,12 @@ AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
   - Options: `pretty`, `json`, `hidden`
   - Controls the format of structured logs from tslog
 
-- **`LOG_LEVEL`** - Minimum log level to display
-  - Default: `info`
-  - Options: `debug`, `info`, `warn`, `error`
-  - Controls which log messages are displayed
+- **`LOG_LEVEL`** - Minimum log level (default: `info`)
+  - `debug` - Detailed debugging information (RPC calls, internal state)
+  - `info` - General operational messages (service start, completions)
+  - `warn` - Warning conditions (retries, non-fatal errors)
+  - `error` - Error conditions only (failures, exceptions)
+  - Messages at or above the set level are shown
 
 Example:
 

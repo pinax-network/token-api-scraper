@@ -57,6 +57,11 @@ Key environment variables:
 - `CLICKHOUSE_URL` - ClickHouse database URL (default: `http://localhost:8123`)
 - `NODE_URL` - EVM RPC node URL (required)
 - `CONCURRENCY` - Number of concurrent RPC requests (default: `10`)
+- `LOG_LEVEL` - Minimum log level (default: `info`)
+  - `debug` - Detailed debugging information (RPC calls, internal state)
+  - `info` - General operational messages (service start, completions)
+  - `warn` - Warning conditions (retries, non-fatal errors)
+  - `error` - Error conditions only (failures, exceptions)
 
 See [Configuration Guide](docs/CONFIGURATION.md) for detailed information.
 
