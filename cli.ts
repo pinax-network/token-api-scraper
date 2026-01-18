@@ -307,9 +307,9 @@ async function runService(serviceName: string, options: ServiceOptions) {
             }
 
             // Wait before restarting
-            if (options.verbose) {
-                log.info(`Restarting in ${autoRestartDelay} seconds`);
-            }
+            log.info(
+                `Waiting ${autoRestartDelay} seconds before querying for new data`,
+            );
             await new Promise((resolve) =>
                 setTimeout(resolve, autoRestartDelay * 1000),
             );
