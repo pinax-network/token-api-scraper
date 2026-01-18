@@ -607,6 +607,7 @@ export async function run(): Promise<void> {
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     // Query for unprocessed condition_ids
+    log.info('Querying database for unprocessed condition_ids');
     const tokens = await query<RegisteredToken>(
         await Bun.file(__dirname + '/get_unprocessed_condition_ids.sql').text(),
     );

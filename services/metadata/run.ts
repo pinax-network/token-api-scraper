@@ -31,6 +31,7 @@ export async function run(source: MetadataSource) {
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
+    log.info('Querying database for contracts to process');
     const queryStartTime = performance.now();
     const contracts = await query<{
         contract: string;

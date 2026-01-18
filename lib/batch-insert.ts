@@ -209,9 +209,9 @@ export function getBatchInsertQueue(): BatchInsertQueue {
  */
 export async function shutdownBatchInsertQueue(): Promise<void> {
     if (globalBatchQueue) {
-        log.debug('Shutting down batch insert queue');
+        log.info('Shutting down batch insert queue');
         await globalBatchQueue.shutdown();
-        log.debug('Batch insert queue shutdown complete');
+        log.info('Batch insert queue shutdown complete');
         globalBatchQueue = null;
     }
 }
