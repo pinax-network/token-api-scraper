@@ -23,7 +23,7 @@ describe('substituteQueryParams', () => {
         };
         const result = substituteQueryParams(sql, params);
         expect(result).toBe(
-            'SELECT * FROM mainnet:blocks@v0.1.0.blocks WHERE block_num > 30',
+            'SELECT * FROM `mainnet:blocks@v0.1.0`.blocks WHERE block_num > 30',
         );
     });
 
@@ -39,7 +39,14 @@ describe('substituteQueryParams', () => {
         const sql = 'SELECT * FROM {source_database:Identifier}.blocks';
         const params = { source_database: 'bsc:evm-dex@v0.2.6' };
         const result = substituteQueryParams(sql, params);
-        expect(result).toBe('SELECT * FROM bsc:evm-dex@v0.2.6.blocks');
+        expect(result).toBe('SELECT * FROM `bsc:evm-dex@v0.2.6`.blocks');
+    });
+
+    test('should escape backticks in identifiers', () => {
+        const sql = 'SELECT * FROM {db:Identifier}.blocks';
+        const params = { db: 'my`db' };
+        const result = substituteQueryParams(sql, params);
+        expect(result).toBe('SELECT * FROM `my``db`.blocks');
     });
 
     test('should leave SQL unchanged when no params provided', () => {
@@ -76,9 +83,9 @@ SELECT * FROM {source_database:Identifier}.blocks`;
         const result = substituteQueryParams(sql, params);
 
         expect(result).toContain('REFRESH EVERY 60 SECOND');
-        expect(result).toContain('FROM mainnet:blocks@v0.1.0.blocks');
+        expect(result).toContain('FROM `mainnet:blocks@v0.1.0`.blocks');
         expect(result).toContain('today() - 30');
-        expect(result).toContain('FROM bsc:evm-dex@v0.2.6.blocks');
+        expect(result).toContain('FROM `bsc:evm-dex@v0.2.6`.blocks');
         expect(result).not.toContain('{');
         expect(result).not.toContain('}');
     });
