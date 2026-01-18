@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG = {
     // CLICKHOUSE_DATABASE has no default to prevent accidental loading into wrong DB
 
     // RPC Node
-    NODE_URL: 'https://tron-evm-rpc.publicnode.com',
+    // NODE_URL has no default to prevent accidental use of wrong RPC endpoint
     CONCURRENCY: 40,
 
     // RPC Retry Configuration
@@ -90,7 +90,7 @@ export const PROMETHEUS_HOSTNAME =
  */
 export const BATCH_INSERT_INTERVAL_MS = parseInt(
     process.env.BATCH_INSERT_INTERVAL_MS ||
-        String(DEFAULT_CONFIG.BATCH_INSERT_INTERVAL_MS),
+    String(DEFAULT_CONFIG.BATCH_INSERT_INTERVAL_MS),
     10,
 );
 
@@ -100,7 +100,7 @@ export const BATCH_INSERT_INTERVAL_MS = parseInt(
  */
 export const BATCH_INSERT_MAX_SIZE = parseInt(
     process.env.BATCH_INSERT_MAX_SIZE ||
-        String(DEFAULT_CONFIG.BATCH_INSERT_MAX_SIZE),
+    String(DEFAULT_CONFIG.BATCH_INSERT_MAX_SIZE),
     10,
 );
 
@@ -112,7 +112,18 @@ export const CLICKHOUSE_PASSWORD =
     process.env.CLICKHOUSE_PASSWORD || DEFAULT_CONFIG.CLICKHOUSE_PASSWORD;
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE;
 
-export const NODE_URL = process.env.NODE_URL || DEFAULT_CONFIG.NODE_URL;
+export const NODE_URL = process.env.NODE_URL;
+
+/**
+ * Get NODE_URL with validation
+ * Throws error if NODE_URL is not set
+ */
+export function getNodeUrl(): string {
+    if (!NODE_URL) {
+        throw new Error('NODE_URL environment variable is not set.');
+    }
+    return NODE_URL;
+}
 
 /**
  * Network name extracted from CLICKHOUSE_DATABASE

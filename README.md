@@ -55,7 +55,7 @@ cp .env.example .env
 Key environment variables:
 
 - `CLICKHOUSE_URL` - ClickHouse database URL (default: `http://localhost:8123`)
-- `NODE_URL` - EVM RPC node URL (default: `https://tron-evm-rpc.publicnode.com`)
+- `NODE_URL` - EVM RPC node URL (required)
 - `CONCURRENCY` - Number of concurrent RPC requests (default: `10`)
 
 See [Configuration Guide](docs/CONFIGURATION.md) for detailed information.

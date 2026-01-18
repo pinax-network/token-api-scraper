@@ -37,6 +37,7 @@ npm run cli list
 ```
 
 Output example:
+
 ```
 Available services:
   - metadata
@@ -123,6 +124,7 @@ npm run cli setup files sql.schemas/schema.*.sql
 #### Cluster Support
 
 For ClickHouse clusters, use the `--cluster` flag with any setup command. This will:
+
 - Add `ON CLUSTER '<name>'` to all CREATE/ALTER statements
 - Convert `MergeTree` engines to `ReplicatedMergeTree`
 - Convert `ReplacingMergeTree` to `ReplicatedReplacingMergeTree`
@@ -246,7 +248,7 @@ All flags override environment variables. Available for `setup` and `run` comman
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--node-url <url>` | EVM RPC node URL | `https://tron-evm-rpc.publicnode.com` |
+| `--node-url <url>` | EVM RPC node URL | (required) |
 
 ### Performance Options
 
@@ -401,6 +403,7 @@ npm run test
 Services use structured logging via tslog. All services emit logs in JSON or pretty format depending on the `LOG_TYPE` environment variable.
 
 When `--verbose` is enabled, you'll see additional console output including:
+
 - Task overview at the start
 - Batch insert status messages
 
@@ -419,6 +422,7 @@ Access metrics at: `http://localhost:9090/metrics` (or your configured Prometheu
 ### Silent Mode (Default)
 
 When `--verbose` is not specified (default behavior), the service runs with minimal console output, relying on structured logs. This is useful for:
+
 - Automated/scheduled tasks
 - Running services in the background
 - Reducing console verbosity in production
@@ -527,6 +531,7 @@ npm run cli run metadata-transfers \
 ```
 
 **Benefits of continuous operation:**
+
 - Process stays alive, avoiding overhead of process restarts
 - Prometheus metrics are preserved and accumulated across runs
 - Better for long-running monitoring scenarios

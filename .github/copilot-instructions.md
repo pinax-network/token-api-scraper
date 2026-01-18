@@ -75,7 +75,7 @@ log.info('Message', { contextKey: value });  // Always use structured logging
 ## Environment Variables
 Key variables (see [lib/config.ts](lib/config.ts) for defaults):
 - `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE` - Database connection
-- `NODE_URL` - RPC endpoint (default: TRON public node)
+- `NODE_URL` - RPC endpoint (required, no default)
 - `CONCURRENCY` - Parallel RPC requests (default: 40)
 - `LOG_LEVEL` - `debug|info|warn|error`
 

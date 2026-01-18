@@ -27,9 +27,8 @@ cp .env.example .env
 
 ### RPC Configuration
 
-- **`NODE_URL`** - EVM RPC node URL
-  - Default: `https://tron-evm-rpc.publicnode.com`
-  - Example: `https://your-tron-node.example.com`
+- **`NODE_URL`** - EVM RPC node URL (required)
+  - Example: `https://your-rpc-node.example.com`
 
 ### Performance Settings
 
@@ -42,6 +41,7 @@ cp .env.example .env
   - Lower values: Slower but more conservative on RPC resources
 
 Example:
+
 ```bash
 # Set concurrency to 5 for conservative processing
 CONCURRENCY=5 npm run start
@@ -75,6 +75,7 @@ The retry mechanism uses exponential backoff with jitter to handle transient RPC
   - How long to wait for a single RPC request before timing out
 
 Example:
+
 ```bash
 # More aggressive retry settings for unreliable networks
 MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 npm run start
@@ -93,6 +94,7 @@ MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 npm run start
 The Prometheus server starts automatically when a service runs and stays alive across service restarts for continuous monitoring.
 
 Example:
+
 ```bash
 # Prometheus metrics are always enabled on port 9090 by default
 npm run start
@@ -102,6 +104,7 @@ PROMETHEUS_PORT=8080 npm run start
 ```
 
 **Available Metrics:**
+
 - `scraper_total_tasks` - Total number of tasks to process
 - `scraper_completed_tasks_total` - Total number of completed tasks (labeled by status: success/error)
 - `scraper_error_tasks_total` - Total number of failed tasks
@@ -130,6 +133,7 @@ The batch insert mechanism improves ClickHouse insert performance by accumulatin
   - Adjust based on available memory and row size
 
 Example:
+
 ```bash
 # Default batch settings (1 second, 10000 rows)
 npm run start
@@ -142,6 +146,7 @@ BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 npm run start
 ```
 
 **Batch insert benefits:**
+
 - Improved insert throughput for large volumes of data
 - Reduced database overhead and network calls
 - Better resource utilization in high-concurrency scenarios
@@ -156,6 +161,7 @@ Services automatically restart after successful completion in a continuous loop.
   - Time to wait before restarting the service after completion
 
 Example:
+
 ```bash
 # Use default 10 second delay between restarts
 npm run cli run metadata-transfers
@@ -168,6 +174,7 @@ AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
 ```
 
 **Benefits of continuous auto-restart:**
+
 - Process stays alive, avoiding overhead of process restarts
 - Prometheus metrics are preserved and accumulated across runs
 - Better for long-running monitoring scenarios
@@ -192,6 +199,7 @@ AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
   - Controls which log messages are displayed
 
 Example:
+
 ```bash
 # Run with verbose logging
 VERBOSE=true npm run cli run metadata-transfers
@@ -212,6 +220,7 @@ Configuration values are applied in the following order (later values override e
 3. Command-line flags (highest priority)
 
 Example showing all three:
+
 ```bash
 # .env file
 CONCURRENCY=10
@@ -247,6 +256,7 @@ PROMETHEUS_PORT=9090
 ### Example Configurations
 
 #### Development Setup
+
 ```bash
 CLICKHOUSE_URL=http://localhost:8123
 CLICKHOUSE_USERNAME=default
@@ -257,6 +267,7 @@ CONCURRENCY=5
 ```
 
 #### Production Setup
+
 ```bash
 CLICKHOUSE_URL=http://clickhouse-cluster:8123
 CLICKHOUSE_USERNAME=scraper_user
@@ -313,6 +324,7 @@ TIMEOUT_MS=10000
 ### High Error Rates
 
 If you see many RPC errors:
+
 - Reduce `CONCURRENCY` to be less aggressive
 - Increase `MAX_RETRIES` for more retry attempts
 - Increase `TIMEOUT_MS` if requests are timing out
@@ -321,6 +333,7 @@ If you see many RPC errors:
 ### Slow Performance
 
 If processing is slower than expected:
+
 - Increase `CONCURRENCY` (if RPC node can handle it)
 - Decrease `TIMEOUT_MS` to fail faster
 - Verify network connectivity to RPC node
@@ -329,6 +342,7 @@ If processing is slower than expected:
 ### Connection Issues
 
 If you can't connect to ClickHouse:
+
 - Verify `CLICKHOUSE_URL` is correct
 - Check firewall rules allow connection
 - Verify credentials (`CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD`)
