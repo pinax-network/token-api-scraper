@@ -120,7 +120,9 @@ export async function run(): Promise<void> {
         });
     }
 
-    log.info('Service completed');
+    log.info('Service completed', {
+        forkedBlocksFound: result.data.length,
+    });
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

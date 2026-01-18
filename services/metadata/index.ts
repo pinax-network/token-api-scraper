@@ -68,7 +68,7 @@ export async function processMetadata(
                 serviceName,
             );
 
-            log.info('Metadata scraped successfully', {
+            log.debug('Metadata scraped successfully', {
                 contract,
                 name,
                 symbol,

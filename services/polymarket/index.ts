@@ -568,7 +568,7 @@ async function processToken(token: RegisteredToken): Promise<void> {
     );
 
     if (marketSuccess) {
-        log.info('Market data scraped successfully', {
+        log.debug('Market data scraped successfully', {
             conditionId: condition_id,
             question: (market.question || '').substring(0, 50),
         });
@@ -602,8 +602,8 @@ export async function run(): Promise<void> {
     );
 
     if (tokens.data.length > 0) {
-        log.info('Found condition_ids to scrape', {
-            count: tokens.data.length,
+        log.info('Processing Polymarket markets', {
+            conditionCount: tokens.data.length,
             source: 'ctfexchange_token_registered',
         });
     } else {
@@ -620,7 +620,9 @@ export async function run(): Promise<void> {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed');
+    log.info('Service completed', {
+        conditionsProcessed: tokens.data.length,
+    });
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

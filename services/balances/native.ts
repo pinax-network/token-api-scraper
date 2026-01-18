@@ -13,6 +13,10 @@ import { get_accounts_for_native_balances } from '../../src/queries';
 const serviceName = 'balances-native';
 const log = createLogger(serviceName);
 
+// Track success and error counts for summary logging
+let successCount = 0;
+let errorCount = 0;
+
 async function processNativeBalance(account: string) {
     // get native TRX balance for the account
     const startTime = performance.now();
@@ -29,12 +33,14 @@ async function processNativeBalance(account: string) {
             serviceName,
         );
 
-        log.info('Native balance scraped successfully', {
+        successCount++;
+        log.debug('Native balance scraped successfully', {
             account,
             balanceHex: balance_hex,
             queryTimeMs,
         });
     } catch (err) {
+        errorCount++;
         const message = (err as Error).message || String(err);
 
         // Emit warning for RPC errors with context
@@ -52,14 +58,20 @@ export async function run() {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName: 'Native balances RPC service' });
 
+    // Reset counters for this run
+    successCount = 0;
+    errorCount = 0;
+
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
     const accounts = await get_accounts_for_native_balances();
 
     if (accounts.length > 0) {
-        log.info('Found accounts to process', {
-            count: accounts.length,
+        log.info('Processing native balances', {
+            accountCount: accounts.length,
         });
+    } else {
+        log.info('No accounts to process');
     }
 
     // Process all accounts
@@ -72,7 +84,11 @@ export async function run() {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed');
+    log.info('Service completed', {
+        successCount,
+        errorCount,
+        totalProcessed: successCount + errorCount,
+    });
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

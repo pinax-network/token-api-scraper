@@ -25,11 +25,16 @@ export async function run() {
         timestamp: number;
     }>(await Bun.file(__dirname + '/get_contracts_by_swaps.sql').text());
 
-    log.info('Found contracts to scrape', {
-        count: contracts.data.length,
-        blockNum: contracts.data?.[0]?.block_num ?? 'N/A',
-        source: 'swaps',
-    });
+    if (contracts.data.length > 0) {
+        log.info('Processing contracts metadata', {
+            contractCount: contracts.data.length,
+            firstBlockNum: contracts.data[0]?.block_num ?? 'N/A',
+            source: 'swaps',
+        });
+    } else {
+        log.info('No contracts to process');
+        return;
+    }
 
     // Process all contracts
     for (const { contract, block_num, timestamp } of contracts.data) {
@@ -47,7 +52,9 @@ export async function run() {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed');
+    log.info('Service completed', {
+        contractsProcessed: contracts.data.length,
+    });
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();
