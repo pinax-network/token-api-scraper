@@ -83,10 +83,9 @@ docker run \
 Command-line flags override environment variables:
 
 ```bash
-docker run token-api-scraper run erc20-balances \
+docker run token-api-scraper run metadata \
   --clickhouse-url http://clickhouse:8123 \
   --concurrency 20 \
-  --enable-prometheus \
   --prometheus-port 9090
 ```
 
@@ -153,55 +152,6 @@ services:
       - CONCURRENCY=10
     command: run metadata
     restart: unless-stopped
-
-  erc20-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-    command: run erc20-balances
-    restart: unless-stopped
-
-  native-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-    command: run native-balances
-    restart: unless-stopped
-
-  # Backfill services
-  erc20-backfill-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=15
-    command: run erc20-backfill
-    restart: "no"  # Don't restart - backfill completes eventually
-
-  native-backfill-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=15
-    command: run native-backfill
-    restart: "no"  # Don't restart - backfill completes eventually
 ```
 
 ### With Prometheus Monitoring
@@ -374,12 +324,12 @@ Add health checks to your services:
 
 ```yaml
 services:
-  erc20-balances-scraper:
+  metadata-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
       - PROMETHEUS_PORT=9090
-    command: run erc20-balances
+    command: run metadata
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
       interval: 30s
@@ -422,7 +372,7 @@ docker-compose logs -f
 docker-compose logs -f metadata-scraper
 
 # View last 100 lines
-docker-compose logs --tail=100 erc20-balances-scraper
+docker-compose logs --tail=100 metadata-scraper
 ```
 
 ### Log Configuration
@@ -447,7 +397,7 @@ services:
 
 ```yaml
 services:
-  erc20-balances-scraper:
+  metadata-scraper:
     build: .
     deploy:
       resources:
@@ -457,7 +407,7 @@ services:
         reservations:
           cpus: '1.0'
           memory: 1G
-    command: run erc20-balances
+    command: run metadata
 ```
 
 ### Scaling
@@ -510,7 +460,7 @@ docker-compose up -d --scale erc20-backfill-scraper=1
 version: '3.8'
 
 services:
-  erc20-balances-scraper:
+  metadata-scraper:
     image: token-api-scraper:1.0.0
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -521,7 +471,7 @@ services:
       - CONCURRENCY=20
       - MAX_RETRIES=5
       - PROMETHEUS_PORT=9090
-    command: run erc20-balances
+    command: run metadata
     deploy:
       resources:
         limits:
@@ -598,21 +548,21 @@ Example minimal Kubernetes deployment:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: erc20-balances-scraper
+  name: metadata-scraper
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: erc20-balances-scraper
+      app: metadata-scraper
   template:
     metadata:
       labels:
-        app: erc20-balances-scraper
+        app: metadata-scraper
     spec:
       containers:
       - name: scraper
         image: token-api-scraper:1.0.0
-        command: ["node", "cli.js", "run", "erc20-balances"]
+        command: ["node", "cli.js", "run", "metadata"]
         env:
         - name: CLICKHOUSE_URL
           value: "http://clickhouse:8123"

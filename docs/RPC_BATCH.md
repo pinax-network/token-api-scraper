@@ -79,29 +79,6 @@ const calls: ContractCallRequest[] = [
 const results = await batchCallContracts(calls);
 ```
 
-#### batchGetNativeBalances
-
-Get multiple native token balances in a single batch:
-
-```typescript
-import { batchGetNativeBalances } from './lib/rpc';
-
-const accounts = [
-  "TXFBqBbqJommqZf7BV8NNYzePh97UmJodJ",
-  "TAnotherAccountAddress..."
-];
-
-const results = await batchGetNativeBalances(accounts);
-
-for (let i = 0; i < results.length; i++) {
-  if (results[i].success) {
-    console.log(`Balance for ${accounts[i]}:`, results[i].result);
-  } else {
-    console.error(`Error for ${accounts[i]}:`, results[i].error);
-  }
-}
-```
-
 ## Error Handling
 
 Batch requests handle errors at multiple levels:

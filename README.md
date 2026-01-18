@@ -112,8 +112,6 @@ Target URL: http://localhost:8123
 - [Configuration Guide](docs/CONFIGURATION.md) - Environment variables and configuration options
 - [Database Setup](docs/DATABASE_SETUP.md) - Database schema and setup instructions
 - [Docker Guide](docs/DOCKER.md) - Docker and container orchestration
-- [Continuous Queries](docs/CONTINUOUS_QUERIES.md) - Incremental processing implementation
-- [Backfill Services](docs/BACKFILL.md) - Historical data processing
 - [RPC Batch Requests](docs/RPC_BATCH.md) - Batching multiple RPC calls for better performance
 - [Proto Fix](docs/PROTO_FIX.md) - TronWeb compatibility workaround
 
