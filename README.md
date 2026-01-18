@@ -28,9 +28,10 @@ See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and
 ### 2. Run Services
 
 ```bash
-# Fetch token metadata Transfers/Swaps
+# Fetch token metadata Transfers/Swaps/Balances
 npm run cli run metadata-transfers
 npm run cli run metadata-swaps
+npm run cli run metadata-balances
 ```
 
 See [CLI Reference](docs/CLI.md) for all available commands and options.
