@@ -1,4 +1,4 @@
-import { ClickHouseClient, createClient } from '@clickhouse/client';
+import { type ClickHouseClient, createClient } from '@clickhouse/client';
 import { createLogger } from './logger';
 
 const log = createLogger('clickhouse');
