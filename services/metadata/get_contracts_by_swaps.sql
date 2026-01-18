@@ -4,8 +4,8 @@ SELECT
     max(timestamp) as timestamp
 FROM swaps
 WHERE
-    log_address NOT IN (SELECT contract FROM metadata_errors) AND
-    log_address NOT IN (SELECT contract FROM metadata)
-GROUP BY log_address
-ORDER BY timestamp DESC
-LIMIT 10000;
+    contract NOT IN (SELECT contract FROM metadata_errors) AND
+    contract NOT IN (SELECT contract FROM metadata)
+GROUP BY contract
+ORDER BY minute DESC
+LIMIT 1000000;

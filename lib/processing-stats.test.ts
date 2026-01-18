@@ -6,12 +6,13 @@ import {
 
 describe('ProcessingStats', () => {
     it('should initialize with zero counts', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         expect(stats.serviceName).toBe('test-service');
+        expect(stats.network).toBe('mainnet');
     });
 
     it('should increment success count', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         stats.incrementSuccess();
         stats.incrementSuccess();
         stats.incrementSuccess();
@@ -20,7 +21,7 @@ describe('ProcessingStats', () => {
     });
 
     it('should increment error count', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         stats.incrementError();
         stats.incrementError();
         // Note: We can't directly test the private errorCount,
@@ -28,7 +29,7 @@ describe('ProcessingStats', () => {
     });
 
     it('should track both success and error counts', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         stats.incrementSuccess();
         stats.incrementError();
         stats.incrementSuccess();
@@ -39,7 +40,7 @@ describe('ProcessingStats', () => {
     });
 
     it('should log completion summary', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         stats.incrementSuccess();
         stats.incrementSuccess();
         stats.incrementError();
@@ -58,34 +59,34 @@ describe('ProcessingStats - Progress Logging', () => {
     });
 
     it('should start and stop progress logging', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         stats.startProgressLogging(100);
         // Ensure no error thrown
         stats.stopProgressLogging();
     });
 
     it('should stop progress logging on completion', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         stats.startProgressLogging(100);
         stats.logCompletion();
         // logCompletion should stop the progress interval
     });
 
     it('should handle starting progress logging multiple times', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         stats.startProgressLogging(100);
         stats.startProgressLogging(200); // Should clear previous interval
         stats.stopProgressLogging();
     });
 
     it('should handle stopping progress logging when not started', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         // Should not throw when stopping without starting
         stats.stopProgressLogging();
     });
 
     it('should accept custom interval', () => {
-        const stats = new ProcessingStats('test-service');
+        const stats = new ProcessingStats('test-service', 'mainnet');
         stats.startProgressLogging(100, 5000); // Custom 5 second interval
         stats.stopProgressLogging();
     });

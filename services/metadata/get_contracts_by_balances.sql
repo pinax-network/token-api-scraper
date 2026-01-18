@@ -7,5 +7,5 @@ WHERE
     contract NOT IN (SELECT contract FROM metadata_errors) AND
     contract NOT IN (SELECT contract FROM metadata)
 GROUP BY contract
-ORDER BY timestamp DESC
+ORDER BY minute DESC
 LIMIT 1000000;

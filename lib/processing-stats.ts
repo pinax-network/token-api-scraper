@@ -18,7 +18,10 @@ export class ProcessingStats {
     private readonly startTime: number;
     private progressInterval: ReturnType<typeof setInterval> | null = null;
 
-    constructor(readonly serviceName: string) {
+    constructor(
+        readonly serviceName: string,
+        readonly network: string,
+    ) {
         this.log = createLogger(serviceName);
         this.startTime = performance.now();
     }
@@ -81,6 +84,7 @@ export class ProcessingStats {
 
         this.log.info('Processing progress', {
             serviceName: this.serviceName,
+            network: this.network,
             processed,
             total: this.totalItems,
             percentComplete,
@@ -102,6 +106,7 @@ export class ProcessingStats {
         const processingTimeSecs = (performance.now() - this.startTime) / 1000;
         this.log.info('Service completed', {
             serviceName: this.serviceName,
+            network: this.network,
             successCount: this.successCount,
             errorCount: this.errorCount,
             totalProcessed: this.successCount + this.errorCount,

@@ -602,7 +602,7 @@ export async function run(): Promise<void> {
     initService({ serviceName });
 
     // Track processing stats for summary logging
-    const stats = new ProcessingStats(serviceName);
+    const stats = new ProcessingStats(serviceName, 'polygon');
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 

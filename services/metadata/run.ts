@@ -23,11 +23,11 @@ export async function run(source: MetadataSource) {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName });
 
-    // Track processing stats for summary logging
-    const stats = new ProcessingStats(serviceName);
-
     // Validate network is set
     const network = getNetwork();
+
+    // Track processing stats for summary logging
+    const stats = new ProcessingStats(serviceName, network);
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
