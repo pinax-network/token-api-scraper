@@ -1,7 +1,6 @@
 import { getBatchInsertQueue } from '../lib/batch-insert';
 import { NODE_URL } from '../lib/config';
 import { createLogger } from '../lib/logger';
-import { incrementError, incrementSuccess } from '../lib/prometheus';
 
 const log = createLogger('insert');
 
