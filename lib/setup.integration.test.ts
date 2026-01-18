@@ -13,7 +13,7 @@ import { splitSqlStatements, transformSqlForCluster } from './setup';
 describe('Setup CLI Integration Tests', () => {
     const schemaFiles = [
         'sql.schemas/schema.metadata.sql',
-        'sql.schemas/schema.balances.sql',
+        'sql.schemas/schema.polymarket.sql',
     ];
 
     test('all schema files should exist', () => {
@@ -78,7 +78,7 @@ describe('Setup CLI Integration Tests', () => {
     });
 
     test('should have expected table names', () => {
-        const expectedTables = ['metadata', 'metadata_errors', 'balances'];
+        const expectedTables = ['metadata', 'metadata_errors', 'polymarket'];
         const allContent = schemaFiles
             .map((f) => readFileSync(f, 'utf8'))
             .join('\n');

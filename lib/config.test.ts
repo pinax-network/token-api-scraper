@@ -5,7 +5,6 @@ import {
     CONCURRENCY,
     DEFAULT_CONFIG,
     getNetwork,
-    NETWORK,
     PROMETHEUS_PORT,
 } from './config';
 
@@ -45,10 +44,6 @@ describe('config module', () => {
 
     test('BATCH_INSERT_MAX_SIZE should be positive', () => {
         expect(BATCH_INSERT_MAX_SIZE).toBeGreaterThan(0);
-    });
-
-    test('NETWORK should be a string', () => {
-        expect(typeof NETWORK).toBe('string');
     });
 
     test('getNetwork should return network from CLICKHOUSE_DATABASE', () => {

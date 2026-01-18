@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import {
     abi,
     type BatchRequest,
@@ -11,12 +11,126 @@ import {
 
 /**
  * Tests for RPC batch functionality
- * Note: These tests require network access to EVM RPC endpoints
+ * These tests use mocked fetch to avoid network dependencies
  */
+
+/**
+ * Mock RPC responses for testing without network access
+ * These are real hex-encoded responses from EVM RPC calls
+ */
+const MOCK_RESPONSES: Record<string, string> = {
+    // decimals() -> uint256(6)
+    decimals:
+        '0x0000000000000000000000000000000000000000000000000000000000000006',
+    // name() -> string("Test Token")
+    name: '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000a5465737420546f6b656e00000000000000000000000000000000000000000000',
+    // symbol() -> string("TST")
+    symbol: '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003545354000000000000000000000000000000000000000000000000000000000000',
+    // balanceOf(address) -> uint256(1000000000) (1000 tokens with 6 decimals)
+    balanceOf:
+        '0x000000000000000000000000000000000000000000000000000000003b9aca00',
+    // eth_getBalance -> 0x1bc16d674ec80000 (2 ETH in wei)
+    balance: '0x1bc16d674ec80000',
+    // eth_blockNumber -> 0x12345678
+    blockNumber: '0x12345678',
+};
+
+/**
+ * Mock fetch implementation that returns predefined responses for batch requests
+ */
+const mockBatchFetch = async (
+    _url: string,
+    options?: RequestInit,
+): Promise<Response> => {
+    if (!options?.body) {
+        throw new Error('Request body is required');
+    }
+
+    const body = JSON.parse(options.body as string);
+
+    // Handle batch requests (array of requests)
+    if (Array.isArray(body)) {
+        const results = body.map((request: any) => {
+            let result = '0x';
+            const method = request.method;
+
+            if (method === 'eth_call') {
+                const params = request.params;
+                const data = params?.[0]?.data;
+                if (typeof data === 'string') {
+                    const selector = data.slice(0, 10);
+                    const DECIMALS_SELECTOR = '0x313ce567';
+                    const NAME_SELECTOR = '0x06fdde03';
+                    const SYMBOL_SELECTOR = '0x95d89b41';
+                    const BALANCE_OF_SELECTOR = '0x70a08231';
+
+                    if (selector === DECIMALS_SELECTOR) {
+                        result = MOCK_RESPONSES.decimals;
+                    } else if (selector === NAME_SELECTOR) {
+                        result = MOCK_RESPONSES.name;
+                    } else if (selector === SYMBOL_SELECTOR) {
+                        result = MOCK_RESPONSES.symbol;
+                    } else if (selector === BALANCE_OF_SELECTOR) {
+                        result = MOCK_RESPONSES.balanceOf;
+                    }
+                }
+            } else if (method === 'eth_getBalance') {
+                result = MOCK_RESPONSES.balance;
+            } else if (method === 'eth_blockNumber') {
+                result = MOCK_RESPONSES.blockNumber;
+            }
+
+            return {
+                jsonrpc: '2.0',
+                id: request.id,
+                result: result,
+            };
+        });
+
+        return {
+            ok: true,
+            status: 200,
+            json: async () => results,
+        } as Response;
+    }
+
+    // Handle single requests
+    const response = {
+        jsonrpc: '2.0',
+        id: body.id,
+        result: '0x',
+    };
+
+    return {
+        ok: true,
+        status: 200,
+        json: async () => response,
+    } as Response;
+};
 
 describe('Batch RPC Requests', () => {
     const testContract = 'TCCA2WH8e1EJEUNkt1FNwmEjWWbgZm28vb'; // ERC-20 contract
     const testAccount = 'TXFBqBbqJommqZf7BV8NNYzePh97UmJodJ'; // EVM address
+    let originalFetch: typeof fetch;
+    let originalNodeUrl: string | undefined;
+
+    beforeAll(() => {
+        // Store original fetch and NODE_URL, then replace with mocks
+        originalFetch = globalThis.fetch;
+        originalNodeUrl = process.env.NODE_URL;
+        globalThis.fetch = mockBatchFetch as any;
+        process.env.NODE_URL = 'http://mock-rpc.test';
+    });
+
+    afterAll(() => {
+        // Restore original fetch and NODE_URL
+        globalThis.fetch = originalFetch;
+        if (originalNodeUrl === undefined) {
+            delete process.env.NODE_URL;
+        } else {
+            process.env.NODE_URL = originalNodeUrl;
+        }
+    });
 
     test('should handle empty batch request', async () => {
         const results = await makeBatchJsonRpcCall([]);
@@ -24,187 +138,104 @@ describe('Batch RPC Requests', () => {
     });
 
     test('should make a batch request with multiple calls', async () => {
-        try {
-            // Create a batch of requests for different contract methods
-            const requests: BatchRequest[] = [
-                {
-                    method: 'eth_blockNumber',
-                    params: [],
-                },
-                {
-                    method: 'eth_blockNumber',
-                    params: [],
-                },
-            ];
+        // Create a batch of requests for different contract methods
+        const requests: BatchRequest[] = [
+            {
+                method: 'eth_blockNumber',
+                params: [],
+            },
+            {
+                method: 'eth_blockNumber',
+                params: [],
+            },
+        ];
 
-            const results = await makeBatchJsonRpcCall(requests);
+        const results = await makeBatchJsonRpcCall(requests);
 
-            // Should return results for all requests
-            expect(results.length).toBe(2);
+        // Should return results for all requests
+        expect(results.length).toBe(2);
 
-            // Both should succeed (or both fail in sandboxed env)
-            for (const result of results) {
-                if (result.success) {
-                    expect(result.result).toBeDefined();
-                } else {
-                    expect(result.error).toBeDefined();
-                }
-            }
-        } catch (err: any) {
-            // In sandboxed or network-restricted environments, this is expected
-            if (
-                err.message.includes('Unable to connect') ||
-                err.message.includes('ECONNREFUSED') ||
-                err.message.includes('network')
-            ) {
-                expect(true).toBe(true); // Pass the test - network issues are expected
-            } else {
-                throw err; // Re-throw unexpected errors
-            }
+        // Both should succeed with mocked responses
+        for (const result of results) {
+            expect(result.success).toBe(true);
+            expect(result.result).toBeDefined();
         }
     });
 
     test('should handle batch contract calls', async () => {
-        try {
-            const calls: ContractCallRequest[] = [
-                { contract: testContract, signature: 'decimals()' },
-                { contract: testContract, signature: 'symbol()' },
-                { contract: testContract, signature: 'name()' },
-            ];
+        const calls: ContractCallRequest[] = [
+            { contract: testContract, signature: 'decimals()' },
+            { contract: testContract, signature: 'symbol()' },
+            { contract: testContract, signature: 'name()' },
+        ];
 
-            const results = await batchCallContracts(calls);
+        const results = await batchCallContracts(calls);
 
-            expect(results.length).toBe(3);
+        expect(results.length).toBe(3);
 
-            // All should succeed or all should fail
-            for (const result of results) {
-                if (result.success) {
-                    // Result should be hex string or empty
-                    expect(typeof result.result).toBe('string');
-                } else {
-                    expect(result.error).toBeDefined();
-                }
-            }
-
-            // If successful, verify we can decode the results
-            if (results[0].success && results[0].result) {
-                const decimals = Number(decodeUint256(results[0].result!));
-                expect(decimals).toBeGreaterThanOrEqual(0);
-            }
-
-            if (results[1].success && results[1].result) {
-                const [symbol] = abi.decode(
-                    ['string'],
-                    '0x' + results[1].result!.replace(/^0x/, ''),
-                );
-                expect(symbol).toBeTruthy();
-            }
-
-            if (results[2].success && results[2].result) {
-                const [name] = abi.decode(
-                    ['string'],
-                    '0x' + results[2].result!.replace(/^0x/, ''),
-                );
-                expect(name).toBeTruthy();
-            }
-        } catch (err: any) {
-            // In sandboxed or network-restricted environments, this is expected
-            if (
-                err.message.includes('Unable to connect') ||
-                err.message.includes('ECONNREFUSED') ||
-                err.message.includes('network') ||
-                err.message.includes('FailedToOpenSocket') ||
-                err.message.includes('url or port')
-            ) {
-                expect(true).toBe(true); // Pass the test - network issues are expected
-            } else {
-                throw err; // Re-throw unexpected errors
-            }
+        // All should succeed with mocked responses
+        for (const result of results) {
+            expect(result.success).toBe(true);
+            expect(typeof result.result).toBe('string');
         }
+
+        // Verify we can decode the results
+        const decimals = Number(decodeUint256(results[0].result!));
+        expect(decimals).toBe(6);
+
+        const [symbol] = abi.decode(
+            ['string'],
+            '0x' + results[1].result!.replace(/^0x/, ''),
+        );
+        expect(symbol).toBe('TST');
+
+        const [name] = abi.decode(
+            ['string'],
+            '0x' + results[2].result!.replace(/^0x/, ''),
+        );
+        expect(name).toBe('Test Token');
     });
 
     test('should handle batch contract calls with arguments', async () => {
-        try {
-            const calls: ContractCallRequest[] = [
-                {
-                    contract: testContract,
-                    signature: 'balanceOf(address)',
-                    args: [testAccount],
-                },
-                {
-                    contract: testContract,
-                    signature: 'balanceOf(address)',
-                    args: [testAccount],
-                },
-            ];
+        const calls: ContractCallRequest[] = [
+            {
+                contract: testContract,
+                signature: 'balanceOf(address)',
+                args: [testAccount],
+            },
+            {
+                contract: testContract,
+                signature: 'balanceOf(address)',
+                args: [testAccount],
+            },
+        ];
 
-            const results = await batchCallContracts(calls);
+        const results = await batchCallContracts(calls);
 
-            expect(results.length).toBe(2);
+        expect(results.length).toBe(2);
 
-            // Verify structure
-            for (const result of results) {
-                if (result.success) {
-                    expect(result.result).toBeDefined();
-                    // Should be able to decode as uint256
-                    if (result.result) {
-                        const balance = decodeUint256(result.result);
-                        expect(balance).toBeDefined();
-                    }
-                } else {
-                    expect(result.error).toBeDefined();
-                }
-            }
-        } catch (err: any) {
-            // In sandboxed or network-restricted environments, this is expected
-            if (
-                err.message.includes('Unable to connect') ||
-                err.message.includes('ECONNREFUSED') ||
-                err.message.includes('network')
-            ) {
-                expect(true).toBe(true); // Pass the test - network issues are expected
-            } else {
-                throw err; // Re-throw unexpected errors
-            }
+        // Verify structure - all should succeed with mocked responses
+        for (const result of results) {
+            expect(result.success).toBe(true);
+            expect(result.result).toBeDefined();
+            const balance = decodeUint256(result.result!);
+            expect(balance).toBe(1000000000n);
         }
     });
 
     test('should handle batch native balance requests', async () => {
-        try {
-            const accounts = [testAccount, testAccount]; // Query same account twice for testing
+        const accounts = [testAccount, testAccount]; // Query same account twice for testing
 
-            const results = await batchGetNativeBalances(accounts);
+        const results = await batchGetNativeBalances(accounts);
 
-            expect(results.length).toBe(2);
+        expect(results.length).toBe(2);
 
-            // Verify structure
-            for (const result of results) {
-                if (result.success) {
-                    expect(result.result).toBeDefined();
-                    // Result should be a hex string
-                    expect(typeof result.result).toBe('string');
-                    // Should start with 0x or be "0x0"
-                    expect(
-                        result.result!.startsWith('0x') ||
-                            result.result === '0x0',
-                    ).toBe(true);
-                } else {
-                    expect(result.error).toBeDefined();
-                }
-            }
-        } catch (err: any) {
-            // In sandboxed or network-restricted environments, this is expected
-            if (
-                err.message.includes('Unable to connect') ||
-                err.message.includes('ECONNREFUSED') ||
-                err.message.includes('network') ||
-                err.message.includes('FailedToOpenSocket') ||
-                err.message.includes('url or port')
-            ) {
-                expect(true).toBe(true); // Pass the test - network issues are expected
-            } else {
-                throw err; // Re-throw unexpected errors
-            }
+        // Verify structure - all should succeed with mocked responses
+        for (const result of results) {
+            expect(result.success).toBe(true);
+            expect(result.result).toBeDefined();
+            expect(typeof result.result).toBe('string');
+            expect(result.result!.startsWith('0x')).toBe(true);
         }
     });
 
@@ -261,64 +292,44 @@ describe('Batch RPC Requests', () => {
     });
 
     test('should preserve request order in batch results', async () => {
-        try {
-            // Make different calls that should return different values
-            const calls: ContractCallRequest[] = [
-                { contract: testContract, signature: 'decimals()' },
-                { contract: testContract, signature: 'name()' },
-                { contract: testContract, signature: 'symbol()' },
-            ];
+        // Make different calls that should return different values
+        const calls: ContractCallRequest[] = [
+            { contract: testContract, signature: 'decimals()' },
+            { contract: testContract, signature: 'name()' },
+            { contract: testContract, signature: 'symbol()' },
+        ];
 
-            const results = await batchCallContracts(calls);
+        const results = await batchCallContracts(calls);
 
-            expect(results.length).toBe(3);
+        expect(results.length).toBe(3);
 
-            // Results should be in the same order as requests
-            // If all succeed, they should have different values
-            if (results.every((r) => r.success)) {
-                // Decimals result should be different from name/symbol
-                if (
-                    results[0].result &&
-                    results[1].result &&
-                    results[2].result
-                ) {
-                    // Just verify they're all defined and in order
-                    expect(results[0].result).toBeTruthy();
-                    expect(results[1].result).toBeTruthy();
-                    expect(results[2].result).toBeTruthy();
-                }
-            }
-        } catch (err: any) {
-            // Network error is acceptable
-            if (
-                err.message.includes('Unable to connect') ||
-                err.message.includes('ECONNREFUSED') ||
-                err.message.includes('network')
-            ) {
-                expect(true).toBe(true);
-            } else {
-                throw err;
-            }
-        }
+        // Results should be in the same order as requests
+        // All should succeed with mocked responses
+        expect(results.every((r) => r.success)).toBe(true);
+
+        // Verify each result has the expected value
+        expect(results[0].result).toBeTruthy();
+        expect(results[1].result).toBeTruthy();
+        expect(results[2].result).toBeTruthy();
+
+        // Verify decimals (first result)
+        const decimals = Number(decodeUint256(results[0].result!));
+        expect(decimals).toBe(6);
     });
 
     test('should handle retry options for batch calls', async () => {
-        try {
-            const calls: ContractCallRequest[] = [
-                { contract: testContract, signature: 'decimals()' },
-            ];
+        const calls: ContractCallRequest[] = [
+            { contract: testContract, signature: 'decimals()' },
+        ];
 
-            const results = await batchCallContracts(calls, {
-                retries: 2,
-                baseDelayMs: 100,
-                timeoutMs: 2000,
-            });
+        const results = await batchCallContracts(calls, {
+            retries: 2,
+            baseDelayMs: 100,
+            timeoutMs: 2000,
+        });
 
-            expect(results.length).toBe(1);
-            expect(results[0]).toBeDefined();
-        } catch (_err: any) {
-            // Expected in sandboxed environment
-            expect(true).toBe(true);
-        }
+        expect(results.length).toBe(1);
+        expect(results[0]).toBeDefined();
+        expect(results[0].success).toBe(true);
     });
 });
