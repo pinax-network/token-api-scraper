@@ -90,7 +90,7 @@ export const PROMETHEUS_HOSTNAME =
  */
 export const BATCH_INSERT_INTERVAL_MS = parseInt(
     process.env.BATCH_INSERT_INTERVAL_MS ||
-        String(DEFAULT_CONFIG.BATCH_INSERT_INTERVAL_MS),
+    String(DEFAULT_CONFIG.BATCH_INSERT_INTERVAL_MS),
     10,
 );
 
@@ -100,7 +100,7 @@ export const BATCH_INSERT_INTERVAL_MS = parseInt(
  */
 export const BATCH_INSERT_MAX_SIZE = parseInt(
     process.env.BATCH_INSERT_MAX_SIZE ||
-        String(DEFAULT_CONFIG.BATCH_INSERT_MAX_SIZE),
+    String(DEFAULT_CONFIG.BATCH_INSERT_MAX_SIZE),
     10,
 );
 
@@ -115,33 +115,17 @@ export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE;
 export const NODE_URL = process.env.NODE_URL;
 
 /**
- * Get NODE_URL with validation
- * Throws error if NODE_URL is not set
- */
-export function getNodeUrl(): string {
-    if (!NODE_URL) {
-        throw new Error('NODE_URL environment variable is not set.');
-    }
-    return NODE_URL;
-}
-
-/**
- * Network name extracted from CLICKHOUSE_DATABASE
- * The database format is expected to be "network:suffix"
- * Returns empty string if CLICKHOUSE_DATABASE is not set properly
- * Services that require NETWORK should validate it before use
- */
-export const NETWORK = CLICKHOUSE_DATABASE?.split(':')[0] || '';
-
-/**
  * Get the network name with validation
+ * Reads from process.env at runtime to support CLI overrides
  * Throws error if CLICKHOUSE_DATABASE is not set properly
  */
 export function getNetwork(): string {
-    if (!NETWORK) {
+    const database = process.env.CLICKHOUSE_DATABASE;
+    const network = database?.split(':')[0] || '';
+    if (!network) {
         throw new Error(
             'CLICKHOUSE_DATABASE environment variable is not set properly.',
         );
     }
-    return NETWORK;
+    return network;
 }
