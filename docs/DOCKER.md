@@ -62,27 +62,7 @@ docker run \
   token-api-scraper run metadata
 ```
 
-#### ERC-20 Balances (Incremental)
-
-```bash
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e CLICKHOUSE_USERNAME=default \
-  -e CLICKHOUSE_PASSWORD=password \
-  -e NODE_URL=https://tron-evm-rpc.publicnode.com \
-  token-api-scraper run erc20-balances
-```
-
-#### Native Balances (Incremental)
-
-```bash
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e CONCURRENCY=10 \
-  token-api-scraper run native-balances
-```
-
-#### Backfill Services
+## Docker Compose
 
 ```bash
 # ERC-20 backfill
@@ -117,7 +97,7 @@ docker run token-api-scraper run erc20-balances \
 docker run \
   -v $(pwd)/sql:/app/sql \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  token-api-scraper setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
+  token-api-scraper setup sql/schema.metadata.sql
 
 # Setup with cluster
 docker run \
@@ -148,32 +128,6 @@ services:
       - CONCURRENCY=10
     command: run metadata
     restart: unless-stopped
-
-  # ERC-20 balances (incremental)
-  erc20-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-    command: run erc20-balances
-    restart: unless-stopped
-
-  # Native balances (incremental)
-  native-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-    command: run native-balances
-    restart: unless-stopped
 ```
 
 Run with:
@@ -181,7 +135,7 @@ Run with:
 docker-compose up -d
 ```
 
-### Complete Setup with Backfill
+### Complete Setup
 
 ```yaml
 version: '3.8'
@@ -294,7 +248,7 @@ global:
 scrape_configs:
   - job_name: 'token-scraper'
     static_configs:
-      - targets: ['erc20-balances-scraper:9090']
+      - targets: ['metadata-scraper:9090']
 ```
 
 ## Environment Variables

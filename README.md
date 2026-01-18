@@ -18,10 +18,9 @@ A specialized tool for scraping and indexing ERC-20 token data on the TRON block
 ```bash
 # Deploy database schemas to ClickHouse
 npm run cli setup metadata
-npm run cli setup balances
 
 # Or deploy custom SQL files
-npm run cli setup files sql.schemas/schema.metadata.sql sql.schemas/schema.balances.sql
+npm run cli setup files sql.schemas/schema.metadata.sql
 ```
 
 See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and cluster deployment.
@@ -32,10 +31,6 @@ See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and
 # Fetch token metadata Transfers/Swaps
 npm run cli run metadata-transfers
 npm run cli run metadata-swaps
-
-# Process ERC-20/Native balances
-npm run cli run balances-erc20
-npm run cli run balances-native
 ```
 
 See [CLI Reference](docs/CLI.md) for all available commands and options.
@@ -73,7 +68,6 @@ See [Configuration Guide](docs/CONFIGURATION.md) for detailed information.
 Process only new data since the last run:
 
 - **metadata** - Fetch token metadata (name, symbol, decimals) from swaps & transfers
-- **balances** - Process balances from ERC-20 transfers & native transfers
 
 ## Docker
 
