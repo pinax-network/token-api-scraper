@@ -10,14 +10,20 @@ import { get_latest_transfers } from '../../src/queries';
 const serviceName = 'balances-erc20';
 const log = createLogger(serviceName);
 
-// Track success and error counts for summary logging
-let successCount = 0;
-let errorCount = 0;
+/**
+ * Counter object for tracking success and error counts
+ * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
+ */
+interface ProcessingStats {
+    successCount: number;
+    errorCount: number;
+}
 
 async function processBalanceOf(
     account: string,
     contract: string,
     block_num: number,
+    stats: ProcessingStats,
 ) {
     // get `balanceOf` RPC call for the account
     const startTime = performance.now();
@@ -38,7 +44,7 @@ async function processBalanceOf(
                 serviceName,
             );
 
-            successCount++;
+            stats.successCount++;
             log.debug('Balance scraped successfully', {
                 contract,
                 account,
@@ -47,7 +53,7 @@ async function processBalanceOf(
                 queryTimeMs,
             });
         } else {
-            errorCount++;
+            stats.errorCount++;
             await insert_error_balances(
                 { block_num, contract, account },
                 'zero balance',
@@ -55,7 +61,7 @@ async function processBalanceOf(
             );
         }
     } catch (err) {
-        errorCount++;
+        stats.errorCount++;
         const message = (err as Error).message || String(err);
 
         // Emit warning for RPC errors with context
@@ -83,9 +89,8 @@ export async function run() {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName: 'ERC20 balances RPC service' });
 
-    // Reset counters for this run
-    successCount = 0;
-    errorCount = 0;
+    // Track processing stats for summary logging
+    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
@@ -103,11 +108,11 @@ export async function run() {
     for (const { log_address, from, to, block_num } of transfers) {
         if (!isBlackHoleAddress(from)) {
             queue.add(async () => {
-                await processBalanceOf(from, log_address, block_num);
+                await processBalanceOf(from, log_address, block_num, stats);
             });
         }
         queue.add(async () => {
-            await processBalanceOf(to, log_address, block_num);
+            await processBalanceOf(to, log_address, block_num, stats);
         });
     }
 
@@ -115,9 +120,9 @@ export async function run() {
     await queue.onIdle();
 
     log.info('Service completed', {
-        successCount,
-        errorCount,
-        totalProcessed: successCount + errorCount,
+        successCount: stats.successCount,
+        errorCount: stats.errorCount,
+        totalProcessed: stats.successCount + stats.errorCount,
     });
 
     // Shutdown batch insert queue

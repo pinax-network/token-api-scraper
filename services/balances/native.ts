@@ -13,11 +13,16 @@ import { get_accounts_for_native_balances } from '../../src/queries';
 const serviceName = 'balances-native';
 const log = createLogger(serviceName);
 
-// Track success and error counts for summary logging
-let successCount = 0;
-let errorCount = 0;
+/**
+ * Counter object for tracking success and error counts
+ * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
+ */
+interface ProcessingStats {
+    successCount: number;
+    errorCount: number;
+}
 
-async function processNativeBalance(account: string) {
+async function processNativeBalance(account: string, stats: ProcessingStats) {
     // get native TRX balance for the account
     const startTime = performance.now();
     try {
@@ -33,14 +38,14 @@ async function processNativeBalance(account: string) {
             serviceName,
         );
 
-        successCount++;
+        stats.successCount++;
         log.debug('Native balance scraped successfully', {
             account,
             balanceHex: balance_hex,
             queryTimeMs,
         });
     } catch (err) {
-        errorCount++;
+        stats.errorCount++;
         const message = (err as Error).message || String(err);
 
         // Emit warning for RPC errors with context
@@ -58,9 +63,8 @@ export async function run() {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName: 'Native balances RPC service' });
 
-    // Reset counters for this run
-    successCount = 0;
-    errorCount = 0;
+    // Track processing stats for summary logging
+    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
@@ -77,7 +81,7 @@ export async function run() {
     // Process all accounts
     for (const account of accounts) {
         queue.add(async () => {
-            await processNativeBalance(account);
+            await processNativeBalance(account, stats);
         });
     }
 
@@ -85,9 +89,9 @@ export async function run() {
     await queue.onIdle();
 
     log.info('Service completed', {
-        successCount,
-        errorCount,
-        totalProcessed: successCount + errorCount,
+        successCount: stats.successCount,
+        errorCount: stats.errorCount,
+        totalProcessed: stats.successCount + stats.errorCount,
     });
 
     // Shutdown batch insert queue
