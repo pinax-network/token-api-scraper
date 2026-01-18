@@ -168,6 +168,10 @@ function addCommonOptions(command: Command): Command {
                 process.env.PROMETHEUS_HOSTNAME ||
                     DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
             )
+            .option(
+                '--no-prometheus',
+                'Disable the Prometheus metrics server. Useful when running multiple instances or when metrics are not needed.',
+            )
             // Logging Options
             .option(
                 '--verbose',
@@ -201,6 +205,7 @@ interface ServiceOptions {
     timeoutMs: string;
     prometheusPort: string;
     prometheusHostname: string;
+    prometheus: boolean;
     verbose: boolean;
     autoRestartDelay: string;
 }
@@ -261,14 +266,21 @@ async function runService(serviceName: string, options: ServiceOptions) {
     process.env.PROMETHEUS_HOSTNAME = options.prometheusHostname;
     process.env.VERBOSE = options.verbose ? 'true' : 'false';
 
-    // Start Prometheus server once before the loop
-    const prometheusPort = parseInt(options.prometheusPort, 10);
-    const prometheusHostname = options.prometheusHostname;
-    try {
-        await startPrometheusServer(prometheusPort, prometheusHostname);
-    } catch (error) {
-        log.error('Failed to start Prometheus server', { error });
-        process.exit(1);
+    // Start Prometheus server once before the loop (if enabled)
+    const prometheusEnabled = options.prometheus;
+    if (prometheusEnabled) {
+        const prometheusPort = parseInt(options.prometheusPort, 10);
+        const prometheusHostname = options.prometheusHostname;
+        try {
+            await startPrometheusServer(prometheusPort, prometheusHostname);
+        } catch (error) {
+            log.warn(
+                'Failed to start Prometheus server, continuing without metrics',
+                { error },
+            );
+        }
+    } else if (options.verbose) {
+        log.info('Prometheus server disabled');
     }
 
     // Import and run the service module directly
@@ -346,6 +358,9 @@ Examples:
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
   $ npm run cli run metadata-swaps --auto-restart-delay 60
+
+  # Disable Prometheus metrics server
+  $ npm run cli run metadata-transfers --no-prometheus
     `,
     )
     .action(async (service: string, options: any) => {
