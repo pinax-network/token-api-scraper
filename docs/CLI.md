@@ -266,6 +266,7 @@ npm run cli setup metadata
 # 2. Fetch token metadata
 npm run cli run metadata-transfers
 npm run cli run metadata-swaps
+npm run cli run metadata-balances
 
 # 3. Optionally run polymarket service
 npm run cli run polymarket
@@ -430,7 +431,10 @@ npm run cli run metadata-transfers
 # Terminal 2: Metadata from swaps
 npm run cli run metadata-swaps
 
-# Terminal 3: Polymarket service
+# Terminal 3: Metadata from balances
+npm run cli run metadata-balances
+
+# Terminal 4: Polymarket service
 npm run cli run polymarket
 ```
 

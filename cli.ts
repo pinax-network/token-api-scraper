@@ -29,6 +29,11 @@ const SERVICES = {
         description:
             'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `swaps`',
     },
+    'metadata-balances': {
+        path: './services/metadata/balances.ts',
+        description:
+            'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `balances`',
+    },
     polymarket: {
         path: './services/polymarket/index.ts',
         description:
@@ -330,11 +335,13 @@ const runCommand = program
 Services:
   metadata-transfers          ${SERVICES['metadata-transfers'].description}
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
+  metadata-balances           ${SERVICES['metadata-balances'].description}
   polymarket                  ${SERVICES['polymarket'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
+  $ npm run cli run metadata-balances
   $ npm run cli run polymarket
 
   # Auto-restart delay examples
