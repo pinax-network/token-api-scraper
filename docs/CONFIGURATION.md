@@ -170,7 +170,7 @@ npm run cli run metadata-transfers
 AUTO_RESTART_DELAY=30 npm run cli run metadata-swaps
 
 # Combine with other options
-AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run balances-erc20
+AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run metadata-transfers
 ```
 
 **Benefits of continuous auto-restart:**

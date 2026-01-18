@@ -29,16 +29,6 @@ const SERVICES = {
         description:
             'Fetch and store ERC-20 token metadata (name, symbol, decimals) from `swaps`',
     },
-    'balances-erc20': {
-        path: './services/balances/erc20.ts',
-        description:
-            'Query and update ERC-20 token balances for accounts using the balanceOf() function',
-    },
-    'balances-native': {
-        path: './services/balances/native.ts',
-        description:
-            'Query and update native token balances for accounts on the TRON network',
-    },
     polymarket: {
         path: './services/polymarket/index.ts',
         description:
@@ -54,10 +44,6 @@ const SETUP_ACTIONS = {
     metadata: {
         files: ['./sql.schemas/schema.metadata.sql'],
         description: 'Deploy metadata tables (metadata, metadata_errors)',
-    },
-    balances: {
-        files: ['./sql.schemas/schema.balances.sql'],
-        description: 'Deploy balances table for ERC-20 token balances',
     },
     polymarket: {
         files: ['./sql.schemas/schema.polymarket.sql'],
@@ -344,15 +330,11 @@ const runCommand = program
 Services:
   metadata-transfers          ${SERVICES['metadata-transfers'].description}
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
-  balances-erc20              ${SERVICES['balances-erc20'].description}
-  balances-native             ${SERVICES['balances-native'].description}
   polymarket                  ${SERVICES['polymarket'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
-  $ npm run cli run balances-erc20 --concurrency 20
-  $ npm run cli run balances-native --prometheus-port 8080
   $ npm run cli run polymarket
 
   # Auto-restart delay examples
@@ -500,33 +482,6 @@ Example:
         await handleSetupCommand(files, options);
     });
 addClickhouseOptions(setupMetadata);
-
-// ---- setup balances ----
-const setupBalances = setupCommand
-    .command('balances')
-    .description(SETUP_ACTIONS.balances.description)
-    .addHelpText(
-        'after',
-        `
-This command deploys the balances table for storing ERC-20 token balances.
-It only needs to be run once to initialize the table.
-
-Tables created:
-  - balances: Stores latest token balances per account/contract
-
-Example:
-  $ npm run cli setup balances
-  $ npm run cli setup balances --cluster my_cluster
-`,
-    )
-    .action(async (options: any) => {
-        log.info('Setting up balances table');
-        const files = SETUP_ACTIONS.balances.files.map((f) =>
-            resolve(__dirname, f),
-        );
-        await handleSetupCommand(files, options);
-    });
-addClickhouseOptions(setupBalances);
 
 // ---- setup polymarket ----
 const setupPolymarket = setupCommand

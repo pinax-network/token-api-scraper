@@ -18,7 +18,7 @@ The fastest way to get started:
 
 ```bash
 # Deploy all schema files to ClickHouse
-npm run cli setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
+npm run cli setup sql/schema.metadata.sql
 ```
 
 This creates all necessary:
@@ -80,7 +80,6 @@ npm run cli setup sql/schema.*.sql
 
 # Deploy individual schemas
 npm run cli setup sql/schema.metadata.sql
-npm run cli setup sql/schema.erc20_balances.sql
 ```
 
 ### Custom Database Connection
@@ -279,7 +278,6 @@ Estimate storage requirements based on:
 
 Typical usage:
 - Metadata: ~1 MB per 1,000 tokens
-- Balances: ~100 MB per 1 million balance records
 
 ### Performance Considerations
 
@@ -342,7 +340,7 @@ echo "SHOW TABLES" | clickhouse-client
 echo "DESCRIBE TABLE metadata_rpc" | clickhouse-client
 
 # Check row counts
-echo "SELECT COUNT(*) FROM erc20_balances_rpc" | clickhouse-client
+echo "SELECT COUNT(*) FROM metadata_rpc" | clickhouse-client
 ```
 
 ### Test Functions
@@ -398,14 +396,14 @@ npm run cli setup sql/schema.*.sql
 ### Adding Indexes
 
 ```sql
-ALTER TABLE erc20_balances_rpc
-ADD INDEX idx_account (account) TYPE minmax GRANULARITY 1;
+ALTER TABLE metadata_rpc
+ADD INDEX idx_contract (contract) TYPE minmax GRANULARITY 1;
 ```
 
 ### Adding Columns
 
 ```sql
-ALTER TABLE erc20_balances_rpc
+ALTER TABLE metadata_rpc
 ADD COLUMN IF NOT EXISTS timestamp DateTime DEFAULT now();
 ```
 
@@ -459,8 +457,6 @@ The setup command uses `IF NOT EXISTS` clauses, so it's safe to run multiple tim
 
 ```sql
 DROP TABLE IF EXISTS metadata_rpc;
-DROP TABLE IF EXISTS erc20_balances_rpc;
-DROP TABLE IF EXISTS native_balances_rpc;
 ```
 
 Then re-run:

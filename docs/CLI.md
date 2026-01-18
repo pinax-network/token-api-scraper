@@ -41,10 +41,7 @@ Output example:
 ```
 Available services:
   - metadata
-  - erc20-balances
-  - native-balances
-  - erc20-backfill
-  - native-backfill
+  - polymarket
 ```
 
 ### setup
@@ -60,9 +57,6 @@ These are the recommended setup commands for deploying specific schemas:
 ```bash
 # Deploy metadata tables (metadata, metadata_errors)
 npm run cli setup metadata
-
-# Deploy balances table for ERC-20 token balances
-npm run cli setup balances
 
 # Deploy polymarket tables (polymarket_markets, polymarket_assets)
 npm run cli setup polymarket
@@ -121,7 +115,7 @@ For deploying custom SQL files, use the `files` subcommand:
 npm run cli setup files sql.schemas/custom.sql
 
 # Deploy multiple files
-npm run cli setup files sql.schemas/schema.metadata.sql sql.schemas/schema.balances.sql
+npm run cli setup files sql.schemas/schema.metadata.sql
 
 # Use wildcards
 npm run cli setup files sql.schemas/schema.*.sql
@@ -193,48 +187,15 @@ npm run cli run metadata --concurrency 20
 npm run cli run metadata --enable-prometheus --prometheus-port 8080
 ```
 
-##### erc20-balances
+##### polymarket
 
-Processes ERC-20 token balances incrementally (only new transfers since last run).
+Processes Polymarket market metadata.
 
 ```bash
-npm run cli run erc20-balances
+npm run cli run polymarket
 
 # With custom parameters
-npm run cli run erc20-balances --concurrency 15 --enable-prometheus
-```
-
-##### native-balances
-
-Processes native token balances incrementally (only new accounts without balances).
-
-```bash
-npm run cli run native-balances
-
-# With custom transfers table
-npm run cli run native-balances --transfers-table native_transfer
-```
-
-##### erc20-backfill
-
-Processes all historical ERC-20 transfers from newest to oldest blocks. Run repeatedly until complete.
-
-```bash
-npm run cli run erc20-backfill
-
-# With higher concurrency for faster processing
-npm run cli run erc20-backfill --concurrency 20
-```
-
-##### native-backfill
-
-Processes all historical accounts from newest to oldest blocks. Run repeatedly until complete.
-
-```bash
-npm run cli run native-backfill
-
-# With monitoring
-npm run cli run native-backfill --enable-prometheus --prometheus-port 9091
+npm run cli run polymarket --concurrency 15 --enable-prometheus
 ```
 
 ## Command-Line Flags
@@ -301,18 +262,13 @@ Valid values for `--transfers-table`: `transfers`, `native_transfer`, `erc20_tra
 ```bash
 # 1. Setup database schemas
 npm run cli setup metadata
-npm run cli setup balances
 
 # 2. Fetch token metadata
 npm run cli run metadata-transfers
 npm run cli run metadata-swaps
 
-# 3. Start scraping ERC-20 balances (incremental)
-npm run cli run balances-erc20
-
-# 4. Optionally backfill historical data in parallel
-npm run cli run erc20-backfill --concurrency 15
-npm run cli run native-backfill --concurrency 15
+# 3. Optionally run polymarket service
+npm run cli run polymarket
 ```
 
 ### Custom Configuration
@@ -333,14 +289,6 @@ npm run cli run metadata \
   --clickhouse-database evm_data \
   --node-url https://your-tron-node.example.com \
   --concurrency 20
-
-# Run backfill with monitoring and verbose logs
-npm run cli run erc20-backfill \
-  --verbose \
-  --concurrency 15 \
-  --enable-prometheus \
-  --prometheus-port 8080 \
-  --max-retries 5
 ```
 
 ### Production Deployment
@@ -361,21 +309,10 @@ npm run cli setup files sql.schemas/schema.*.sql \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database production_evm
 
-# Run with production settings
-npm run cli run balances-erc20 \
+# Run metadata service
+npm run cli run metadata-transfers \
   --clickhouse-url http://clickhouse-node1:8123 \
-  --clickhouse-database production_evm \
-  --concurrency 20 \
-  --max-retries 5 \
-  --prometheus-port 9090
-```
-
-### Custom Transfers Table
-
-```bash
-# Use a different transfers table name
-npm run cli run erc20-balances --transfers-table erc20_transfer
-npm run cli run native-balances --transfers-table native_transfer
+  --clickhouse-database production_evm
 ```
 
 ## Legacy npm Scripts
@@ -385,18 +322,6 @@ For backward compatibility, direct npm scripts are still available:
 ```bash
 # Run metadata RPC service
 npm run start
-
-# Run ERC-20 balances RPC service (incremental updates)
-npm run balances
-
-# Run Native balances RPC service (incremental updates)
-npm run native-balances
-
-# Run ERC-20 balances BACKFILL service
-npm run backfill-erc20
-
-# Run Native balances BACKFILL service
-npm run backfill-native
 
 # Run tests
 npm run test
@@ -499,14 +424,14 @@ If a service fails to start:
 You can run multiple services in parallel for maximum throughput:
 
 ```bash
-# Terminal 1: Incremental updates
-npm run cli run erc20-balances
+# Terminal 1: Metadata from transfers
+npm run cli run metadata-transfers
 
-# Terminal 2: Historical backfill
-npm run cli run erc20-backfill --concurrency 15
+# Terminal 2: Metadata from swaps
+npm run cli run metadata-swaps
 
-# Terminal 3: Native balances
-npm run cli run native-backfill --concurrency 15
+# Terminal 3: Polymarket service
+npm run cli run polymarket
 ```
 
 ### Automated Scheduling
@@ -516,7 +441,7 @@ Set up cron jobs for periodic updates:
 ```bash
 # crontab -e
 # Run every hour
-0 * * * * cd /path/to/token-api-scraper && npm run cli run erc20-balances
+0 * * * * cd /path/to/token-api-scraper && npm run cli run metadata-transfers
 ```
 
 ### Continuous Operation

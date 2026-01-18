@@ -36,7 +36,7 @@ export async function run() {
 
 ## Development Commands
 ```bash
-bun run cli run <service>      # Run a service (metadata-transfers, balances-erc20, etc.)
+bun run cli run <service>      # Run a service (metadata-transfers, metadata-swaps, etc.)
 bun run cli setup <action>     # Deploy SQL schemas to ClickHouse
 bun run test                   # Run tests with coverage (bun:test)
 bun run fix                    # Auto-fix lint issues (Biome)

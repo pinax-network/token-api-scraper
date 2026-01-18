@@ -62,51 +62,16 @@ docker run \
   token-api-scraper run metadata
 ```
 
-#### ERC-20 Balances (Incremental)
+## Docker Compose
 
-```bash
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e CLICKHOUSE_USERNAME=default \
-  -e CLICKHOUSE_PASSWORD=password \
-  -e NODE_URL=https://tron-evm-rpc.publicnode.com \
-  token-api-scraper run erc20-balances
-```
-
-#### Native Balances (Incremental)
-
-```bash
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e CONCURRENCY=10 \
-  token-api-scraper run native-balances
-```
-
-#### Backfill Services
-
-```bash
-# ERC-20 backfill
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e CONCURRENCY=15 \
-  token-api-scraper run erc20-backfill
-
-# Native backfill
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e CONCURRENCY=15 \
-  token-api-scraper run native-backfill
-```
-
-### Using Command-Line Flags
+### Basic Example
 
 Command-line flags override environment variables:
 
 ```bash
-docker run token-api-scraper run erc20-balances \
+docker run token-api-scraper run metadata \
   --clickhouse-url http://clickhouse:8123 \
   --concurrency 20 \
-  --enable-prometheus \
   --prometheus-port 9090
 ```
 
@@ -117,7 +82,7 @@ docker run token-api-scraper run erc20-balances \
 docker run \
   -v $(pwd)/sql:/app/sql \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  token-api-scraper setup sql/schema.metadata.sql sql/schema.erc20_balances.sql
+  token-api-scraper setup sql/schema.metadata.sql
 
 # Setup with cluster
 docker run \
@@ -148,32 +113,6 @@ services:
       - CONCURRENCY=10
     command: run metadata
     restart: unless-stopped
-
-  # ERC-20 balances (incremental)
-  erc20-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-    command: run erc20-balances
-    restart: unless-stopped
-
-  # Native balances (incremental)
-  native-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-    command: run native-balances
-    restart: unless-stopped
 ```
 
 Run with:
@@ -181,7 +120,7 @@ Run with:
 docker-compose up -d
 ```
 
-### Complete Setup with Backfill
+### Complete Setup
 
 ```yaml
 version: '3.8'
@@ -199,81 +138,6 @@ services:
       - CONCURRENCY=10
     command: run metadata
     restart: unless-stopped
-
-  erc20-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-    command: run erc20-balances
-    restart: unless-stopped
-
-  native-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-    command: run native-balances
-    restart: unless-stopped
-
-  # Backfill services
-  erc20-backfill-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=15
-    command: run erc20-backfill
-    restart: "no"  # Don't restart - backfill completes eventually
-
-  native-backfill-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=15
-    command: run native-backfill
-    restart: "no"  # Don't restart - backfill completes eventually
-```
-
-### With Prometheus Monitoring
-
-```yaml
-version: '3.8'
-
-services:
-  erc20-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-      - PROMETHEUS_PORT=9090
-    command: run erc20-balances
-    ports:
-      - "9090:9090"  # Expose Prometheus metrics
-    restart: unless-stopped
-
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
@@ -294,7 +158,7 @@ global:
 scrape_configs:
   - job_name: 'token-scraper'
     static_configs:
-      - targets: ['erc20-balances-scraper:9090']
+      - targets: ['metadata-scraper:9090']
 ```
 
 ## Environment Variables
@@ -420,12 +284,12 @@ Add health checks to your services:
 
 ```yaml
 services:
-  erc20-balances-scraper:
+  metadata-scraper:
     build: .
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
       - PROMETHEUS_PORT=9090
-    command: run erc20-balances
+    command: run metadata
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
       interval: 30s
@@ -468,7 +332,7 @@ docker-compose logs -f
 docker-compose logs -f metadata-scraper
 
 # View last 100 lines
-docker-compose logs --tail=100 erc20-balances-scraper
+docker-compose logs --tail=100 metadata-scraper
 ```
 
 ### Log Configuration
@@ -493,7 +357,7 @@ services:
 
 ```yaml
 services:
-  erc20-balances-scraper:
+  metadata-scraper:
     build: .
     deploy:
       resources:
@@ -503,17 +367,17 @@ services:
         reservations:
           cpus: '1.0'
           memory: 1G
-    command: run erc20-balances
+    command: run metadata
 ```
 
 ### Scaling
 
 ```bash
 # Scale up to 3 instances
-docker-compose up -d --scale erc20-backfill-scraper=3
+docker-compose up -d --scale metadata-scraper=3
 
 # Scale down to 1 instance
-docker-compose up -d --scale erc20-backfill-scraper=1
+docker-compose up -d --scale metadata-scraper=1
 ```
 
 ## Production Deployment
@@ -556,7 +420,7 @@ docker-compose up -d --scale erc20-backfill-scraper=1
 version: '3.8'
 
 services:
-  erc20-balances-scraper:
+  metadata-scraper:
     image: token-api-scraper:1.0.0
     environment:
       - CLICKHOUSE_URL=http://clickhouse:8123
@@ -567,7 +431,7 @@ services:
       - CONCURRENCY=20
       - MAX_RETRIES=5
       - PROMETHEUS_PORT=9090
-    command: run erc20-balances
+    command: run metadata
     deploy:
       resources:
         limits:
@@ -644,21 +508,21 @@ Example minimal Kubernetes deployment:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: erc20-balances-scraper
+  name: metadata-scraper
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: erc20-balances-scraper
+      app: metadata-scraper
   template:
     metadata:
       labels:
-        app: erc20-balances-scraper
+        app: metadata-scraper
     spec:
       containers:
       - name: scraper
         image: token-api-scraper:1.0.0
-        command: ["node", "cli.js", "run", "erc20-balances"]
+        command: ["node", "cli.js", "run", "metadata"]
         env:
         - name: CLICKHOUSE_URL
           value: "http://clickhouse:8123"
