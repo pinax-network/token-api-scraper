@@ -28,7 +28,7 @@ export async function run() {
     if (contracts.data.length > 0) {
         log.info('Processing contracts metadata', {
             contractCount: contracts.data.length,
-            firstBlockNum: contracts.data[0]?.block_num ?? 'N/A',
+            firstBlockNum: contracts.data[0].block_num,
             source: 'swaps',
         });
     } else {

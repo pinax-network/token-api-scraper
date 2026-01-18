@@ -92,8 +92,6 @@ export async function run() {
     // Track processing stats for summary logging
     const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
 
-    const queue = new PQueue({ concurrency: CONCURRENCY });
-
     const transfers = await get_latest_transfers();
 
     if (transfers.length > 0) {
@@ -102,7 +100,11 @@ export async function run() {
         });
     } else {
         log.info('No transfers to process');
+        await shutdownBatchInsertQueue();
+        return;
     }
+
+    const queue = new PQueue({ concurrency: CONCURRENCY });
 
     // Process all accounts and their contracts
     for (const { log_address, from, to, block_num } of transfers) {

@@ -66,8 +66,6 @@ export async function run() {
     // Track processing stats for summary logging
     const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
 
-    const queue = new PQueue({ concurrency: CONCURRENCY });
-
     const accounts = await get_accounts_for_native_balances();
 
     if (accounts.length > 0) {
@@ -76,7 +74,11 @@ export async function run() {
         });
     } else {
         log.info('No accounts to process');
+        await shutdownBatchInsertQueue();
+        return;
     }
+
+    const queue = new PQueue({ concurrency: CONCURRENCY });
 
     // Process all accounts
     for (const account of accounts) {
