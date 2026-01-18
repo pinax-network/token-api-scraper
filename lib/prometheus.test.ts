@@ -109,4 +109,24 @@ describe('Prometheus Server', () => {
 
         await stopPrometheusServer();
     });
+
+    test('should reject when port is already used by external process', async () => {
+        const port = 19005;
+
+        // Start an external HTTP server on the port
+        const externalServer = Bun.serve({
+            port,
+            fetch() {
+                return new Response('External server');
+            },
+        });
+
+        try {
+            // Trying to start Prometheus on same port should reject
+            await expect(startPrometheusServer(port)).rejects.toThrow();
+        } finally {
+            // Cleanup external server
+            externalServer.stop();
+        }
+    });
 });
