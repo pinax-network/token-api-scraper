@@ -66,7 +66,13 @@ describe('Metadata processing with optional name() and symbol()', () => {
         mockDecodeSymbolHex.mockReturnValue('TOKEN');
         mockDecodeNameHex.mockReturnValue('Token Name');
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         expect(mockInsertRow).toHaveBeenCalledWith(
             'metadata',
@@ -97,7 +103,13 @@ describe('Metadata processing with optional name() and symbol()', () => {
         mockDecodeNumberHex.mockReturnValue(18);
         mockDecodeNameHex.mockReturnValue('Token Name');
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         expect(mockInsertRow).toHaveBeenCalledWith(
             'metadata',
@@ -128,7 +140,13 @@ describe('Metadata processing with optional name() and symbol()', () => {
         mockDecodeNumberHex.mockReturnValue(18);
         mockDecodeSymbolHex.mockReturnValue('TOKEN');
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         expect(mockInsertRow).toHaveBeenCalledWith(
             'metadata',
@@ -161,7 +179,13 @@ describe('Metadata processing with optional name() and symbol()', () => {
         });
         mockDecodeNumberHex.mockReturnValue(18);
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         expect(mockInsertRow).toHaveBeenCalledWith(
             'metadata',
@@ -186,7 +210,13 @@ describe('Metadata processing with optional name() and symbol()', () => {
         });
         mockDecodeNumberHex.mockReturnValue(null); // decimals not available
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         // Should insert error, not metadata
         expect(mockInsertRow).toHaveBeenCalledWith(
@@ -290,7 +320,13 @@ describe('Self-destruct contract detection', () => {
         mockDecodeNumberHex.mockReturnValue(null); // decimals not available
         mockGetContractCode.mockReturnValue(Promise.resolve('0x')); // No code = self-destructed
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         // Should insert error with self-destructed message, not missing decimals()
         expect(mockInsertRow).toHaveBeenCalledWith(
@@ -314,7 +350,13 @@ describe('Self-destruct contract detection', () => {
             ),
         ); // Has code
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         // Should insert error with missing decimals() message
         expect(mockInsertRow).toHaveBeenCalledWith(
@@ -336,7 +378,13 @@ describe('Self-destruct contract detection', () => {
             Promise.reject(new Error('RPC error -32000: server error')),
         ); // getContractCode fails
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         // Should fallback to missing decimals() error
         expect(mockInsertRow).toHaveBeenCalledWith(
@@ -356,7 +404,13 @@ describe('Self-destruct contract detection', () => {
         mockDecodeNumberHex.mockReturnValue(null); // decimals not available
         mockGetContractCode.mockReturnValue(Promise.resolve('0x')); // 0x = no code
 
-        await processMetadata('mainnet', '0xabc123', 12345, 'test-service');
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
 
         // Should insert error with self-destructed message
         expect(mockInsertRow).toHaveBeenCalledWith(
