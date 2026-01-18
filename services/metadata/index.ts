@@ -19,7 +19,7 @@ export async function processMetadata(
     block_num: number,
     timestamp: number,
     serviceName: string,
-) {
+): Promise<boolean> {
     try {
         // Fetch decimals (required)
         const decimals_hex = await callContract(contract, 'decimals()'); // 313ce567
@@ -76,6 +76,7 @@ export async function processMetadata(
                 blockNum: block_num,
                 queryTimeMs,
             });
+            return true;
         } else {
             // Check if the contract is self-destructed (has no code)
             try {
@@ -88,6 +89,7 @@ export async function processMetadata(
                         'self-destructed contract',
                         serviceName,
                     );
+                    return false;
                 } else {
                     // Contract has code but decimals() failed
                     await insert_error_metadata(
@@ -96,6 +98,7 @@ export async function processMetadata(
                         'missing decimals()',
                         serviceName,
                     );
+                    return false;
                 }
             } catch (err) {
                 // If we can't check the code, fall back to the original error
@@ -109,6 +112,7 @@ export async function processMetadata(
                     'missing decimals()',
                     serviceName,
                 );
+                return false;
             }
         }
     } catch (err) {
@@ -123,6 +127,7 @@ export async function processMetadata(
         });
 
         await insert_error_metadata(network, contract, message, serviceName);
+        return false;
     }
 }
 

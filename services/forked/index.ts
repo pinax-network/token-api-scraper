@@ -19,11 +19,21 @@ interface ForkedBlock {
 }
 
 /**
+ * Counter object for tracking success and error counts
+ * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
+ */
+interface ProcessingStats {
+    successCount: number;
+    errorCount: number;
+}
+
+/**
  * Insert a forked block into the blocks_forked table
  */
 async function insertForkedBlock(
     block: ForkedBlock,
     serviceName: string,
+    stats: ProcessingStats,
 ): Promise<void> {
     const success = await insertRow(
         'blocks_forked',
@@ -38,8 +48,10 @@ async function insertForkedBlock(
     );
     if (success) {
         incrementSuccess(serviceName);
+        stats.successCount++;
     } else {
         incrementError(serviceName);
+        stats.errorCount++;
     }
 }
 
@@ -60,6 +72,9 @@ function calculateSinceDate(daysBack: number = 30): string {
 export async function run(): Promise<void> {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName });
+
+    // Track processing stats for summary logging
+    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
 
     // Get configuration from environment variables
     const clickhouseBlocksDatabase = process.env.CLICKHOUSE_BLOCKS_DATABASE;
@@ -108,7 +123,7 @@ export async function run(): Promise<void> {
 
         // Insert all forked blocks
         for (const block of result.data) {
-            await insertForkedBlock(block, serviceName);
+            await insertForkedBlock(block, serviceName, stats);
             log.debug('Inserted forked block', {
                 blockNum: block.block_num,
                 blockHash: block.block_hash,
@@ -121,7 +136,9 @@ export async function run(): Promise<void> {
     }
 
     log.info('Service completed', {
-        forkedBlocksFound: result.data.length,
+        successCount: stats.successCount,
+        errorCount: stats.errorCount,
+        totalProcessed: stats.successCount + stats.errorCount,
     });
 
     // Shutdown batch insert queue

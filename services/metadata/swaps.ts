@@ -9,12 +9,24 @@ import { processMetadata } from '.';
 const serviceName = 'metadata-swaps';
 const log = createLogger(serviceName);
 
+/**
+ * Counter object for tracking success and error counts
+ * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
+ */
+interface ProcessingStats {
+    successCount: number;
+    errorCount: number;
+}
+
 export async function run() {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName });
 
     // Validate network is set
     const network = getNetwork();
+
+    // Track processing stats for summary logging
+    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
@@ -39,13 +51,18 @@ export async function run() {
     // Process all contracts
     for (const { contract, block_num, timestamp } of contracts.data) {
         queue.add(async () => {
-            await processMetadata(
+            const success = await processMetadata(
                 network,
                 contract,
                 block_num,
                 timestamp,
                 serviceName,
             );
+            if (success) {
+                stats.successCount++;
+            } else {
+                stats.errorCount++;
+            }
         });
     }
 
@@ -53,7 +70,9 @@ export async function run() {
     await queue.onIdle();
 
     log.info('Service completed', {
-        contractsProcessed: contracts.data.length,
+        successCount: stats.successCount,
+        errorCount: stats.errorCount,
+        totalProcessed: stats.successCount + stats.errorCount,
     });
 
     // Shutdown batch insert queue
