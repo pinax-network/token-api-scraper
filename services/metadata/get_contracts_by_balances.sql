@@ -8,4 +8,4 @@ WHERE
     contract NOT IN (SELECT contract FROM metadata)
 GROUP BY contract
 ORDER BY timestamp DESC
-LIMIT 10000;
+LIMIT 1000000;

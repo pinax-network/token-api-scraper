@@ -8,4 +8,4 @@ WHERE
     log_address NOT IN (SELECT contract FROM metadata)
 GROUP BY log_address
 ORDER BY timestamp DESC
-LIMIT 10000;
+LIMIT 1000000;
