@@ -617,6 +617,9 @@ export async function run(): Promise<void> {
             conditionCount: tokens.data.length,
             source: 'ctfexchange_token_registered',
         });
+
+        // Start progress logging (logs every 10 seconds)
+        stats.startProgressLogging(tokens.data.length);
     } else {
         log.info('No new condition_ids to process');
         await shutdownBatchInsertQueue();

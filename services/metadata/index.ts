@@ -120,8 +120,8 @@ export async function processMetadata(
     } catch (err) {
         const message = (err as Error).message || String(err);
 
-        // Emit warning for RPC errors with context
-        log.warn('Metadata RPC call failed - non-deterministic error', {
+        // Emit debug for RPC errors with context (this is normal behavior)
+        log.debug('Metadata RPC call failed - non-deterministic error', {
             contract,
             blockNum: block_num,
             error: message,
