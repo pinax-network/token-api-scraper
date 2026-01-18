@@ -25,12 +25,12 @@ export async function run() {
     }>(await Bun.file(__dirname + '/get_contracts_by_transfers.sql').text());
 
     if (contracts.data.length > 0) {
-        log.info('Found contracts to scrape', {
-            count: contracts.data.length,
+        log.info('Processing contracts metadata', {
+            contractCount: contracts.data.length,
             source: 'transfers',
         });
     } else {
-        log.info('No contracts found to scrape, exiting');
+        log.info('No contracts to process');
         return;
     }
 
@@ -50,7 +50,9 @@ export async function run() {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed');
+    log.info('Service completed', {
+        contractsProcessed: contracts.data.length,
+    });
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

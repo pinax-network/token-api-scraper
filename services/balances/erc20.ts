@@ -10,10 +10,20 @@ import { get_latest_transfers } from '../../src/queries';
 const serviceName = 'balances-erc20';
 const log = createLogger(serviceName);
 
+/**
+ * Counter object for tracking success and error counts
+ * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
+ */
+interface ProcessingStats {
+    successCount: number;
+    errorCount: number;
+}
+
 async function processBalanceOf(
     account: string,
     contract: string,
     block_num: number,
+    stats: ProcessingStats,
 ) {
     // get `balanceOf` RPC call for the account
     const startTime = performance.now();
@@ -34,7 +44,8 @@ async function processBalanceOf(
                 serviceName,
             );
 
-            log.info('Balance scraped successfully', {
+            stats.successCount++;
+            log.debug('Balance scraped successfully', {
                 contract,
                 account,
                 balanceHex: balance_hex,
@@ -42,6 +53,7 @@ async function processBalanceOf(
                 queryTimeMs,
             });
         } else {
+            stats.errorCount++;
             await insert_error_balances(
                 { block_num, contract, account },
                 'zero balance',
@@ -49,6 +61,7 @@ async function processBalanceOf(
             );
         }
     } catch (err) {
+        stats.errorCount++;
         const message = (err as Error).message || String(err);
 
         // Emit warning for RPC errors with context
@@ -76,7 +89,8 @@ export async function run() {
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName: 'ERC20 balances RPC service' });
 
-    const queue = new PQueue({ concurrency: CONCURRENCY });
+    // Track processing stats for summary logging
+    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
 
     const transfers = await get_latest_transfers();
 
@@ -84,24 +98,34 @@ export async function run() {
         log.info('Processing balances from transfers', {
             transferCount: transfers.length,
         });
+    } else {
+        log.info('No transfers to process');
+        await shutdownBatchInsertQueue();
+        return;
     }
+
+    const queue = new PQueue({ concurrency: CONCURRENCY });
 
     // Process all accounts and their contracts
     for (const { log_address, from, to, block_num } of transfers) {
         if (!isBlackHoleAddress(from)) {
             queue.add(async () => {
-                await processBalanceOf(from, log_address, block_num);
+                await processBalanceOf(from, log_address, block_num, stats);
             });
         }
         queue.add(async () => {
-            await processBalanceOf(to, log_address, block_num);
+            await processBalanceOf(to, log_address, block_num, stats);
         });
     }
 
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed');
+    log.info('Service completed', {
+        successCount: stats.successCount,
+        errorCount: stats.errorCount,
+        totalProcessed: stats.successCount + stats.errorCount,
+    });
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();
