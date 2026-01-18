@@ -4,6 +4,7 @@ import {
     decodeSymbolHex,
 } from '../../lib/hex-decode';
 import { createLogger } from '../../lib/logger';
+import type { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { callContract, getContractCode } from '../../lib/rpc';
 import { insertRow } from '../../src/insert';
@@ -19,6 +20,7 @@ export async function processMetadata(
     block_num: number,
     timestamp: number,
     serviceName: string,
+    stats?: ProcessingStats,
 ) {
     try {
         // Fetch decimals (required)
@@ -66,6 +68,7 @@ export async function processMetadata(
                     decimals,
                 },
                 serviceName,
+                stats,
             );
 
             log.debug('Metadata scraped successfully', {
@@ -87,6 +90,7 @@ export async function processMetadata(
                         contract,
                         'self-destructed contract',
                         serviceName,
+                        stats,
                     );
                 } else {
                     // Contract has code but decimals() failed
@@ -95,6 +99,7 @@ export async function processMetadata(
                         contract,
                         'missing decimals()',
                         serviceName,
+                        stats,
                     );
                 }
             } catch (err) {
@@ -108,6 +113,7 @@ export async function processMetadata(
                     contract,
                     'missing decimals()',
                     serviceName,
+                    stats,
                 );
             }
         }
@@ -122,7 +128,13 @@ export async function processMetadata(
             serviceName,
         });
 
-        await insert_error_metadata(network, contract, message, serviceName);
+        await insert_error_metadata(
+            network,
+            contract,
+            message,
+            serviceName,
+            stats,
+        );
     }
 }
 
@@ -137,6 +149,7 @@ export async function insert_metadata(
         decimals: number;
     },
     serviceName?: string,
+    stats?: ProcessingStats,
 ) {
     const success = await insertRow(
         'metadata',
@@ -147,6 +160,10 @@ export async function insert_metadata(
     if (serviceName) {
         if (success) incrementSuccess(serviceName);
         else incrementError(serviceName);
+    }
+    if (stats) {
+        if (success) stats.incrementSuccess();
+        else stats.incrementError();
     }
 }
 
@@ -181,11 +198,15 @@ export async function insert_error_metadata(
     contract: string,
     error: string,
     serviceName?: string,
+    stats?: ProcessingStats,
 ) {
     // Skip infrastructure-related errors
     if (isInfrastructureError(error)) {
         if (serviceName) {
             incrementError(serviceName);
+        }
+        if (stats) {
+            stats.incrementError();
         }
         return;
     }
@@ -198,5 +219,8 @@ export async function insert_error_metadata(
     );
     if (serviceName) {
         incrementError(serviceName);
+    }
+    if (stats) {
+        stats.incrementError();
     }
 }
