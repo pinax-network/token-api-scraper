@@ -2,6 +2,7 @@ import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { CONCURRENCY } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
+import { ProcessingStats } from '../../lib/processing-stats';
 import { getNativeBalance } from '../../lib/rpc';
 import { initService } from '../../lib/service-init';
 import {
@@ -12,15 +13,6 @@ import { get_accounts_for_native_balances } from '../../src/queries';
 
 const serviceName = 'balances-native';
 const log = createLogger(serviceName);
-
-/**
- * Counter object for tracking success and error counts
- * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
- */
-interface ProcessingStats {
-    successCount: number;
-    errorCount: number;
-}
 
 async function processNativeBalance(account: string, stats: ProcessingStats) {
     // get native TRX balance for the account
@@ -38,14 +30,14 @@ async function processNativeBalance(account: string, stats: ProcessingStats) {
             serviceName,
         );
 
-        stats.successCount++;
+        stats.incrementSuccess();
         log.debug('Native balance scraped successfully', {
             account,
             balanceHex: balance_hex,
             queryTimeMs,
         });
     } catch (err) {
-        stats.errorCount++;
+        stats.incrementError();
         const message = (err as Error).message || String(err);
 
         // Emit warning for RPC errors with context
@@ -64,7 +56,7 @@ export async function run() {
     initService({ serviceName: 'Native balances RPC service' });
 
     // Track processing stats for summary logging
-    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
+    const stats = new ProcessingStats(serviceName);
 
     const accounts = await get_accounts_for_native_balances();
 
@@ -90,11 +82,7 @@ export async function run() {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed', {
-        successCount: stats.successCount,
-        errorCount: stats.errorCount,
-        totalProcessed: stats.successCount + stats.errorCount,
-    });
+    stats.logCompletion();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

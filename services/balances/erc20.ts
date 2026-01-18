@@ -2,6 +2,7 @@ import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { CONCURRENCY } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
+import { ProcessingStats } from '../../lib/processing-stats';
 import { callContract } from '../../lib/rpc';
 import { initService } from '../../lib/service-init';
 import { insert_balances, insert_error_balances } from '../../src/insert';
@@ -9,15 +10,6 @@ import { get_latest_transfers } from '../../src/queries';
 
 const serviceName = 'balances-erc20';
 const log = createLogger(serviceName);
-
-/**
- * Counter object for tracking success and error counts
- * Using an object reference allows safe updates in async callbacks within a single-threaded event loop
- */
-interface ProcessingStats {
-    successCount: number;
-    errorCount: number;
-}
 
 async function processBalanceOf(
     account: string,
@@ -44,7 +36,7 @@ async function processBalanceOf(
                 serviceName,
             );
 
-            stats.successCount++;
+            stats.incrementSuccess();
             log.debug('Balance scraped successfully', {
                 contract,
                 account,
@@ -53,7 +45,7 @@ async function processBalanceOf(
                 queryTimeMs,
             });
         } else {
-            stats.errorCount++;
+            stats.incrementError();
             await insert_error_balances(
                 { block_num, contract, account },
                 'zero balance',
@@ -61,7 +53,7 @@ async function processBalanceOf(
             );
         }
     } catch (err) {
-        stats.errorCount++;
+        stats.incrementError();
         const message = (err as Error).message || String(err);
 
         // Emit warning for RPC errors with context
@@ -90,7 +82,7 @@ export async function run() {
     initService({ serviceName: 'ERC20 balances RPC service' });
 
     // Track processing stats for summary logging
-    const stats: ProcessingStats = { successCount: 0, errorCount: 0 };
+    const stats = new ProcessingStats(serviceName);
 
     const transfers = await get_latest_transfers();
 
@@ -121,11 +113,7 @@ export async function run() {
     // Wait for all tasks to complete
     await queue.onIdle();
 
-    log.info('Service completed', {
-        successCount: stats.successCount,
-        errorCount: stats.errorCount,
-        totalProcessed: stats.successCount + stats.errorCount,
-    });
+    stats.logCompletion();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

@@ -99,13 +99,13 @@ function addCommonOptions(command: Command): Command {
                 '--clickhouse-username <user>',
                 'Username for authenticating with the ClickHouse database.',
                 process.env.CLICKHOUSE_USERNAME ||
-                DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
+                    DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
             )
             .option(
                 '--clickhouse-password <password>',
                 'Password for authenticating with the ClickHouse database. Keep this secure!',
                 process.env.CLICKHOUSE_PASSWORD ||
-                DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
+                    DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
             )
             .option(
                 '--clickhouse-database <db>',
@@ -133,7 +133,7 @@ function addCommonOptions(command: Command): Command {
                 '--base-delay-ms <number>',
                 'Base delay in milliseconds for exponential backoff between retries.',
                 process.env.BASE_DELAY_MS ||
-                String(DEFAULT_CONFIG.BASE_DELAY_MS),
+                    String(DEFAULT_CONFIG.BASE_DELAY_MS),
             )
             .option(
                 '--jitter-min <number>',
@@ -160,13 +160,13 @@ function addCommonOptions(command: Command): Command {
                 '--prometheus-port <port>',
                 'HTTP port for the Prometheus metrics endpoint. Accessible at http://localhost:<port>/metrics',
                 process.env.PROMETHEUS_PORT ||
-                String(DEFAULT_CONFIG.PROMETHEUS_PORT),
+                    String(DEFAULT_CONFIG.PROMETHEUS_PORT),
             )
             .option(
                 '--prometheus-hostname <hostname>',
                 'Hostname for the Prometheus server to bind to.',
                 process.env.PROMETHEUS_HOSTNAME ||
-                DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
+                    DEFAULT_CONFIG.PROMETHEUS_HOSTNAME,
             )
             // Logging Options
             .option(
@@ -178,7 +178,7 @@ function addCommonOptions(command: Command): Command {
                 '--auto-restart-delay <seconds>',
                 `Delay in seconds before restarting the service (default: ${DEFAULT_CONFIG.AUTO_RESTART_DELAY}).`,
                 process.env.AUTO_RESTART_DELAY ||
-                String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
+                    String(DEFAULT_CONFIG.AUTO_RESTART_DELAY),
             )
     );
 }
@@ -388,13 +388,13 @@ function addClickhouseOptions(command: Command): Command {
             '--clickhouse-username <user>',
             'Username for authenticating with ClickHouse',
             process.env.CLICKHOUSE_USERNAME ||
-            DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
+                DEFAULT_CONFIG.CLICKHOUSE_USERNAME,
         )
         .option(
             '--clickhouse-password <password>',
             'Password for authenticating with ClickHouse',
             process.env.CLICKHOUSE_PASSWORD ||
-            DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
+                DEFAULT_CONFIG.CLICKHOUSE_PASSWORD,
         )
         .option(
             '--clickhouse-database <db>',

@@ -90,7 +90,7 @@ export const PROMETHEUS_HOSTNAME =
  */
 export const BATCH_INSERT_INTERVAL_MS = parseInt(
     process.env.BATCH_INSERT_INTERVAL_MS ||
-    String(DEFAULT_CONFIG.BATCH_INSERT_INTERVAL_MS),
+        String(DEFAULT_CONFIG.BATCH_INSERT_INTERVAL_MS),
     10,
 );
 
@@ -100,7 +100,7 @@ export const BATCH_INSERT_INTERVAL_MS = parseInt(
  */
 export const BATCH_INSERT_MAX_SIZE = parseInt(
     process.env.BATCH_INSERT_MAX_SIZE ||
-    String(DEFAULT_CONFIG.BATCH_INSERT_MAX_SIZE),
+        String(DEFAULT_CONFIG.BATCH_INSERT_MAX_SIZE),
     10,
 );
 
