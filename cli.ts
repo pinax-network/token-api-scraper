@@ -279,7 +279,7 @@ async function runService(serviceName: string, options: ServiceOptions) {
                 { error },
             );
         }
-    } else if (options.verbose) {
+    } else {
         log.info('Prometheus server disabled');
     }
 
