@@ -151,13 +151,35 @@ export function transformSqlForCluster(
 }
 
 /**
+ * Check if a string needs to be quoted as a ClickHouse identifier
+ * Valid unquoted identifiers must start with a letter or underscore,
+ * followed by letters, digits, or underscores. Any other character requires quoting.
+ */
+function needsQuoting(value: string): boolean {
+    return !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value);
+}
+
+/**
+ * Quote an identifier for ClickHouse by wrapping in backticks
+ */
+function quoteIdentifier(value: string): string {
+    if (needsQuoting(value)) {
+        // Escape any existing backticks by doubling them
+        const escaped = value.replace(/`/g, '``');
+        return `\`${escaped}\``;
+    }
+    return value;
+}
+
+/**
  * Substitute query parameters directly in SQL string
  * This is needed because ClickHouse's query_params doesn't work with DDL statements
  * like CREATE MATERIALIZED VIEW ... REFRESH EVERY
  *
  * Handles parameters in the format:
  * - {param_name:Type} - Replaces with the parameter value
- * - {param_name:Identifier} - Replaces with the identifier value (for database/table names)
+ * - {param_name:Identifier} - Replaces with the identifier value (for database/table names),
+ *   automatically quoting identifiers with special characters
  *
  * @param sql - The SQL string with parameter placeholders
  * @param params - The parameters to substitute
@@ -172,8 +194,17 @@ export function substituteQueryParams(
     for (const [key, value] of Object.entries(params)) {
         // Match patterns like {param_name:Type} where Type can be any ClickHouse type
         // e.g., {refresh_interval:UInt32}, {canonical_database:Identifier}
-        const pattern = new RegExp(`\\{${key}:[^}]+\\}`, 'g');
-        result = result.replace(pattern, String(value));
+        const identifierPattern = new RegExp(`\\{${key}:Identifier\\}`, 'g');
+        const genericPattern = new RegExp(`\\{${key}:[^}]+\\}`, 'g');
+
+        // For Identifier types, quote the value if it contains special characters
+        if (result.match(identifierPattern)) {
+            const quotedValue = quoteIdentifier(String(value));
+            result = result.replace(identifierPattern, quotedValue);
+        }
+
+        // For other types, just substitute the value as-is
+        result = result.replace(genericPattern, String(value));
     }
 
     return result;
