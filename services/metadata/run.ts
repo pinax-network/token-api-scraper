@@ -47,6 +47,9 @@ export async function run(source: MetadataSource) {
             queryTimeSecs,
         });
 
+        // Start progress logging (logs every 10 seconds)
+        stats.startProgressLogging(contracts.data.length);
+
         // Process all contracts
         for (const { contract, block_num, timestamp } of contracts.data) {
             queue.add(async () => {
