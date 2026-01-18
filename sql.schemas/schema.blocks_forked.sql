@@ -25,12 +25,12 @@ ORDER BY (
 --
 -- Parameters (must be replaced before execution):
 --   - {canonical_database}: The database containing irreversible/canonical blocks
---   - {source_database}: The database containing the source blocks to check
+--   - {source_database}: The database containing the source blocks to check (from CLICKHOUSE_DATABASE)
 --   - {days_back}: Number of days to look back for forked blocks (default: 30)
 --   - {refresh_interval}: Refresh interval in seconds (default: 60)
 --
 -- Usage:
---   npm run cli setup forked-blocks --canonical-database mainnet:blocks@v0.1.0 --source-database mainnet:evm-transfers@v0.2.1
+--   npm run cli setup forked-blocks --canonical-database mainnet:blocks@v0.1.0 --clickhouse-database mainnet:evm-transfers@v0.2.1
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_blocks_forked
 REFRESH EVERY {refresh_interval:UInt32} SECOND
