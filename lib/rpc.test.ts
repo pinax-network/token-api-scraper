@@ -98,16 +98,24 @@ const mockFetch = async (
 
 describe('RPC decoders', () => {
     let originalFetch: typeof fetch;
+    let originalNodeUrl: string | undefined;
 
     beforeAll(() => {
-        // Store original fetch and replace with mock
+        // Store original fetch and NODE_URL, then replace with mocks
         originalFetch = globalThis.fetch;
+        originalNodeUrl = process.env.NODE_URL;
         globalThis.fetch = mockFetch as any;
+        process.env.NODE_URL = 'http://mock-rpc.test';
     });
 
     afterAll(() => {
-        // Restore original fetch
+        // Restore original fetch and NODE_URL
         globalThis.fetch = originalFetch;
+        if (originalNodeUrl === undefined) {
+            delete process.env.NODE_URL;
+        } else {
+            process.env.NODE_URL = originalNodeUrl;
+        }
     });
 
     test('should decode contract data', async () => {

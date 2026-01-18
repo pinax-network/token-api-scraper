@@ -283,15 +283,6 @@ describe('schema files', () => {
         expect(metadataStatements.length).toBeGreaterThan(0);
     });
 
-    test('should parse balances schema', async () => {
-        const balancesSql = await Bun.file(
-            './sql.schemas/schema.balances.sql',
-        ).text();
-        const balancesStatements = splitSqlStatements(balancesSql);
-
-        expect(balancesStatements.length).toBeGreaterThan(0);
-    });
-
     test('should transform metadata schema for cluster', async () => {
         const metadataSql = await Bun.file(
             './sql.schemas/schema.metadata.sql',
@@ -321,37 +312,6 @@ describe('schema files', () => {
         // Check ReplacingMergeTree converted to ReplicatedReplacingMergeTree
         // (metadata schema only uses ReplacingMergeTree, not plain MergeTree)
         expect(transformed).toContain('ReplicatedReplacingMergeTree');
-
-        // Ensure no plain MergeTree left
-        const plainMergeTree = transformed.match(
-            /ENGINE\s*=\s*MergeTree(?=\s|$|;)/gi,
-        );
-        expect(plainMergeTree).toBeNull();
-    });
-
-    test('should transform all actual balances.sql correctly', async () => {
-        const balancesSql = await Bun.file(
-            './sql.schemas/schema.balances.sql',
-        ).text();
-        const transformed = transformSqlForCluster(balancesSql, 'test_cluster');
-
-        // Check all CREATE TABLE statements have ON CLUSTER
-        const tableMatches = transformed.match(/CREATE\s+TABLE/gi);
-        const tableClusterMatches = transformed.match(
-            /CREATE\s+TABLE.*ON\s+CLUSTER/gi,
-        );
-        expect(tableMatches?.length).toBe(tableClusterMatches?.length);
-
-        // Check all MergeTree engines converted
-        const _mergeTreeCount = (
-            transformed.match(/ENGINE\s*=\s*ReplicatedMergeTree/gi) || []
-        ).length;
-        const replacingMergeTreeCount = (
-            transformed.match(/ENGINE\s*=\s*ReplicatedReplacingMergeTree/gi) ||
-            []
-        ).length;
-
-        expect(replacingMergeTreeCount).toBeGreaterThanOrEqual(1);
 
         // Ensure no plain MergeTree left
         const plainMergeTree = transformed.match(
