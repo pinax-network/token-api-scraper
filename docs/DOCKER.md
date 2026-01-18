@@ -64,21 +64,7 @@ docker run \
 
 ## Docker Compose
 
-```bash
-# ERC-20 backfill
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e CONCURRENCY=15 \
-  token-api-scraper run erc20-backfill
-
-# Native backfill
-docker run \
-  -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  -e CONCURRENCY=15 \
-  token-api-scraper run native-backfill
-```
-
-### Using Command-Line Flags
+### Basic Example
 
 Command-line flags override environment variables:
 
@@ -152,32 +138,6 @@ services:
       - CONCURRENCY=10
     command: run metadata
     restart: unless-stopped
-```
-
-### With Prometheus Monitoring
-
-```yaml
-version: '3.8'
-
-services:
-  erc20-balances-scraper:
-    build: .
-    environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_USERNAME=default
-      - CLICKHOUSE_PASSWORD=password
-      - CLICKHOUSE_DATABASE=default
-      - NODE_URL=https://tron-evm-rpc.publicnode.com
-      - CONCURRENCY=10
-      - PROMETHEUS_PORT=9090
-    command: run erc20-balances
-    ports:
-      - "9090:9090"  # Expose Prometheus metrics
-    restart: unless-stopped
-
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
@@ -414,10 +374,10 @@ services:
 
 ```bash
 # Scale up to 3 instances
-docker-compose up -d --scale erc20-backfill-scraper=3
+docker-compose up -d --scale metadata-scraper=3
 
 # Scale down to 1 instance
-docker-compose up -d --scale erc20-backfill-scraper=1
+docker-compose up -d --scale metadata-scraper=1
 ```
 
 ## Production Deployment

@@ -262,18 +262,13 @@ Valid values for `--transfers-table`: `transfers`, `native_transfer`, `erc20_tra
 ```bash
 # 1. Setup database schemas
 npm run cli setup metadata
-npm run cli setup balances
 
 # 2. Fetch token metadata
 npm run cli run metadata-transfers
 npm run cli run metadata-swaps
 
-# 3. Start scraping ERC-20 balances (incremental)
-npm run cli run balances-erc20
-
-# 4. Optionally backfill historical data in parallel
-npm run cli run erc20-backfill --concurrency 15
-npm run cli run native-backfill --concurrency 15
+# 3. Optionally run polymarket service
+npm run cli run polymarket
 ```
 
 ### Custom Configuration
@@ -294,14 +289,6 @@ npm run cli run metadata \
   --clickhouse-database evm_data \
   --node-url https://your-tron-node.example.com \
   --concurrency 20
-
-# Run backfill with monitoring and verbose logs
-npm run cli run erc20-backfill \
-  --verbose \
-  --concurrency 15 \
-  --enable-prometheus \
-  --prometheus-port 8080 \
-  --max-retries 5
 ```
 
 ### Production Deployment
