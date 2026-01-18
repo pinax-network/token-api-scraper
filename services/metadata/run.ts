@@ -31,39 +31,40 @@ export async function run(source: MetadataSource) {
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
+    const queryStartTime = performance.now();
     const contracts = await query<{
         contract: string;
         block_num: number;
         timestamp: number;
     }>(await Bun.file(__dirname + `/get_contracts_by_${source}.sql`).text());
+    const queryTimeSecs = (performance.now() - queryStartTime) / 1000;
 
     if (contracts.data.length > 0) {
         log.info('Processing contracts metadata', {
             contractCount: contracts.data.length,
             source,
+            queryTimeSecs,
         });
+
+        // Process all contracts
+        for (const { contract, block_num, timestamp } of contracts.data) {
+            queue.add(async () => {
+                await processMetadata(
+                    network,
+                    contract,
+                    block_num,
+                    timestamp,
+                    serviceName,
+                    stats,
+                );
+            });
+        }
+
+        // Wait for all tasks to complete
+        await queue.onIdle();
     } else {
         log.info('No contracts to process');
-        await shutdownBatchInsertQueue();
-        return;
     }
-
-    // Process all contracts
-    for (const { contract, block_num, timestamp } of contracts.data) {
-        queue.add(async () => {
-            await processMetadata(
-                network,
-                contract,
-                block_num,
-                timestamp,
-                serviceName,
-                stats,
-            );
-        });
-    }
-
-    // Wait for all tasks to complete
-    await queue.onIdle();
 
     stats.logCompletion();
 
