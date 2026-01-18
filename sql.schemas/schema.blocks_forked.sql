@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS blocks_forked (
     -- block info --
     block_num                   UInt32,
     block_hash                  String,
-    parent_hash                 String,
     timestamp                   DateTime('UTC'),
 
     -- inserter details --
@@ -42,7 +41,6 @@ WITH
 SELECT
     b.block_num,
     b.block_hash,
-    b.parent_hash,
     b.timestamp,
     now() AS created_at
 FROM {source_database:Identifier}.blocks AS b
