@@ -100,8 +100,13 @@ function addCommonOptions(command: Command): Command {
             )
             .option(
                 '--clickhouse-database <db>',
-                'Name of the ClickHouse database to use for data storage.',
+                'Name of the ClickHouse database to use for read operations and DDL.',
                 process.env.CLICKHOUSE_DATABASE,
+            )
+            .option(
+                '--clickhouse-database-insert <db>',
+                'Optional: Name of the ClickHouse database to use for insert operations. Falls back to --clickhouse-database if not set.',
+                process.env.CLICKHOUSE_DATABASE_INSERT,
             )
             // RPC Node Options
             .option(
@@ -186,6 +191,7 @@ interface ServiceOptions {
     clickhouseUsername: string;
     clickhousePassword: string;
     clickhouseDatabase: string;
+    clickhouseDatabaseInsert: string;
     nodeUrl: string;
     concurrency: string;
     maxRetries: string;
@@ -245,6 +251,10 @@ async function runService(serviceName: string, options: ServiceOptions) {
     process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
     process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
     process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
+    if (options.clickhouseDatabaseInsert) {
+        process.env.CLICKHOUSE_DATABASE_INSERT =
+            options.clickhouseDatabaseInsert;
+    }
     process.env.NODE_URL = options.nodeUrl;
     process.env.CONCURRENCY = options.concurrency;
     process.env.MAX_RETRIES = options.maxRetries;
@@ -402,8 +412,13 @@ function addClickhouseOptions(command: Command): Command {
         )
         .option(
             '--clickhouse-database <db>',
-            'ClickHouse database name',
+            'ClickHouse database name for reads and DDL',
             process.env.CLICKHOUSE_DATABASE,
+        )
+        .option(
+            '--clickhouse-database-insert <db>',
+            'Optional: ClickHouse database for insert operations',
+            process.env.CLICKHOUSE_DATABASE_INSERT,
         )
         .option(
             '--cluster [name]',
@@ -428,6 +443,9 @@ async function handleSetupCommand(
         process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
     if (options.clickhouseDatabase)
         process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
+    if (options.clickhouseDatabaseInsert)
+        process.env.CLICKHOUSE_DATABASE_INSERT =
+            options.clickhouseDatabaseInsert;
 
     // Handle cluster option
     let clusterName = options.cluster;

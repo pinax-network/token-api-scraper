@@ -3,9 +3,25 @@ import { createLogger } from './logger';
 
 const log = createLogger('clickhouse');
 
-// Lazy initialization of ClickHouse client to allow CLI to set env vars first
+// Lazy initialization of ClickHouse clients to allow CLI to set env vars first
 let _client: ClickHouseClient | null = null;
+let _insertClient: ClickHouseClient | null = null;
 
+/**
+ * Get the database name for insert operations
+ * Falls back to CLICKHOUSE_DATABASE if CLICKHOUSE_DATABASE_INSERT is not set
+ */
+function getInsertDatabase(): string | undefined {
+    return (
+        process.env.CLICKHOUSE_DATABASE_INSERT ||
+        process.env.CLICKHOUSE_DATABASE
+    );
+}
+
+/**
+ * Get the ClickHouse client for read operations (SELECT queries) and DDL commands
+ * Uses CLICKHOUSE_DATABASE
+ */
 function getClient(): ClickHouseClient {
     if (!_client) {
         _client = createClient({
@@ -18,7 +34,39 @@ function getClient(): ClickHouseClient {
     return _client;
 }
 
-/** @deprecated Use getClient() internally - exported for backward compatibility */
+/**
+ * Get the ClickHouse client for insert operations
+ * Uses CLICKHOUSE_DATABASE_INSERT or falls back to CLICKHOUSE_DATABASE
+ */
+function getInsertClient(): ClickHouseClient {
+    if (!_insertClient) {
+        _insertClient = createClient({
+            url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+            username: process.env.CLICKHOUSE_USERNAME || 'default',
+            password: process.env.CLICKHOUSE_PASSWORD || '',
+            database: getInsertDatabase(),
+        });
+    }
+    return _insertClient;
+}
+
+/**
+ * Client for insert operations
+ * Uses CLICKHOUSE_DATABASE_INSERT or falls back to CLICKHOUSE_DATABASE
+ */
+export const insertClient = {
+    get insert() {
+        return getInsertClient().insert.bind(getInsertClient());
+    },
+    get close() {
+        return getInsertClient().close.bind(getInsertClient());
+    },
+};
+
+/**
+ * Default ClickHouse client for queries and commands
+ * Uses CLICKHOUSE_DATABASE for reads and DDL, CLICKHOUSE_DATABASE_INSERT for inserts
+ */
 export const client = {
     get query() {
         return getClient().query.bind(getClient());
@@ -27,10 +75,13 @@ export const client = {
         return getClient().command.bind(getClient());
     },
     get insert() {
-        return getClient().insert.bind(getClient());
+        return getInsertClient().insert.bind(getInsertClient());
     },
     get close() {
-        return getClient().close.bind(getClient());
+        // Close both clients concurrently
+        return async () => {
+            await Promise.all([getClient().close(), getInsertClient().close()]);
+        };
     },
 };
 
