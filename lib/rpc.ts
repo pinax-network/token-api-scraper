@@ -512,8 +512,8 @@ export async function makeBatchJsonRpcCall(
                 throw err;
             }
 
-            // Log retry warning for batch requests
-            log.warn('Batch RPC request failed, retrying', {
+            // Log retry debug message for batch requests
+            log.debug('Batch RPC request failed, retrying', {
                 requestCount: requests.length,
                 attempt,
                 maxAttempts: attempts,
