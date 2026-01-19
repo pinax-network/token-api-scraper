@@ -12,8 +12,8 @@ SELECT
     c.block_num as block_num,
     c.timestamp as timestamp
 FROM contracts c
-WHERE
-    contract NOT IN (SELECT contract FROM metadata_errors WHERE network = {network: String}) AND
-    contract NOT IN (SELECT contract FROM metadata WHERE network = {network: String})
+LEFT JOIN (SELECT contract FROM metadata_errors WHERE network = {network: String}) me ON c.contract = me.contract
+LEFT JOIN (SELECT contract FROM metadata WHERE network = {network: String}) m ON c.contract = m.contract
+WHERE me.contract IS NULL AND m.contract IS NULL
 ORDER BY c.timestamp DESC
 LIMIT 1000000;
