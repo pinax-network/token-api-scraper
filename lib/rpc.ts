@@ -309,8 +309,8 @@ async function makeJsonRpcCall(
                 throw err;
             }
 
-            // Log retry warning
-            log.warn('RPC request failed, retrying', {
+            // Log retry debug message
+            log.debug('RPC request failed, retrying', {
                 method,
                 attempt,
                 maxAttempts: attempts,
