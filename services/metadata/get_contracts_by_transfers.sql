@@ -4,6 +4,7 @@ WITH contracts AS (
         max(block_num) as block_num,
         max(timestamp) as timestamp
     FROM transfers
+    WHERE network = {network: String}
     GROUP BY contract
 )
 SELECT
@@ -11,7 +12,8 @@ SELECT
     c.block_num as block_num,
     c.timestamp as timestamp
 FROM contracts c
-ANTI LEFT JOIN metadata_errors USING (contract)
-ANTI LEFT JOIN metadata USING (contract)
+LEFT JOIN (SELECT contract FROM metadata_errors WHERE network = {network: String}) me ON c.contract = me.contract
+LEFT JOIN (SELECT contract FROM metadata WHERE network = {network: String}) m ON c.contract = m.contract
+WHERE me.contract IS NULL AND m.contract IS NULL
 ORDER BY c.timestamp DESC
 LIMIT 1000000;

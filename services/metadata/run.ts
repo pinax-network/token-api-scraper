@@ -37,7 +37,9 @@ export async function run(source: MetadataSource) {
         contract: string;
         block_num: number;
         timestamp: number;
-    }>(await Bun.file(__dirname + `/get_contracts_by_${source}.sql`).text());
+    }>(await Bun.file(__dirname + `/get_contracts_by_${source}.sql`).text(), {
+        network,
+    });
     const queryTimeSecs = (performance.now() - queryStartTime) / 1000;
 
     if (contracts.data.length > 0) {
