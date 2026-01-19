@@ -3,34 +3,108 @@ import { createLogger } from './logger';
 
 const log = createLogger('clickhouse');
 
-// Lazy initialization of ClickHouse client to allow CLI to set env vars first
-let _client: ClickHouseClient | null = null;
+// Lazy initialization of ClickHouse clients to allow CLI to set env vars first
+let _readClient: ClickHouseClient | null = null;
+let _writeClient: ClickHouseClient | null = null;
 
-function getClient(): ClickHouseClient {
-    if (!_client) {
-        _client = createClient({
+/**
+ * Get the database name for read operations
+ * Falls back to CLICKHOUSE_DATABASE if CLICKHOUSE_DATABASE_READ is not set
+ */
+function getReadDatabase(): string | undefined {
+    return (
+        process.env.CLICKHOUSE_DATABASE_READ || process.env.CLICKHOUSE_DATABASE
+    );
+}
+
+/**
+ * Get the database name for write operations
+ * Falls back to CLICKHOUSE_DATABASE if CLICKHOUSE_DATABASE_WRITE is not set
+ */
+function getWriteDatabase(): string | undefined {
+    return (
+        process.env.CLICKHOUSE_DATABASE_WRITE || process.env.CLICKHOUSE_DATABASE
+    );
+}
+
+/**
+ * Get the ClickHouse client for read operations (SELECT queries)
+ */
+function getReadClient(): ClickHouseClient {
+    if (!_readClient) {
+        _readClient = createClient({
             url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
-            database: process.env.CLICKHOUSE_DATABASE,
+            database: getReadDatabase(),
         });
     }
-    return _client;
+    return _readClient;
 }
 
-/** @deprecated Use getClient() internally - exported for backward compatibility */
-export const client = {
+/**
+ * Get the ClickHouse client for write operations (INSERT, DDL)
+ */
+function getWriteClient(): ClickHouseClient {
+    if (!_writeClient) {
+        _writeClient = createClient({
+            url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+            username: process.env.CLICKHOUSE_USERNAME || 'default',
+            password: process.env.CLICKHOUSE_PASSWORD || '',
+            database: getWriteDatabase(),
+        });
+    }
+    return _writeClient;
+}
+
+/**
+ * Client for read operations (SELECT queries)
+ * Uses CLICKHOUSE_DATABASE_READ or falls back to CLICKHOUSE_DATABASE
+ */
+export const readClient = {
     get query() {
-        return getClient().query.bind(getClient());
-    },
-    get command() {
-        return getClient().command.bind(getClient());
-    },
-    get insert() {
-        return getClient().insert.bind(getClient());
+        return getReadClient().query.bind(getReadClient());
     },
     get close() {
-        return getClient().close.bind(getClient());
+        return getReadClient().close.bind(getReadClient());
+    },
+};
+
+/**
+ * Client for write operations (INSERT, DDL)
+ * Uses CLICKHOUSE_DATABASE_WRITE or falls back to CLICKHOUSE_DATABASE
+ */
+export const writeClient = {
+    get command() {
+        return getWriteClient().command.bind(getWriteClient());
+    },
+    get insert() {
+        return getWriteClient().insert.bind(getWriteClient());
+    },
+    get close() {
+        return getWriteClient().close.bind(getWriteClient());
+    },
+};
+
+/** @deprecated Use readClient for queries and writeClient for inserts/commands */
+export const client = {
+    get query() {
+        return getReadClient().query.bind(getReadClient());
+    },
+    get command() {
+        return getWriteClient().command.bind(getWriteClient());
+    },
+    get insert() {
+        return getWriteClient().insert.bind(getWriteClient());
+    },
+    get close() {
+        // Close both clients concurrently
+        return async () => {
+            await Promise.all([
+                getReadClient().close(),
+                getWriteClient().close(),
+            ]);
+        };
     },
 };
 
@@ -63,7 +137,7 @@ export async function query<T = any>(
     try {
         // Track query execution time
         const queryStartTime = performance.now();
-        const resultSet = await client.query({
+        const resultSet = await readClient.query({
             query,
             query_params,
             format: 'JSONEachRow',

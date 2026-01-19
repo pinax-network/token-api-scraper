@@ -100,8 +100,18 @@ function addCommonOptions(command: Command): Command {
             )
             .option(
                 '--clickhouse-database <db>',
-                'Name of the ClickHouse database to use for data storage.',
+                'Name of the ClickHouse database to use for both read and write operations (fallback if specific read/write databases are not set).',
                 process.env.CLICKHOUSE_DATABASE,
+            )
+            .option(
+                '--clickhouse-database-read <db>',
+                'Name of the ClickHouse database to use for read operations (SELECT queries). Falls back to --clickhouse-database if not set.',
+                process.env.CLICKHOUSE_DATABASE_READ,
+            )
+            .option(
+                '--clickhouse-database-write <db>',
+                'Name of the ClickHouse database to use for write operations (INSERT, DDL). Falls back to --clickhouse-database if not set.',
+                process.env.CLICKHOUSE_DATABASE_WRITE,
             )
             // RPC Node Options
             .option(
@@ -186,6 +196,8 @@ interface ServiceOptions {
     clickhouseUsername: string;
     clickhousePassword: string;
     clickhouseDatabase: string;
+    clickhouseDatabaseRead: string;
+    clickhouseDatabaseWrite: string;
     nodeUrl: string;
     concurrency: string;
     maxRetries: string;
@@ -245,6 +257,12 @@ async function runService(serviceName: string, options: ServiceOptions) {
     process.env.CLICKHOUSE_USERNAME = options.clickhouseUsername;
     process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
     process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
+    if (options.clickhouseDatabaseRead) {
+        process.env.CLICKHOUSE_DATABASE_READ = options.clickhouseDatabaseRead;
+    }
+    if (options.clickhouseDatabaseWrite) {
+        process.env.CLICKHOUSE_DATABASE_WRITE = options.clickhouseDatabaseWrite;
+    }
     process.env.NODE_URL = options.nodeUrl;
     process.env.CONCURRENCY = options.concurrency;
     process.env.MAX_RETRIES = options.maxRetries;
@@ -402,8 +420,18 @@ function addClickhouseOptions(command: Command): Command {
         )
         .option(
             '--clickhouse-database <db>',
-            'ClickHouse database name',
+            'ClickHouse database name (fallback for both read and write)',
             process.env.CLICKHOUSE_DATABASE,
+        )
+        .option(
+            '--clickhouse-database-read <db>',
+            'ClickHouse database for read operations',
+            process.env.CLICKHOUSE_DATABASE_READ,
+        )
+        .option(
+            '--clickhouse-database-write <db>',
+            'ClickHouse database for write operations (DDL)',
+            process.env.CLICKHOUSE_DATABASE_WRITE,
         )
         .option(
             '--cluster [name]',
@@ -428,6 +456,10 @@ async function handleSetupCommand(
         process.env.CLICKHOUSE_PASSWORD = options.clickhousePassword;
     if (options.clickhouseDatabase)
         process.env.CLICKHOUSE_DATABASE = options.clickhouseDatabase;
+    if (options.clickhouseDatabaseRead)
+        process.env.CLICKHOUSE_DATABASE_READ = options.clickhouseDatabaseRead;
+    if (options.clickhouseDatabaseWrite)
+        process.env.CLICKHOUSE_DATABASE_WRITE = options.clickhouseDatabaseWrite;
 
     // Handle cluster option
     let clusterName = options.cluster;

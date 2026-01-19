@@ -1,4 +1,4 @@
-import { client } from './clickhouse';
+import { writeClient } from './clickhouse';
 import { NODE_URL } from './config';
 import { createLogger } from './logger';
 
@@ -87,7 +87,7 @@ export class BatchInsertQueue {
             return;
         }
 
-        await client.insert({
+        await writeClient.insert({
             table,
             format: 'JSONEachRow',
             values,
