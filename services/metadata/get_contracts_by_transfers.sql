@@ -11,7 +11,7 @@ SELECT
     c.block_num as block_num,
     c.timestamp as timestamp
 FROM contracts c
-ANTI LEFT JOIN (SELECT contract FROM metadata_errors WHERE network = {network: String}) me ON c.contract = me.contract
-ANTI LEFT JOIN (SELECT contract FROM metadata WHERE network = {network: String}) m ON c.contract = m.contract
+ANTI LEFT JOIN (SELECT contract FROM {db:Identifier}.metadata_errors WHERE network = {network: String}) me ON c.contract = me.contract
+ANTI LEFT JOIN (SELECT contract FROM {db:Identifier}.metadata WHERE network = {network: String}) m ON c.contract = m.contract
 ORDER BY c.timestamp DESC
 LIMIT 1000000;
