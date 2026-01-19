@@ -43,6 +43,9 @@ export function initService(options: ServiceInitOptions): void {
                 CLICKHOUSE_URL:
                     process.env.CLICKHOUSE_URL ?? DEFAULT_CONFIG.CLICKHOUSE_URL,
                 CLICKHOUSE_DATABASE: process.env.CLICKHOUSE_DATABASE,
+                CLICKHOUSE_DATABASE_INSERT:
+                    process.env.CLICKHOUSE_DATABASE_INSERT ??
+                    process.env.CLICKHOUSE_DATABASE,
                 NODE_URL: process.env.NODE_URL,
                 CONCURRENCY,
                 PROMETHEUS_PORT:

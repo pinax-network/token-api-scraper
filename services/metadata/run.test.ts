@@ -8,7 +8,10 @@ import { run } from './run';
 
 // Mock dependencies
 const mockQuery = mock(() =>
-    Promise.resolve({ data: [], metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 } }),
+    Promise.resolve({
+        data: [],
+        metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+    }),
 );
 const mockInitService = mock(() => {});
 const mockGetNetwork = mock(() => 'mainnet');
@@ -57,7 +60,11 @@ describe('Metadata service run function', () => {
         mockQuery.mockReturnValue(
             Promise.resolve({
                 data: [],
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
         mockGetNetwork.mockReturnValue('mainnet');
@@ -95,10 +102,9 @@ describe('Metadata service run function', () => {
 
         await run('transfers');
 
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.any(String),
-            { network: 'polygon' },
-        );
+        expect(mockQuery).toHaveBeenCalledWith(expect.any(String), {
+            network: 'polygon',
+        });
     });
 
     test('should initialize service with correct service name', async () => {
