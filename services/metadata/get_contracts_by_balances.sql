@@ -4,8 +4,9 @@ SELECT
     max(timestamp) as timestamp
 FROM erc20_balances
 WHERE
-    contract NOT IN (SELECT contract FROM metadata_errors) AND
-    contract NOT IN (SELECT contract FROM metadata)
+    network = {network: String} AND
+    contract NOT IN (SELECT contract FROM metadata_errors WHERE network = {network: String}) AND
+    contract NOT IN (SELECT contract FROM metadata WHERE network = {network: String})
 GROUP BY contract
 ORDER BY timestamp DESC
 LIMIT 1000000;
