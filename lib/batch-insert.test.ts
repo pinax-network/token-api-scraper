@@ -3,12 +3,10 @@ import { BatchInsertQueue } from './batch-insert';
 
 // Mock the clickhouse client
 const mockInsert = mock(() => Promise.resolve());
-const mockCommand = mock(() => Promise.resolve());
 const mockClose = mock(() => Promise.resolve());
 mock.module('./clickhouse', () => ({
-    writeClient: {
+    insertClient: {
         insert: mockInsert,
-        command: mockCommand,
         close: mockClose,
     },
 }));

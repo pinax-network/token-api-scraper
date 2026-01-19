@@ -2,8 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
     BATCH_INSERT_INTERVAL_MS,
     BATCH_INSERT_MAX_SIZE,
-    CLICKHOUSE_DATABASE_READ,
-    CLICKHOUSE_DATABASE_WRITE,
+    CLICKHOUSE_DATABASE_INSERT,
     CONCURRENCY,
     DEFAULT_CONFIG,
     getNetwork,
@@ -72,36 +71,22 @@ describe('DEFAULT_CONFIG', () => {
     });
 });
 
-describe('CLICKHOUSE_DATABASE_READ and CLICKHOUSE_DATABASE_WRITE', () => {
-    test('CLICKHOUSE_DATABASE_READ should fall back to CLICKHOUSE_DATABASE when not set', () => {
-        // Both should be undefined when neither env var is set,
-        // or CLICKHOUSE_DATABASE_READ equals CLICKHOUSE_DATABASE if only CLICKHOUSE_DATABASE is set
-        if (!process.env.CLICKHOUSE_DATABASE_READ) {
-            expect(CLICKHOUSE_DATABASE_READ).toBe(
+describe('CLICKHOUSE_DATABASE_INSERT', () => {
+    test('CLICKHOUSE_DATABASE_INSERT should fall back to CLICKHOUSE_DATABASE when not set', () => {
+        // Should be undefined when neither env var is set,
+        // or CLICKHOUSE_DATABASE_INSERT equals CLICKHOUSE_DATABASE if only CLICKHOUSE_DATABASE is set
+        if (!process.env.CLICKHOUSE_DATABASE_INSERT) {
+            expect(CLICKHOUSE_DATABASE_INSERT).toBe(
                 process.env.CLICKHOUSE_DATABASE,
             );
         }
     });
 
-    test('CLICKHOUSE_DATABASE_WRITE should fall back to CLICKHOUSE_DATABASE when not set', () => {
-        // Both should be undefined when neither env var is set,
-        // or CLICKHOUSE_DATABASE_WRITE equals CLICKHOUSE_DATABASE if only CLICKHOUSE_DATABASE is set
-        if (!process.env.CLICKHOUSE_DATABASE_WRITE) {
-            expect(CLICKHOUSE_DATABASE_WRITE).toBe(
-                process.env.CLICKHOUSE_DATABASE,
-            );
-        }
-    });
-
-    test('CLICKHOUSE_DATABASE_READ and CLICKHOUSE_DATABASE_WRITE should be exported', () => {
-        // Just verify they are accessible (can be undefined if env vars not set)
+    test('CLICKHOUSE_DATABASE_INSERT should be exported', () => {
+        // Just verify it is accessible (can be undefined if env vars not set)
         expect(
-            CLICKHOUSE_DATABASE_READ === undefined ||
-                typeof CLICKHOUSE_DATABASE_READ === 'string',
-        ).toBe(true);
-        expect(
-            CLICKHOUSE_DATABASE_WRITE === undefined ||
-                typeof CLICKHOUSE_DATABASE_WRITE === 'string',
+            CLICKHOUSE_DATABASE_INSERT === undefined ||
+                typeof CLICKHOUSE_DATABASE_INSERT === 'string',
         ).toBe(true);
     });
 });

@@ -113,18 +113,11 @@ export const CLICKHOUSE_PASSWORD =
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE;
 
 /**
- * Database name for read operations (SELECT queries)
- * Falls back to CLICKHOUSE_DATABASE if not set
+ * Database name for insert operations (INSERT, DDL)
+ * Optional override - falls back to CLICKHOUSE_DATABASE if not set
  */
-export const CLICKHOUSE_DATABASE_READ =
-    process.env.CLICKHOUSE_DATABASE_READ || process.env.CLICKHOUSE_DATABASE;
-
-/**
- * Database name for write operations (INSERT, DDL)
- * Falls back to CLICKHOUSE_DATABASE if not set
- */
-export const CLICKHOUSE_DATABASE_WRITE =
-    process.env.CLICKHOUSE_DATABASE_WRITE || process.env.CLICKHOUSE_DATABASE;
+export const CLICKHOUSE_DATABASE_INSERT =
+    process.env.CLICKHOUSE_DATABASE_INSERT || process.env.CLICKHOUSE_DATABASE;
 
 export const NODE_URL = process.env.NODE_URL;
 

@@ -4,106 +4,83 @@ import { createLogger } from './logger';
 const log = createLogger('clickhouse');
 
 // Lazy initialization of ClickHouse clients to allow CLI to set env vars first
-let _readClient: ClickHouseClient | null = null;
-let _writeClient: ClickHouseClient | null = null;
+let _client: ClickHouseClient | null = null;
+let _insertClient: ClickHouseClient | null = null;
 
 /**
- * Get the database name for read operations
- * Falls back to CLICKHOUSE_DATABASE if CLICKHOUSE_DATABASE_READ is not set
+ * Get the database name for insert operations
+ * Falls back to CLICKHOUSE_DATABASE if CLICKHOUSE_DATABASE_INSERT is not set
  */
-function getReadDatabase(): string | undefined {
+function getInsertDatabase(): string | undefined {
     return (
-        process.env.CLICKHOUSE_DATABASE_READ || process.env.CLICKHOUSE_DATABASE
+        process.env.CLICKHOUSE_DATABASE_INSERT ||
+        process.env.CLICKHOUSE_DATABASE
     );
 }
 
 /**
- * Get the database name for write operations
- * Falls back to CLICKHOUSE_DATABASE if CLICKHOUSE_DATABASE_WRITE is not set
+ * Get the ClickHouse client for read operations (SELECT queries) and DDL commands
+ * Uses CLICKHOUSE_DATABASE
  */
-function getWriteDatabase(): string | undefined {
-    return (
-        process.env.CLICKHOUSE_DATABASE_WRITE || process.env.CLICKHOUSE_DATABASE
-    );
-}
-
-/**
- * Get the ClickHouse client for read operations (SELECT queries)
- */
-function getReadClient(): ClickHouseClient {
-    if (!_readClient) {
-        _readClient = createClient({
+function getClient(): ClickHouseClient {
+    if (!_client) {
+        _client = createClient({
             url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
-            database: getReadDatabase(),
+            database: process.env.CLICKHOUSE_DATABASE,
         });
     }
-    return _readClient;
+    return _client;
 }
 
 /**
- * Get the ClickHouse client for write operations (INSERT, DDL)
+ * Get the ClickHouse client for insert operations
+ * Uses CLICKHOUSE_DATABASE_INSERT or falls back to CLICKHOUSE_DATABASE
  */
-function getWriteClient(): ClickHouseClient {
-    if (!_writeClient) {
-        _writeClient = createClient({
+function getInsertClient(): ClickHouseClient {
+    if (!_insertClient) {
+        _insertClient = createClient({
             url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
-            database: getWriteDatabase(),
+            database: getInsertDatabase(),
         });
     }
-    return _writeClient;
+    return _insertClient;
 }
 
 /**
- * Client for read operations (SELECT queries)
- * Uses CLICKHOUSE_DATABASE_READ or falls back to CLICKHOUSE_DATABASE
+ * Client for insert operations
+ * Uses CLICKHOUSE_DATABASE_INSERT or falls back to CLICKHOUSE_DATABASE
  */
-export const readClient = {
-    get query() {
-        return getReadClient().query.bind(getReadClient());
-    },
-    get close() {
-        return getReadClient().close.bind(getReadClient());
-    },
-};
-
-/**
- * Client for write operations (INSERT, DDL)
- * Uses CLICKHOUSE_DATABASE_WRITE or falls back to CLICKHOUSE_DATABASE
- */
-export const writeClient = {
-    get command() {
-        return getWriteClient().command.bind(getWriteClient());
-    },
+export const insertClient = {
     get insert() {
-        return getWriteClient().insert.bind(getWriteClient());
+        return getInsertClient().insert.bind(getInsertClient());
     },
     get close() {
-        return getWriteClient().close.bind(getWriteClient());
+        return getInsertClient().close.bind(getInsertClient());
     },
 };
 
-/** @deprecated Use readClient for queries and writeClient for inserts/commands */
+/**
+ * Default ClickHouse client for queries and commands
+ * Uses CLICKHOUSE_DATABASE for reads and DDL, CLICKHOUSE_DATABASE_INSERT for inserts
+ */
 export const client = {
     get query() {
-        return getReadClient().query.bind(getReadClient());
+        return getClient().query.bind(getClient());
     },
     get command() {
-        return getWriteClient().command.bind(getWriteClient());
+        return getClient().command.bind(getClient());
     },
     get insert() {
-        return getWriteClient().insert.bind(getWriteClient());
+        return getInsertClient().insert.bind(getInsertClient());
     },
     get close() {
         // Close both clients concurrently
         return async () => {
-            await Promise.all([
-                getReadClient().close(),
-                getWriteClient().close(),
-            ]);
+            await Promise.all([getClient().close(), getInsertClient().close()]);
         };
     },
 };
@@ -137,7 +114,7 @@ export async function query<T = any>(
     try {
         // Track query execution time
         const queryStartTime = performance.now();
-        const resultSet = await readClient.query({
+        const resultSet = await client.query({
             query,
             query_params,
             format: 'JSONEachRow',

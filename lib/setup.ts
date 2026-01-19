@@ -1,7 +1,7 @@
 import { select } from '@inquirer/prompts';
 import { existsSync, readFileSync } from 'fs';
 import { basename } from 'path';
-import { readClient, writeClient } from './clickhouse';
+import { client } from './clickhouse';
 import { createLogger } from './logger';
 
 const log = createLogger('setup');
@@ -26,7 +26,7 @@ interface ClusterInfo {
  */
 export async function showClusters(): Promise<string[]> {
     try {
-        const resultSet = await readClient.query({
+        const resultSet = await client.query({
             query: 'SHOW CLUSTERS',
             format: 'JSONEachRow',
         });
@@ -308,7 +308,7 @@ export async function executeSqlSetup(
                     .replace(/\n/g, ' ');
 
                 try {
-                    await writeClient.command({
+                    await client.command({
                         query: statement,
                     });
                     log.debug('Statement executed', {
