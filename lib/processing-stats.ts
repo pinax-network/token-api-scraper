@@ -77,7 +77,7 @@ export class ProcessingStats {
         const elapsedSecs = (performance.now() - this.startTime) / 1000;
         const percentComplete =
             this.totalItems > 0
-                ? Math.round((processed / this.totalItems) * 100)
+                ? Math.round((processed / this.totalItems) * 10000) / 100
                 : 0;
         const itemsPerSec =
             elapsedSecs > 0 ? Math.round(processed / elapsedSecs) : 0;
