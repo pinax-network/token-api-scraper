@@ -1,7 +1,11 @@
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
-import { CLICKHOUSE_DATABASE_INSERT, CONCURRENCY, getNetwork } from '../../lib/config';
+import {
+    CLICKHOUSE_DATABASE_INSERT,
+    CONCURRENCY,
+    getNetwork,
+} from '../../lib/config';
 import { createLogger } from '../../lib/logger';
 import { ProcessingStats } from '../../lib/processing-stats';
 import { initService } from '../../lib/service-init';
