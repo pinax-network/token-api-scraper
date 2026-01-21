@@ -35,6 +35,7 @@ ORDER BY ( network, contract );
 -- base,avalanche,unichain,tron,bsc,polygon,mainnet,arbitrum-one,optimism --
 INSERT INTO metadata (network, contract, decimals, name, symbol) VALUES
     ('tron', 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', 6, 'Tron', 'TRX'),
+    ('tron', '0x0000000000000000000000000000000000000000', 6, 'Tron', 'TRX'),
     ('mainnet', '0x0000000000000000000000000000000000000000', 18, 'Ethereum', 'ETH'),
     ('bsc', '0x0000000000000000000000000000000000000000', 18, 'BNB', 'BNB'),
     ('polygon', '0x0000000000000000000000000000000000000000', 18, 'MATIC', 'MATIC'),
