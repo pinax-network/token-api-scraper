@@ -194,5 +194,8 @@ export async function run(): Promise<void> {
 
 // Run the service if this is the main module
 if (import.meta.main) {
-    await run();
+    run().catch((error) => {
+        console.error('Service failed:', error);
+        process.exit(1);
+    });
 }
