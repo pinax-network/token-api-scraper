@@ -39,6 +39,11 @@ const SERVICES = {
         description:
             'Fetch and store Polymarket market metadata from condition_id and token0/token1',
     },
+    'solana-metadata': {
+        path: './services/solana-metadata/index.ts',
+        description:
+            'Fetch and store Solana SPL token metadata from Metaplex or Token-2022 extensions',
+    },
 };
 
 /**
@@ -347,12 +352,14 @@ Services:
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
   metadata-balances           ${SERVICES['metadata-balances'].description}
   polymarket                  ${SERVICES['polymarket'].description}
+  solana-metadata             ${SERVICES['solana-metadata'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
   $ npm run cli run metadata-balances
   $ npm run cli run polymarket
+  $ npm run cli run solana-metadata
 
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
