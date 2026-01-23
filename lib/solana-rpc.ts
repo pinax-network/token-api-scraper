@@ -1065,8 +1065,8 @@ export interface SolanaTokenMetadata {
  */
 export async function fetchSolanaTokenMetadata(
     mint: string,
+    programId: string,
     retryOrOpts?: number | RetryOptions,
-    programId?: string,
 ): Promise<SolanaTokenMetadata> {
     // First, try Metaplex metadata (works for both SPL Token and Token-2022)
     try {
@@ -1110,10 +1110,7 @@ export async function fetchSolanaTokenMetadata(
     // 1. programId is not provided (backward compatibility), OR
     // 2. programId is the Token-2022 program
     // Skip for standard SPL Token program as it doesn't support extensions
-    const shouldTryToken2022 =
-        !programId || programId === TOKEN_2022_PROGRAM_ID;
-
-    if (shouldTryToken2022) {
+    if (programId === TOKEN_2022_PROGRAM_ID) {
         try {
             const mintAccountInfo = await getAccountInfo(mint, retryOrOpts);
 
