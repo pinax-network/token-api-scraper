@@ -225,11 +225,12 @@ function createProgramAddress(
  */
 function isOnCurve(publicKey: Uint8Array): boolean {
     try {
-        // ExtendedPoint.fromHex() will throw if the point is not on the curve
+        // ExtendedPoint.fromHex() will throw if the bytes don't represent a valid ed25519 point
+        // This includes both malformed data and off-curve points
         ed25519.ExtendedPoint.fromHex(publicKey);
         return true;
     } catch {
-        // If parsing fails, the point is not on the curve
+        // If parsing/decompression fails, the bytes don't represent a valid curve point
         return false;
     }
 }
