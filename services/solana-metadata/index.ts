@@ -22,6 +22,7 @@ const log = createLogger(serviceName);
  */
 export interface SolanaMint {
     contract: string;
+    program_id: string;
     decimals: number;
     block_num: number;
     timestamp: number;
@@ -39,8 +40,11 @@ async function processSolanaMint(
     console.log(data);
 
     try {
+        // Fetch metadata: use default retry options (undefined) and pass program_id for optimization
         const metadata = await fetchSolanaTokenMetadata(
-            data.contract
+            data.contract,
+            undefined, // retryOrOpts: use defaults
+            data.program_id, // Skip Token-2022 lookup if standard SPL token
         );
         const queryTimeMs = Math.round(performance.now() - startTime);
 
