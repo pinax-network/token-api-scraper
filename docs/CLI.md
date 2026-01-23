@@ -155,7 +155,7 @@ The project includes these schema files in `sql.schemas/`:
    - `metadata_errors` table - Tracks RPC errors during metadata fetching
 
 2. **schema.metadata_solana.sql**: Solana token metadata storage
-   - `metadata` table - Stores token name, symbol, decimals, uri, source, and standard
+   - `metadata` table - Stores token name, symbol, decimals, uri, source, and token_standard
    - `metadata_errors` table - Tracks RPC errors during metadata fetching
 
 3. **schema.polymarket.sql**: Polymarket tables

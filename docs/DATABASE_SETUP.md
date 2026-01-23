@@ -50,7 +50,7 @@ npm run cli setup metadata-evm
 
 ### 2. schema.metadata_solana.sql
 
-**Purpose**: Stores Solana SPL token metadata (name, symbol, decimals, uri, source, standard)
+**Purpose**: Stores Solana SPL token metadata (name, symbol, decimals, uri, source, token_standard)
 
 **Contents**:
 - **Tables**:
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS metadata
     symbol String,
     uri String,
     source LowCardinality(String),
-    standard Nullable(UInt8),
+    token_standard Enum8('Unknown' = 0, 'NonFungible' = 1, 'FungibleAsset' = 2, 'Fungible' = 3, 'NonFungibleEdition' = 4, 'ProgrammableNonFungible' = 5, 'ProgrammableNonFungibleEdition' = 6),
     created_at DateTime('UTC') DEFAULT now()
 )
 ENGINE = ReplacingMergeTree(block_num)
@@ -160,7 +160,7 @@ ORDER BY (network, contract)
 **Additional Columns for Solana**:
 - `uri` - Token metadata URI (e.g., IPFS link)
 - `source` - Metadata source ('metaplex', 'token2022', 'none')
-- `standard` - Token standard (Metaplex TokenStandard enum value)
+- `token_standard` - Token standard (Metaplex TokenStandard enum, 0=Unknown for tokens without metadata)
 
 ### metadata_errors
 

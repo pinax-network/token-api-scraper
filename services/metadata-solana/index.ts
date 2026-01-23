@@ -80,6 +80,11 @@ async function processSolanaMint(
 
         if (metadata.source !== 'none') {
             // Successfully found metadata
+            // Convert TokenStandard to SQL enum value (shift by +1 since 0=Unknown in SQL)
+            const tokenStandardValue =
+                metadata.tokenStandard !== null
+                    ? metadata.tokenStandard + 1
+                    : 0;
             const success = await insertRow(
                 'metadata',
                 {
@@ -92,7 +97,7 @@ async function processSolanaMint(
                     symbol: metadata.symbol,
                     uri: metadata.uri,
                     source: metadata.source,
-                    standard: metadata.tokenStandard,
+                    token_standard: tokenStandardValue,
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },
@@ -130,7 +135,7 @@ async function processSolanaMint(
                     symbol: '',
                     uri: '',
                     source: metadata.source,
-                    standard: null,
+                    token_standard: 0, // Unknown
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },
