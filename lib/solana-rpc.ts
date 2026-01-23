@@ -1008,19 +1008,25 @@ export interface SolanaTokenMetadata {
 
 /**
  * Fetch token metadata for a Solana mint address
- * Tries Metaplex first, then Token-2022 extensions
+ * Tries Metaplex first, then Token-2022 extensions (if applicable)
+ *
+ * @param mint - The mint address to fetch metadata for
+ * @param retryOrOpts - Retry options for RPC calls
+ * @param programId - Optional program ID of the token. If provided, can skip Token-2022 lookup for standard SPL tokens
  */
 export async function fetchSolanaTokenMetadata(
     mint: string,
     retryOrOpts?: number | RetryOptions,
+    programId?: string,
 ): Promise<SolanaTokenMetadata> {
-    // First, try Metaplex metadata
+    // First, try Metaplex metadata (works for both SPL Token and Token-2022)
     try {
         const metadataPda = findMetadataPda(mint);
 
         log.debug('Looking up Metaplex metadata', {
             mint,
             metadataPda,
+            programId,
         });
 
         const accountInfo = await getAccountInfo(metadataPda, retryOrOpts);
@@ -1049,35 +1055,48 @@ export async function fetchSolanaTokenMetadata(
         });
     }
 
-    // Try Token-2022 extensions by fetching the mint account directly
-    try {
-        const mintAccountInfo = await getAccountInfo(mint, retryOrOpts);
+    // Only try Token-2022 extensions if:
+    // 1. programId is not provided (backward compatibility), OR
+    // 2. programId is the Token-2022 program
+    // Skip for standard SPL Token program as it doesn't support extensions
+    const shouldTryToken2022 =
+        !programId || programId === TOKEN_2022_PROGRAM_ID;
 
-        if (mintAccountInfo?.data) {
-            const token2022Metadata = parseToken2022Extensions(
-                mintAccountInfo.data,
-                mintAccountInfo.owner,
-            );
+    if (shouldTryToken2022) {
+        try {
+            const mintAccountInfo = await getAccountInfo(mint, retryOrOpts);
 
-            if (token2022Metadata) {
-                log.debug('Found Token-2022 metadata', {
-                    mint,
-                    name: token2022Metadata.name,
-                    symbol: token2022Metadata.symbol,
-                });
-                return {
-                    mint,
-                    name: token2022Metadata.name,
-                    symbol: token2022Metadata.symbol,
-                    uri: token2022Metadata.uri,
-                    source: 'token2022',
-                };
+            if (mintAccountInfo?.data) {
+                const token2022Metadata = parseToken2022Extensions(
+                    mintAccountInfo.data,
+                    mintAccountInfo.owner,
+                );
+
+                if (token2022Metadata) {
+                    log.debug('Found Token-2022 metadata', {
+                        mint,
+                        name: token2022Metadata.name,
+                        symbol: token2022Metadata.symbol,
+                    });
+                    return {
+                        mint,
+                        name: token2022Metadata.name,
+                        symbol: token2022Metadata.symbol,
+                        uri: token2022Metadata.uri,
+                        source: 'token2022',
+                    };
+                }
             }
+        } catch (error) {
+            log.debug('Token-2022 lookup failed', {
+                mint,
+                error: (error as Error).message,
+            });
         }
-    } catch (error) {
-        log.debug('Token-2022 lookup failed', {
+    } else {
+        log.debug('Skipping Token-2022 lookup for standard SPL token', {
             mint,
-            error: (error as Error).message,
+            programId,
         });
     }
 

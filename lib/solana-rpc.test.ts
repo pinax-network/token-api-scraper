@@ -7,6 +7,7 @@ import {
     METAPLEX_PROGRAM_ID,
     parseToken2022Extensions,
     TOKEN_2022_PROGRAM_ID,
+    TOKEN_PROGRAM_ID,
 } from './solana-rpc';
 
 describe('base58 encoding/decoding', () => {
@@ -243,5 +244,23 @@ describe('Token-2022 extension parsing', () => {
         expect(
             parseToken2022Extensions(base64, TOKEN_2022_PROGRAM_ID),
         ).toBeNull();
+    });
+});
+
+describe('Token program ID constants', () => {
+    test('should have correct SPL Token program ID', () => {
+        expect(TOKEN_PROGRAM_ID).toBe(
+            'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        );
+    });
+
+    test('should have correct Token-2022 program ID', () => {
+        expect(TOKEN_2022_PROGRAM_ID).toBe(
+            'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+        );
+    });
+
+    test('TOKEN_PROGRAM_ID and TOKEN_2022_PROGRAM_ID should be different', () => {
+        expect(TOKEN_PROGRAM_ID).not.toBe(TOKEN_2022_PROGRAM_ID);
     });
 });

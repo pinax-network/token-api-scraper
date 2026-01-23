@@ -2,6 +2,7 @@
 -- Queries initialize_mint table and excludes mints already in metadata or metadata_errors
 SELECT
     im.mint as contract,
+    im.program_id as program_id,
     im.block_num as block_num,
     im.timestamp as timestamp,
     im.decimals as decimals

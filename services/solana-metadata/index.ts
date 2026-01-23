@@ -22,6 +22,7 @@ const log = createLogger(serviceName);
  */
 export interface SolanaMint {
     contract: string;
+    program_id: string;
     decimals: number;
     block_num: number;
     timestamp: number;
@@ -39,7 +40,11 @@ async function processSolanaMint(
     console.log(data);
 
     try {
-        const metadata = await fetchSolanaTokenMetadata(data.contract);
+        const metadata = await fetchSolanaTokenMetadata(
+            data.contract,
+            undefined,
+            data.program_id,
+        );
         const queryTimeMs = Math.round(performance.now() - startTime);
 
         if (metadata.source !== 'none') {
