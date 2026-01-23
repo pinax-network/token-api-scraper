@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { processMetadata } from '.';
 
 /**
  * Tests for metadata processing with optional name() and symbol()
  * Verifies that tokens can be valid even if name() or symbol() don't exist
  */
 
-// Mock dependencies
+// Mock dependencies - must be defined BEFORE mock.module calls
 const mockCallContract = mock(() => Promise.resolve('0x'));
 const mockGetContractCode = mock(() => Promise.resolve('0x')); // Default: no code
 const mockDecodeSymbolHex = mock(() => '');
@@ -16,6 +15,7 @@ const mockInsertRow = mock(() => Promise.resolve(true));
 const mockIncrementSuccess = mock(() => {});
 const mockIncrementError = mock(() => {});
 
+// Mock modules BEFORE importing the module under test
 mock.module('../../lib/rpc', () => ({
     callContract: mockCallContract,
     getContractCode: mockGetContractCode,
@@ -35,6 +35,9 @@ mock.module('../../lib/prometheus', () => ({
     incrementSuccess: mockIncrementSuccess,
     incrementError: mockIncrementError,
 }));
+
+// Import module under test AFTER setting up mocks
+const { processMetadata } = await import('.');
 
 describe('Metadata processing with optional name() and symbol()', () => {
     beforeEach(() => {

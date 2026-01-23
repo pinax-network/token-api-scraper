@@ -3,7 +3,7 @@
  * Supports Metaplex Token Metadata and Token-2022 extensions
  */
 
-import { ExtendedPoint } from '@noble/ed25519';
+import { Point } from '@noble/ed25519';
 import { sleep } from 'bun';
 import PQueue from 'p-queue';
 import { DEFAULT_CONFIG } from './config';
@@ -225,9 +225,9 @@ function createProgramAddress(
  */
 function isOnCurve(publicKey: Uint8Array): boolean {
     try {
-        // ExtendedPoint.fromHex() will throw if the bytes don't represent a valid ed25519 point
+        // Point.fromBytes() will throw if the bytes don't represent a valid ed25519 point
         // This includes both malformed data and off-curve points
-        ExtendedPoint.fromHex(publicKey);
+        Point.fromBytes(publicKey);
         return true;
     } catch {
         // If parsing/decompression fails, the bytes don't represent a valid curve point

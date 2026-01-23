@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { run } from './run';
 
 /**
  * Tests for metadata service run function
  * Verifies that network parameter is properly passed to SQL queries
  */
 
-// Mock dependencies
+// Mock dependencies - shared mocks that both run.ts and index.ts use
 const mockQuery = mock(() =>
     Promise.resolve({
         data: [],
@@ -19,6 +18,16 @@ const mockShutdownBatchInsertQueue = mock(() => Promise.resolve());
 const mockStartProgressLogging = mock(() => {});
 const mockLogCompletion = mock(() => {});
 
+// Mock processMetadata dependencies to prevent real RPC calls
+const mockCallContract = mock(() => Promise.resolve('0x'));
+const mockGetContractCode = mock(() => Promise.resolve('0x'));
+const mockDecodeSymbolHex = mock(() => '');
+const mockDecodeNameHex = mock(() => '');
+const mockDecodeNumberHex = mock(() => 18);
+const mockInsertRow = mock(() => Promise.resolve(true));
+const mockIncrementSuccess = mock(() => {});
+const mockIncrementError = mock(() => {});
+
 mock.module('../../lib/clickhouse', () => ({
     query: mockQuery,
 }));
@@ -30,6 +39,7 @@ mock.module('../../lib/service-init', () => ({
 mock.module('../../lib/config', () => ({
     getNetwork: mockGetNetwork,
     CONCURRENCY: 40,
+    CLICKHOUSE_DATABASE_INSERT: undefined,
 }));
 
 mock.module('../../lib/batch-insert', () => ({
@@ -43,9 +53,30 @@ mock.module('../../lib/processing-stats', () => ({
     },
 }));
 
-mock.module('.', () => ({
-    processMetadata: mock(() => Promise.resolve()),
+// Mock the dependencies of processMetadata instead of mocking processMetadata itself
+// This avoids polluting the module cache for index.test.ts
+mock.module('../../lib/rpc', () => ({
+    callContract: mockCallContract,
+    getContractCode: mockGetContractCode,
 }));
+
+mock.module('../../lib/hex-decode', () => ({
+    decodeSymbolHex: mockDecodeSymbolHex,
+    decodeNameHex: mockDecodeNameHex,
+    decodeNumberHex: mockDecodeNumberHex,
+}));
+
+mock.module('../../src/insert', () => ({
+    insertRow: mockInsertRow,
+}));
+
+mock.module('../../lib/prometheus', () => ({
+    incrementSuccess: mockIncrementSuccess,
+    incrementError: mockIncrementError,
+}));
+
+// Import run after mocks are set up
+const { run } = await import('./run');
 
 describe('Metadata service run function', () => {
     beforeEach(() => {
@@ -55,6 +86,14 @@ describe('Metadata service run function', () => {
         mockShutdownBatchInsertQueue.mockClear();
         mockStartProgressLogging.mockClear();
         mockLogCompletion.mockClear();
+        mockCallContract.mockClear();
+        mockGetContractCode.mockClear();
+        mockDecodeSymbolHex.mockClear();
+        mockDecodeNameHex.mockClear();
+        mockDecodeNumberHex.mockClear();
+        mockInsertRow.mockClear();
+        mockIncrementSuccess.mockClear();
+        mockIncrementError.mockClear();
 
         // Reset mock return values
         mockQuery.mockReturnValue(
@@ -68,6 +107,8 @@ describe('Metadata service run function', () => {
             }),
         );
         mockGetNetwork.mockReturnValue('mainnet');
+        mockDecodeNumberHex.mockReturnValue(18);
+        mockInsertRow.mockReturnValue(Promise.resolve(true));
     });
 
     test('should pass network parameter to query for transfers source', async () => {
