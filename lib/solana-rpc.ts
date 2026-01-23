@@ -3,7 +3,7 @@
  * Supports Metaplex Token Metadata and Token-2022 extensions
  */
 
-import * as ed25519 from '@noble/ed25519';
+import { ExtendedPoint } from '@noble/ed25519';
 import { sleep } from 'bun';
 import PQueue from 'p-queue';
 import { DEFAULT_CONFIG } from './config';
@@ -227,7 +227,7 @@ function isOnCurve(publicKey: Uint8Array): boolean {
     try {
         // ExtendedPoint.fromHex() will throw if the bytes don't represent a valid ed25519 point
         // This includes both malformed data and off-curve points
-        ed25519.ExtendedPoint.fromHex(publicKey);
+        ExtendedPoint.fromHex(publicKey);
         return true;
     } catch {
         // If parsing/decompression fails, the bytes don't represent a valid curve point
