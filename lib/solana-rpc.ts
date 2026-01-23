@@ -3,11 +3,11 @@
  * Supports Metaplex Token Metadata and Token-2022 extensions
  */
 
+import * as ed25519 from '@noble/ed25519';
 import { sleep } from 'bun';
 import PQueue from 'p-queue';
 import { DEFAULT_CONFIG } from './config';
 import { createLogger } from './logger';
-import { SolanaMint } from '../services/solana-metadata';
 
 const log = createLogger('solana-rpc');
 
@@ -215,22 +215,23 @@ function createProgramAddress(
 /**
  * Check if a 32-byte array represents a point on the ed25519 curve.
  *
- * NOTE: This is a simplified implementation that always returns false.
- * This works because:
- * 1. Solana PDAs use bump seeds to find addresses that are NOT on the curve
- * 2. The bump seed iteration (255 -> 0) will eventually find a valid PDA
- * 3. For our use case (deriving Metaplex metadata PDAs), the known bump
- *    seeds work correctly even with this simplified implementation
+ * Uses the @noble/ed25519 library to properly validate if the given public key
+ * is a valid point on the ed25519 curve. This is required for correct PDA
+ * (Program Derived Address) derivation in Solana.
  *
- * A proper implementation would do ed25519 point decompression, but that
- * requires a cryptographic library. For fetching metadata from known
- * programs, this simplified approach is sufficient.
- *
- * TODO: Consider using @noble/ed25519 for proper curve check if needed
+ * Solana PDAs must be off-curve (not valid ed25519 points) to ensure they
+ * cannot be used as regular signing keys. The bump seed iteration finds the
+ * first bump value that produces an off-curve address.
  */
-function isOnCurve(_publicKey: Uint8Array): boolean {
-    // Always return false - see function documentation for rationale
-    return false;
+function isOnCurve(publicKey: Uint8Array): boolean {
+    try {
+        // ExtendedPoint.fromHex() will throw if the point is not on the curve
+        ed25519.ExtendedPoint.fromHex(publicKey);
+        return true;
+    } catch {
+        // If parsing fails, the point is not on the curve
+        return false;
+    }
 }
 
 /**

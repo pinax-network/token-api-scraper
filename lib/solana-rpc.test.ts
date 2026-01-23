@@ -65,6 +65,27 @@ describe('Metaplex PDA derivation', () => {
         const pda2 = findMetadataPda(mint);
         expect(pda1).toBe(pda2);
     });
+
+    test('should derive correct PDA for USDC (known metadata account)', () => {
+        // USDC has a well-known metadata PDA that can be verified on-chain
+        const mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+        const pda = findMetadataPda(mint);
+
+        // Expected PDA from Solana mainnet (verified via Solana explorers)
+        // This was verified by running PublicKey.findProgramAddressSync with @solana/web3.js
+        expect(pda).toBe('5x38Kp4hvdomTCnCrAny4UtMUt5rQBdB6px2K1Ui45Wq');
+    });
+
+    test('should derive correct PDA for pump.fun token (issue #366BRjkUWgxhxRpthCEsf5bJspP9td3NNn7A3F8hpump)', () => {
+        // This token was reported as not having metadata, but it does have Metaplex metadata
+        // The issue was that the PDA derivation was incorrect due to improper isOnCurve check
+        const mint = '366BRjkUWgxhxRpthCEsf5bJspP9td3NNn7A3F8hpump';
+        const pda = findMetadataPda(mint);
+
+        // Expected PDA verified via Solscan and on-chain data
+        // This is different from the incorrect PDA that was derived before the fix
+        expect(pda).toBe('Cs9VSZmy5E9VL8JzHLA93aCiHqxzNLuuRBynhf3zUMTP');
+    });
 });
 
 describe('Metaplex metadata decoding', () => {

@@ -39,9 +39,7 @@ async function processSolanaMint(
     console.log(data);
 
     try {
-        const metadata = await fetchSolanaTokenMetadata(
-            data.contract
-        );
+        const metadata = await fetchSolanaTokenMetadata(data.contract);
         const queryTimeMs = Math.round(performance.now() - startTime);
 
         if (metadata.source !== 'none') {
