@@ -11,7 +11,11 @@ import { createLogger } from '../../lib/logger';
 import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
-import { fetchSolanaTokenMetadata } from '../../lib/solana-rpc';
+import {
+    fetchSolanaTokenMetadata,
+    isNftTokenStandard,
+    TokenStandard,
+} from '../../lib/solana-rpc';
 import { insertRow } from '../../src/insert';
 
 const serviceName = 'solana-metadata';
@@ -39,29 +43,6 @@ async function processSolanaMint(
     const startTime = performance.now();
     console.log(data);
 
-    // Skip NFTs (tokens with 0 decimals) and insert error record
-    if (data.decimals === 0) {
-        log.debug('Skipping NFT (decimals=0)', {
-            mint: data.contract,
-            blockNum: data.block_num,
-        });
-
-        await insertRow(
-            'metadata_errors',
-            {
-                network,
-                contract: data.contract,
-                error: 'NFT detected (decimals=0)',
-            },
-            `Failed to insert NFT error for mint ${data.contract}`,
-            { contract: data.contract },
-        );
-
-        incrementError(serviceName);
-        stats.incrementError();
-        return;
-    }
-
     try {
         // Fetch metadata: use default retry options (undefined) and pass program_id for optimization
         const metadata = await fetchSolanaTokenMetadata(
@@ -70,6 +51,34 @@ async function processSolanaMint(
             data.program_id, // Skip Token-2022 lookup if standard SPL token
         );
         const queryTimeMs = Math.round(performance.now() - startTime);
+
+        // Check if this is an NFT based on tokenStandard
+        if (
+            metadata.tokenStandard !== null &&
+            isNftTokenStandard(metadata.tokenStandard)
+        ) {
+            const tokenStandardName = TokenStandard[metadata.tokenStandard];
+            log.debug('Skipping NFT (tokenStandard)', {
+                mint: data.contract,
+                tokenStandard: tokenStandardName,
+                blockNum: data.block_num,
+            });
+
+            await insertRow(
+                'metadata_errors',
+                {
+                    network,
+                    contract: data.contract,
+                    error: `NFT detected (tokenStandard=${tokenStandardName})`,
+                },
+                `Failed to insert NFT error for mint ${data.contract}`,
+                { contract: data.contract },
+            );
+
+            incrementError(serviceName);
+            stats.incrementError();
+            return;
+        }
 
         if (metadata.source !== 'none') {
             // Successfully found metadata
@@ -97,6 +106,7 @@ async function processSolanaMint(
                     symbol: metadata.symbol,
                     decimals: data.decimals,
                     source: metadata.source,
+                    tokenStandard: metadata.tokenStandard,
                     blockNum: data.block_num,
                     queryTimeMs,
                 });
