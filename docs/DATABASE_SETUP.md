@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS metadata
     symbol String,
     uri String,
     source LowCardinality(String),
-    token_standard Enum8('Unknown' = 0, 'NonFungible' = 1, 'FungibleAsset' = 2, 'Fungible' = 3, 'NonFungibleEdition' = 4, 'ProgrammableNonFungible' = 5, 'ProgrammableNonFungibleEdition' = 6),
+    token_standard Nullable(Enum8('NonFungible' = 0, 'FungibleAsset' = 1, 'Fungible' = 2, 'NonFungibleEdition' = 3, 'ProgrammableNonFungible' = 4, 'ProgrammableNonFungibleEdition' = 5)),
     created_at DateTime('UTC') DEFAULT now()
 )
 ENGINE = ReplacingMergeTree(block_num)
@@ -160,7 +160,7 @@ ORDER BY (network, contract)
 **Additional Columns for Solana**:
 - `uri` - Token metadata URI (e.g., IPFS link)
 - `source` - Metadata source ('metaplex', 'token2022', 'none')
-- `token_standard` - Token standard (Metaplex TokenStandard enum, 0=Unknown for tokens without metadata)
+- `token_standard` - Token standard (Metaplex TokenStandard enum, NULL for tokens without metadata)
 
 ### metadata_errors
 
