@@ -4,10 +4,12 @@ import {
     base58Encode,
     decodeMetaplexMetadata,
     findMetadataPda,
+    isNftTokenStandard,
     METAPLEX_PROGRAM_ID,
     parseToken2022Extensions,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
+    TokenStandard,
 } from './solana-rpc';
 
 describe('base58 encoding/decoding', () => {
@@ -262,5 +264,36 @@ describe('Token program ID constants', () => {
 
     test('TOKEN_PROGRAM_ID and TOKEN_2022_PROGRAM_ID should be different', () => {
         expect(TOKEN_PROGRAM_ID).not.toBe(TOKEN_2022_PROGRAM_ID);
+    });
+});
+
+describe('TokenStandard enum and NFT detection', () => {
+    test('TokenStandard enum should have correct values', () => {
+        expect(TokenStandard.NonFungible).toBe(0);
+        expect(TokenStandard.FungibleAsset).toBe(1);
+        expect(TokenStandard.Fungible).toBe(2);
+        expect(TokenStandard.NonFungibleEdition).toBe(3);
+        expect(TokenStandard.ProgrammableNonFungible).toBe(4);
+        expect(TokenStandard.ProgrammableNonFungibleEdition).toBe(5);
+    });
+
+    test('isNftTokenStandard should return true for NFT types', () => {
+        expect(isNftTokenStandard(TokenStandard.NonFungible)).toBe(true);
+        expect(isNftTokenStandard(TokenStandard.NonFungibleEdition)).toBe(true);
+        expect(isNftTokenStandard(TokenStandard.ProgrammableNonFungible)).toBe(
+            true,
+        );
+        expect(
+            isNftTokenStandard(TokenStandard.ProgrammableNonFungibleEdition),
+        ).toBe(true);
+    });
+
+    test('isNftTokenStandard should return false for fungible types', () => {
+        expect(isNftTokenStandard(TokenStandard.Fungible)).toBe(false);
+        expect(isNftTokenStandard(TokenStandard.FungibleAsset)).toBe(false);
+    });
+
+    test('isNftTokenStandard should return false for null', () => {
+        expect(isNftTokenStandard(null)).toBe(false);
     });
 });

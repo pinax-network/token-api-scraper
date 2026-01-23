@@ -11,7 +11,11 @@ import { createLogger } from '../../lib/logger';
 import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
-import { fetchSolanaTokenMetadata } from '../../lib/solana-rpc';
+import {
+    fetchSolanaTokenMetadata,
+    isNftTokenStandard,
+    TokenStandard,
+} from '../../lib/solana-rpc';
 import { insertRow } from '../../src/insert';
 
 const serviceName = 'solana-metadata';
@@ -48,6 +52,34 @@ async function processSolanaMint(
         );
         const queryTimeMs = Math.round(performance.now() - startTime);
 
+        // Check if this is an NFT based on tokenStandard
+        if (
+            metadata.tokenStandard !== null &&
+            isNftTokenStandard(metadata.tokenStandard)
+        ) {
+            const tokenStandardName = TokenStandard[metadata.tokenStandard];
+            log.debug('Skipping NFT (tokenStandard)', {
+                mint: data.contract,
+                tokenStandard: tokenStandardName,
+                blockNum: data.block_num,
+            });
+
+            await insertRow(
+                'metadata_errors',
+                {
+                    network,
+                    contract: data.contract,
+                    error: `NFT detected (tokenStandard=${tokenStandardName})`,
+                },
+                `Failed to insert NFT error for mint ${data.contract}`,
+                { contract: data.contract },
+            );
+
+            incrementError(serviceName);
+            stats.incrementError();
+            return;
+        }
+
         if (metadata.source !== 'none') {
             // Successfully found metadata
             const success = await insertRow(
@@ -74,6 +106,7 @@ async function processSolanaMint(
                     symbol: metadata.symbol,
                     decimals: data.decimals,
                     source: metadata.source,
+                    tokenStandard: metadata.tokenStandard,
                     blockNum: data.block_num,
                     queryTimeMs,
                 });
