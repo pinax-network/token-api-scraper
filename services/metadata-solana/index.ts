@@ -18,7 +18,7 @@ import {
 } from '../../lib/solana-rpc';
 import { insertRow } from '../../src/insert';
 
-const serviceName = 'solana-metadata';
+const serviceName = 'metadata-solana';
 const log = createLogger(serviceName);
 
 /**
@@ -90,6 +90,9 @@ async function processSolanaMint(
                     decimals: data.decimals,
                     name: metadata.name,
                     symbol: metadata.symbol,
+                    uri: metadata.uri,
+                    source: metadata.source,
+                    standard: metadata.tokenStandard,
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },
@@ -125,6 +128,9 @@ async function processSolanaMint(
                     decimals: data.decimals,
                     name: '',
                     symbol: '',
+                    uri: '',
+                    source: metadata.source,
+                    standard: null,
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },

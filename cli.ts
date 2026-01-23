@@ -39,8 +39,8 @@ const SERVICES = {
         description:
             'Fetch and store Polymarket market metadata from condition_id and token0/token1',
     },
-    'solana-metadata': {
-        path: './services/solana-metadata/index.ts',
+    'metadata-solana': {
+        path: './services/metadata-solana/index.ts',
         description:
             'Fetch and store Solana SPL token metadata from Metaplex or Token-2022 extensions',
     },
@@ -51,9 +51,14 @@ const SERVICES = {
  * Each setup action deploys SQL schemas or refreshable materialized views
  */
 const SETUP_ACTIONS = {
-    metadata: {
-        files: ['./sql.schemas/schema.metadata.sql'],
-        description: 'Deploy metadata tables (metadata, metadata_errors)',
+    'metadata-evm': {
+        files: ['./sql.schemas/schema.metadata_evm.sql'],
+        description: 'Deploy EVM metadata tables (metadata, metadata_errors)',
+    },
+    'metadata-solana': {
+        files: ['./sql.schemas/schema.metadata_solana.sql'],
+        description:
+            'Deploy Solana metadata tables (metadata, metadata_errors)',
     },
     polymarket: {
         files: ['./sql.schemas/schema.polymarket.sql'],
@@ -352,14 +357,14 @@ Services:
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
   metadata-balances           ${SERVICES['metadata-balances'].description}
   polymarket                  ${SERVICES['polymarket'].description}
-  solana-metadata             ${SERVICES['solana-metadata'].description}
+  metadata-solana             ${SERVICES['metadata-solana'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
   $ npm run cli run metadata-balances
   $ npm run cli run polymarket
-  $ npm run cli run solana-metadata
+  $ npm run cli run metadata-solana
 
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
@@ -487,10 +492,10 @@ const setupCommand = program
     .command('setup')
     .description('Deploy SQL schemas and materialized views to ClickHouse');
 
-// ---- setup metadata ----
-const setupMetadata = setupCommand
-    .command('metadata')
-    .description(SETUP_ACTIONS.metadata.description)
+// ---- setup metadata-evm ----
+const setupMetadataEvm = setupCommand
+    .command('metadata-evm')
+    .description(SETUP_ACTIONS['metadata-evm'].description)
     .addHelpText(
         'after',
         `
@@ -502,18 +507,46 @@ Tables created:
   - metadata_errors: Tracks RPC errors during metadata fetching
 
 Example:
-  $ npm run cli setup metadata
-  $ npm run cli setup metadata --cluster my_cluster
+  $ npm run cli setup metadata-evm
+  $ npm run cli setup metadata-evm --cluster my_cluster
 `,
     )
     .action(async (options: any) => {
-        log.info('Setting up metadata tables');
-        const files = SETUP_ACTIONS.metadata.files.map((f) =>
+        log.info('Setting up EVM metadata tables');
+        const files = SETUP_ACTIONS['metadata-evm'].files.map((f) =>
             resolve(__dirname, f),
         );
         await handleSetupCommand(files, options);
     });
-addClickhouseOptions(setupMetadata);
+addClickhouseOptions(setupMetadataEvm);
+
+// ---- setup metadata-solana ----
+const setupMetadataSolana = setupCommand
+    .command('metadata-solana')
+    .description(SETUP_ACTIONS['metadata-solana'].description)
+    .addHelpText(
+        'after',
+        `
+This command deploys the metadata tables for storing Solana SPL token metadata.
+It only needs to be run once to initialize the tables.
+
+Tables created:
+  - metadata: Stores token metadata (name, symbol, decimals, uri, source, standard)
+  - metadata_errors: Tracks RPC errors during metadata fetching
+
+Example:
+  $ npm run cli setup metadata-solana
+  $ npm run cli setup metadata-solana --cluster my_cluster
+`,
+    )
+    .action(async (options: any) => {
+        log.info('Setting up Solana metadata tables');
+        const files = SETUP_ACTIONS['metadata-solana'].files.map((f) =>
+            resolve(__dirname, f),
+        );
+        await handleSetupCommand(files, options);
+    });
+addClickhouseOptions(setupMetadataSolana);
 
 // ---- setup polymarket ----
 const setupPolymarket = setupCommand
@@ -675,16 +708,16 @@ Cluster Support:
 
 Examples:
   # Deploy single schema file
-  $ npm run cli setup files sql.schemas/schema.metadata.sql
+  $ npm run cli setup files sql.schemas/schema.metadata_evm.sql
 
   # Deploy multiple schema files
-  $ npm run cli setup files sql.schemas/schema.metadata.sql sql.schemas/schema.balances.sql
+  $ npm run cli setup files sql.schemas/schema.metadata_evm.sql sql.schemas/schema.metadata_solana.sql
 
   # Deploy all schema files
   $ npm run cli setup files sql.schemas/schema.*.sql
 
   # Deploy to a cluster
-  $ npm run cli setup files sql.schemas/schema.metadata.sql --cluster my_cluster
+  $ npm run cli setup files sql.schemas/schema.metadata_evm.sql --cluster my_cluster
 `,
     )
     .action(async (files: string[], options: any) => {

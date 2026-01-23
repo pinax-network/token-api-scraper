@@ -163,6 +163,9 @@ describe('Solana metadata service', () => {
             decimals: 9,
             name: 'Test Token',
             symbol: 'TEST',
+            uri: 'https://example.com/metadata.json',
+            source: 'metaplex',
+            standard: 2,
         };
 
         await mockInsertRow('metadata', metadata, 'test context', {

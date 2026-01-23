@@ -276,7 +276,7 @@ ORDER BY id;
 describe('schema files', () => {
     test('should parse metadata schema', async () => {
         const metadataSql = await Bun.file(
-            './sql.schemas/schema.metadata.sql',
+            './sql.schemas/schema.metadata_evm.sql',
         ).text();
         const metadataStatements = splitSqlStatements(metadataSql);
 
@@ -285,7 +285,7 @@ describe('schema files', () => {
 
     test('should transform metadata schema for cluster', async () => {
         const metadataSql = await Bun.file(
-            './sql.schemas/schema.metadata.sql',
+            './sql.schemas/schema.metadata_evm.sql',
         ).text();
         const transformedMetadata = transformSqlForCluster(
             metadataSql,
@@ -298,7 +298,7 @@ describe('schema files', () => {
 
     test('should transform all actual metadata.sql correctly', async () => {
         const metadataSql = await Bun.file(
-            './sql.schemas/schema.metadata.sql',
+            './sql.schemas/schema.metadata_evm.sql',
         ).text();
         const transformed = transformSqlForCluster(metadataSql, 'test_cluster');
 

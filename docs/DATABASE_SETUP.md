@@ -17,8 +17,11 @@ The Token API Scraper requires specific database tables and helper functions to 
 The fastest way to get started:
 
 ```bash
-# Deploy all schema files to ClickHouse
-npm run cli setup sql/schema.metadata.sql
+# Deploy EVM metadata schema files to ClickHouse
+npm run cli setup metadata-evm
+
+# Deploy Solana metadata schema files to ClickHouse
+npm run cli setup metadata-solana
 ```
 
 This creates all necessary:
@@ -28,44 +31,36 @@ This creates all necessary:
 
 ## Schema Files
 
-The project includes two main schema files:
+The project includes these main schema files:
 
-### 1. schema.metadata.sql
+### 1. schema.metadata_evm.sql
 
-**Purpose**: Stores token metadata (name, symbol, decimals)
+**Purpose**: Stores EVM token metadata (name, symbol, decimals)
 
 **Contents**:
-- **Helper Functions**:
-  - `hex_to_string()` - Converts hex strings to readable strings
-  - `hex_to_uint256()` - Converts hex strings to UInt256 numbers
-
 - **Tables**:
-  - `metadata_rpc` - Stores token metadata from smart contracts
+  - `metadata` - Stores token metadata from smart contracts
+  - `metadata_errors` - Tracks RPC errors during metadata fetching
   - Uses `ReplacingMergeTree` engine for automatic deduplication
-  - Columns: `chain`, `contract`, `name`, `symbol`, `decimals`, `is_ok`, `error`
 
 **Deployment**:
 ```bash
-npm run cli setup sql/schema.metadata.sql
+npm run cli setup metadata-evm
 ```
 
-### 2. schema.erc20_balances.sql
+### 2. schema.metadata_solana.sql
 
-**Purpose**: Stores token and native balance data
+**Purpose**: Stores Solana SPL token metadata (name, symbol, decimals, uri, source, standard)
 
 **Contents**:
-- **Helper Functions**:
-  - `hex_to_uint256()` - Converts hex strings to UInt256 numbers
-  - `format_balance()` - Formats balance with decimals
-
 - **Tables**:
-  - `erc20_balances_rpc` - ERC-20 token balances with block number tracking
-  - `native_balances_rpc` - Native token balances
-  - Both use `MergeTree` engine with appropriate sorting keys
+  - `metadata` - Stores token metadata from Metaplex or Token-2022
+  - `metadata_errors` - Tracks RPC errors during metadata fetching
+  - Uses `ReplacingMergeTree` engine for automatic deduplication
 
 **Deployment**:
 ```bash
-npm run cli setup sql/schema.erc20_balances.sql
+npm run cli setup metadata-solana
 ```
 
 ## Deployment Options
@@ -75,11 +70,14 @@ npm run cli setup sql/schema.erc20_balances.sql
 Deploy to a single ClickHouse instance:
 
 ```bash
-# Deploy all schemas
-npm run cli setup sql/schema.*.sql
+# Deploy EVM metadata schemas
+npm run cli setup metadata-evm
 
-# Deploy individual schemas
-npm run cli setup sql/schema.metadata.sql
+# Deploy Solana metadata schemas
+npm run cli setup metadata-solana
+
+# Deploy custom SQL files
+npm run cli setup files sql.schemas/schema.*.sql
 ```
 
 ### Custom Database Connection
@@ -87,7 +85,7 @@ npm run cli setup sql/schema.metadata.sql
 Specify connection parameters:
 
 ```bash
-npm run cli setup sql/schema.*.sql \
+npm run cli setup metadata-evm \
   --clickhouse-url http://localhost:8123 \
   --clickhouse-username default \
   --clickhouse-password secret \
@@ -105,10 +103,10 @@ For clustered deployments, use the `--cluster` flag. This automatically:
 
 ```bash
 # Deploy to a cluster
-npm run cli setup sql/schema.*.sql --cluster my_cluster
+npm run cli setup metadata-evm --cluster my_cluster
 
 # Deploy to cluster with custom settings
-npm run cli setup sql/schema.*.sql \
+npm run cli setup files sql.schemas/schema.*.sql \
   --cluster production_cluster \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database evm_data
@@ -116,146 +114,69 @@ npm run cli setup sql/schema.*.sql \
 
 ## Table Schemas
 
-### metadata_rpc
+### metadata (EVM)
 
-Stores token metadata fetched from smart contracts.
+Stores EVM token metadata fetched from smart contracts.
 
 ```sql
-CREATE TABLE IF NOT EXISTS metadata_rpc
+CREATE TABLE IF NOT EXISTS metadata
 (
-    chain String,
+    block_num UInt32,
+    timestamp DateTime('UTC'),
+    network String,
     contract String,
+    decimals UInt8,
     name String,
     symbol String,
-    decimals UInt8,
-    is_ok UInt8,
-    error String
+    created_at DateTime('UTC') DEFAULT now()
 )
-ENGINE = ReplacingMergeTree()
-ORDER BY (chain, contract)
+ENGINE = ReplacingMergeTree(block_num)
+ORDER BY (network, contract)
 ```
 
-**Columns**:
-- `chain` - Blockchain identifier
-- `contract` - Token contract address
-- `name` - Token name (e.g., "Tether USD")
-- `symbol` - Token symbol (e.g., "USDT")
-- `decimals` - Number of decimal places
-- `is_ok` - Success flag (1 = success, 0 = error)
-- `error` - Error message if query failed
+### metadata (Solana)
 
-**Engine**: `ReplacingMergeTree` - Automatically deduplicates rows with the same `ORDER BY` key
-
-### erc20_balances_rpc
-
-Stores ERC-20 token balances with block number tracking.
+Stores Solana token metadata fetched from Metaplex or Token-2022.
 
 ```sql
-CREATE TABLE IF NOT EXISTS erc20_balances_rpc
+CREATE TABLE IF NOT EXISTS metadata
 (
-    chain String,
-    contract String,
-    account String,
-    balance String,
     block_num UInt32,
-    is_ok UInt8,
-    error String
+    timestamp DateTime('UTC'),
+    network String,
+    contract String,
+    decimals UInt8,
+    name String,
+    symbol String,
+    uri String,
+    source LowCardinality(String),
+    standard Nullable(UInt8),
+    created_at DateTime('UTC') DEFAULT now()
 )
-ENGINE = MergeTree()
-ORDER BY (chain, contract, account, block_num)
+ENGINE = ReplacingMergeTree(block_num)
+ORDER BY (network, contract)
 ```
 
-**Columns**:
-- `chain` - Blockchain identifier
-- `contract` - Token contract address
-- `account` - Wallet address
-- `balance` - Token balance (as string to handle large numbers)
-- `block_num` - Block number when balance was queried
-- `is_ok` - Success flag (1 = success, 0 = error)
-- `error` - Error message if query failed
+**Additional Columns for Solana**:
+- `uri` - Token metadata URI (e.g., IPFS link)
+- `source` - Metadata source ('metaplex', 'token2022', 'none')
+- `standard` - Token standard (Metaplex TokenStandard enum value)
 
-**Engine**: `MergeTree` - Optimized for analytical queries
+### metadata_errors
 
-**Indexes**: Automatically created on `(chain, contract, account, block_num)` for efficient lookups
-
-### native_balances_rpc
-
-Stores native token balances.
+Tracks RPC errors during metadata fetching (same for both EVM and Solana).
 
 ```sql
-CREATE TABLE IF NOT EXISTS native_balances_rpc
+CREATE TABLE IF NOT EXISTS metadata_errors
 (
-    chain String,
-    account String,
-    balance String,
-    is_ok UInt8,
-    error String
+    network String,
+    contract String,
+    error LowCardinality(String) DEFAULT '',
+    created_at DateTime('UTC') DEFAULT now()
 )
-ENGINE = MergeTree()
-ORDER BY (chain, account)
-```
-
-**Columns**:
-- `chain` - Blockchain identifier
-- `account` - Wallet address
-- `balance` - Native token balance
-- `is_ok` - Success flag (1 = success, 0 = error)
-- `error` - Error message if query failed
-
-**Engine**: `MergeTree` - Optimized for analytical queries
-
-## Helper Functions
-
-### hex_to_string()
-
-Converts hexadecimal strings to readable strings.
-
-```sql
-CREATE FUNCTION IF NOT EXISTS hex_to_string AS (hex_str) ->
-    if(hex_str = '' OR hex_str IS NULL, '',
-       replaceRegexpAll(unhex(replaceAll(hex_str, '0x', '')), '\0', ''))
-```
-
-**Usage**:
-```sql
-SELECT hex_to_string('0x54657468657220555344') AS name;
--- Result: Tether USD
-```
-
-### hex_to_uint256()
-
-Converts hexadecimal strings to UInt256 numbers.
-
-```sql
-CREATE FUNCTION IF NOT EXISTS hex_to_uint256 AS (hex_str) ->
-    if(hex_str = '' OR hex_str IS NULL, toUInt256(0),
-       reinterpretAsUInt256(reverse(unhex(replaceAll(hex_str, '0x', '')))))
-```
-
-**Usage**:
-```sql
-SELECT hex_to_uint256('0x0de0b6b3a7640000') AS balance;
--- Result: 1000000000000000000
-```
-
-### format_balance()
-
-Formats balance with decimal places.
-
-```sql
-CREATE FUNCTION IF NOT EXISTS format_balance AS (balance_str, decimals) ->
-    if(decimals = 0, balance_str,
-       concat(
-           toString(toUInt256(balance_str) / pow(10, decimals)),
-           '.',
-           toString(toUInt256(balance_str) % pow(10, decimals))
-       ))
-```
-
-**Usage**:
-```sql
-SELECT format_balance('1000000000000000000', 18) AS formatted;
--- Result: 1.0
+ENGINE = ReplacingMergeTree(created_at)
+TTL created_at + INTERVAL 1 WEEK
+ORDER BY (network, contract)
 ```
 
 ## Database Requirements
@@ -283,26 +204,8 @@ Typical usage:
 
 **Indexes**: The schemas include appropriate indexes for:
 - Token contract lookups
-- Account balance queries
+- Network filtering
 - Block number range queries
-
-**Partitioning**: Consider partitioning large tables:
-```sql
-ALTER TABLE erc20_balances_rpc
-MODIFY PARTITION BY toYYYYMM(toDate(block_num))
-```
-
-**Materialized Views**: Create views for common queries:
-```sql
-CREATE MATERIALIZED VIEW latest_balances AS
-SELECT
-    contract,
-    account,
-    argMax(balance, block_num) AS balance
-FROM erc20_balances_rpc
-WHERE is_ok = 1
-GROUP BY contract, account
-```
 
 ## Cluster Configuration
 
@@ -311,12 +214,12 @@ GROUP BY contract, account
 When using `--cluster`, tables are automatically configured for replication:
 
 ```sql
-CREATE TABLE IF NOT EXISTS metadata_rpc ON CLUSTER production_cluster
+CREATE TABLE IF NOT EXISTS metadata ON CLUSTER production_cluster
 (
     -- columns
 )
-ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/metadata_rpc', '{replica}')
-ORDER BY (chain, contract)
+ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/metadata', '{replica}', block_num)
+ORDER BY (network, contract)
 ```
 
 ### Distributed Tables
@@ -324,8 +227,8 @@ ORDER BY (chain, contract)
 For query optimization across shards:
 
 ```sql
-CREATE TABLE IF NOT EXISTS metadata_rpc_distributed ON CLUSTER production_cluster AS metadata_rpc
-ENGINE = Distributed(production_cluster, default, metadata_rpc, rand())
+CREATE TABLE IF NOT EXISTS metadata_distributed ON CLUSTER production_cluster AS metadata
+ENGINE = Distributed(production_cluster, default, metadata, rand())
 ```
 
 ## Verification
@@ -337,23 +240,10 @@ ENGINE = Distributed(production_cluster, default, metadata_rpc, rand())
 echo "SHOW TABLES" | clickhouse-client
 
 # Check table structure
-echo "DESCRIBE TABLE metadata_rpc" | clickhouse-client
+echo "DESCRIBE TABLE metadata" | clickhouse-client
 
 # Check row counts
-echo "SELECT COUNT(*) FROM metadata_rpc" | clickhouse-client
-```
-
-### Test Functions
-
-```bash
-# Test hex_to_string
-echo "SELECT hex_to_string('0x54657468657220555344')" | clickhouse-client
-
-# Test hex_to_uint256
-echo "SELECT hex_to_uint256('0x0de0b6b3a7640000')" | clickhouse-client
-
-# Test format_balance
-echo "SELECT format_balance('1000000000000000000', 18)" | clickhouse-client
+echo "SELECT COUNT(*) FROM metadata" | clickhouse-client
 ```
 
 ### Health Check
@@ -362,21 +252,6 @@ The project includes a database health check script:
 
 ```bash
 npm run check-db
-```
-
-Output:
-```
-=== ClickHouse Database Health Check ===
-
-Target URL: http://localhost:8123
-
-1. Checking DNS resolution...
-✓ DNS resolution successful for localhost
-
-2. Pinging ClickHouse server...
-✓ ClickHouse server is reachable at http://localhost:8123
-
-✅ All health checks passed!
 ```
 
 ## Migration and Updates
@@ -390,43 +265,21 @@ To update schemas:
 3. The `IF NOT EXISTS` clauses prevent errors
 
 ```bash
-npm run cli setup sql/schema.*.sql
+npm run cli setup metadata-evm
 ```
 
 ### Adding Indexes
 
 ```sql
-ALTER TABLE metadata_rpc
+ALTER TABLE metadata
 ADD INDEX idx_contract (contract) TYPE minmax GRANULARITY 1;
 ```
 
 ### Adding Columns
 
 ```sql
-ALTER TABLE metadata_rpc
+ALTER TABLE metadata
 ADD COLUMN IF NOT EXISTS timestamp DateTime DEFAULT now();
-```
-
-## Backup and Restore
-
-### Backup
-
-```bash
-# Backup table data
-clickhouse-client --query "SELECT * FROM metadata_rpc FORMAT Native" > metadata_rpc.native
-
-# Backup schema
-clickhouse-client --query "SHOW CREATE TABLE metadata_rpc" > metadata_rpc.sql
-```
-
-### Restore
-
-```bash
-# Restore schema
-clickhouse-client < metadata_rpc.sql
-
-# Restore data
-cat metadata_rpc.native | clickhouse-client --query "INSERT INTO metadata_rpc FORMAT Native"
 ```
 
 ## Troubleshooting
@@ -456,17 +309,13 @@ echo "GRANT ALL ON database.* TO user" | clickhouse-client
 The setup command uses `IF NOT EXISTS` clauses, so it's safe to run multiple times. If you need to recreate tables:
 
 ```sql
-DROP TABLE IF EXISTS metadata_rpc;
+DROP TABLE IF EXISTS metadata;
 ```
 
 Then re-run:
 ```bash
-npm run cli setup sql/schema.*.sql
+npm run cli setup metadata-evm
 ```
-
-### Function Already Exists
-
-Functions use `CREATE FUNCTION IF NOT EXISTS`, so re-running setup is safe.
 
 ## Best Practices
 

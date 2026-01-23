@@ -115,7 +115,7 @@ For deploying custom SQL files, use the `files` subcommand:
 npm run cli setup files sql.schemas/custom.sql
 
 # Deploy multiple files
-npm run cli setup files sql.schemas/schema.metadata.sql
+npm run cli setup files sql.schemas/schema.metadata_evm.sql
 
 # Use wildcards
 npm run cli setup files sql.schemas/schema.*.sql
@@ -131,7 +131,7 @@ For ClickHouse clusters, use the `--cluster` flag with any setup command. This w
 
 ```bash
 # Deploy to a cluster
-npm run cli setup metadata --cluster my_cluster
+npm run cli setup metadata-evm --cluster my_cluster
 
 # Deploy forked-blocks to cluster
 npm run cli setup forked-blocks \
@@ -150,12 +150,13 @@ npm run cli setup files sql.schemas/schema.*.sql \
 
 The project includes these schema files in `sql.schemas/`:
 
-1. **schema.metadata.sql**: Token metadata storage
+1. **schema.metadata_evm.sql**: EVM token metadata storage
    - `metadata` table - Stores token name, symbol, and decimals
    - `metadata_errors` table - Tracks RPC errors during metadata fetching
 
-2. **schema.balances.sql**: Balance table
-   - `balances` table - Stores latest token balances per account/contract
+2. **schema.metadata_solana.sql**: Solana token metadata storage
+   - `metadata` table - Stores token name, symbol, decimals, uri, source, and standard
+   - `metadata_errors` table - Tracks RPC errors during metadata fetching
 
 3. **schema.polymarket.sql**: Polymarket tables
    - `polymarket_markets` table - Stores Polymarket market metadata
@@ -401,7 +402,7 @@ If you can't connect to ClickHouse:
 curl http://localhost:8123/ping
 
 # Verify credentials
-npm run cli setup sql/schema.metadata.sql \
+npm run cli setup files sql.schemas/schema.metadata_evm.sql \
   --clickhouse-url http://localhost:8123 \
   --clickhouse-username default \
   --clickhouse-password "" \
@@ -413,7 +414,7 @@ npm run cli setup sql/schema.metadata.sql \
 If a service fails to start:
 
 1. Check the error message for specific details
-2. Verify database schema is deployed: `npm run cli setup sql/schema.*.sql`
+2. Verify database schema is deployed: `npm run cli setup files sql.schemas/schema.*.sql`
 3. Check configuration with environment variables or flags
 4. Review logs for detailed error information
 5. Try reducing concurrency: `--concurrency 5`

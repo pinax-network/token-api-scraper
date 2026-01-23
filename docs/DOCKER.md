@@ -80,15 +80,15 @@ docker run token-api-scraper run metadata \
 ```bash
 # Setup database schema
 docker run \
-  -v $(pwd)/sql:/app/sql \
+  -v $(pwd)/sql.schemas:/app/sql.schemas \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  token-api-scraper setup sql/schema.metadata.sql
+  token-api-scraper setup metadata-evm
 
 # Setup with cluster
 docker run \
-  -v $(pwd)/sql:/app/sql \
+  -v $(pwd)/sql.schemas:/app/sql.schemas \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  token-api-scraper setup sql/schema.*.sql --cluster my_cluster
+  token-api-scraper setup metadata-evm --cluster my_cluster
 ```
 
 ## Docker Compose
@@ -485,7 +485,7 @@ docker network inspect <network-name>
 # Test database connection
 docker run \
   -e CLICKHOUSE_URL=http://clickhouse:8123 \
-  token-api-scraper setup sql/schema.metadata.sql
+  token-api-scraper setup metadata-evm
 ```
 
 ### Performance Issues
