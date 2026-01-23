@@ -7,6 +7,7 @@ import { sleep } from 'bun';
 import PQueue from 'p-queue';
 import { DEFAULT_CONFIG } from './config';
 import { createLogger } from './logger';
+import { SolanaMint } from '../services/solana-metadata';
 
 const log = createLogger('solana-rpc');
 
@@ -1009,7 +1010,6 @@ export interface SolanaTokenMetadata {
  */
 export async function fetchSolanaTokenMetadata(
     mint: string,
-    _decimals: number,
     retryOrOpts?: number | RetryOptions,
 ): Promise<SolanaTokenMetadata> {
     // First, try Metaplex metadata

@@ -20,8 +20,8 @@ const log = createLogger(serviceName);
 /**
  * Interface for Solana mint data from ClickHouse
  */
-interface SolanaMint {
-    mint: string;
+export interface SolanaMint {
+    contract: string;
     decimals: number;
     block_num: number;
     timestamp: number;
@@ -31,16 +31,16 @@ interface SolanaMint {
  * Process a single Solana mint and fetch its metadata
  */
 async function processSolanaMint(
-    mint: SolanaMint,
+    data: SolanaMint,
     network: string,
     stats: ProcessingStats,
 ): Promise<void> {
     const startTime = performance.now();
+    console.log(data);
 
     try {
         const metadata = await fetchSolanaTokenMetadata(
-            mint.mint,
-            mint.decimals,
+            data.contract
         );
         const queryTimeMs = Math.round(performance.now() - startTime);
 
@@ -50,27 +50,27 @@ async function processSolanaMint(
                 'metadata',
                 {
                     network,
-                    contract: mint.mint,
-                    block_num: mint.block_num,
-                    timestamp: mint.timestamp,
-                    decimals: mint.decimals,
+                    contract: data.contract,
+                    block_num: data.block_num,
+                    timestamp: data.timestamp,
+                    decimals: data.decimals,
                     name: metadata.name,
                     symbol: metadata.symbol,
                 },
-                `Failed to insert metadata for mint ${mint.mint}`,
-                { contract: mint.mint },
+                `Failed to insert metadata for mint ${data.contract}`,
+                { contract: data.contract },
             );
 
             if (success) {
                 incrementSuccess(serviceName);
                 stats.incrementSuccess();
                 log.debug('Metadata scraped successfully', {
-                    mint: mint.mint,
+                    mint: data.contract,
                     name: metadata.name,
                     symbol: metadata.symbol,
-                    decimals: mint.decimals,
+                    decimals: data.decimals,
                     source: metadata.source,
-                    blockNum: mint.block_num,
+                    blockNum: data.block_num,
                     queryTimeMs,
                 });
             } else {
@@ -84,24 +84,24 @@ async function processSolanaMint(
                 'metadata',
                 {
                     network,
-                    contract: mint.mint,
-                    block_num: mint.block_num,
-                    timestamp: mint.timestamp,
-                    decimals: mint.decimals,
+                    contract: data.contract,
+                    block_num: data.block_num,
+                    timestamp: data.timestamp,
+                    decimals: data.decimals,
                     name: '',
                     symbol: '',
                 },
-                `Failed to insert metadata for mint ${mint.mint}`,
-                { contract: mint.mint },
+                `Failed to insert metadata for mint ${data.contract}`,
+                { contract: data.contract },
             );
 
             if (success) {
                 incrementSuccess(serviceName);
                 stats.incrementSuccess();
                 log.debug('Metadata inserted (no on-chain metadata found)', {
-                    mint: mint.mint,
-                    decimals: mint.decimals,
-                    blockNum: mint.block_num,
+                    mint: data.contract,
+                    decimals: data.decimals,
+                    blockNum: data.block_num,
                     queryTimeMs,
                 });
             } else {
@@ -113,8 +113,8 @@ async function processSolanaMint(
         const message = (error as Error).message || String(error);
 
         log.debug('Metadata RPC call failed', {
-            mint: mint.mint,
-            blockNum: mint.block_num,
+            mint: data.contract,
+            blockNum: data.block_num,
             error: message,
         });
 
@@ -123,11 +123,11 @@ async function processSolanaMint(
             'metadata_errors',
             {
                 network,
-                contract: mint.mint,
+                contract: data.contract,
                 error: message,
             },
-            `Failed to insert error metadata for mint ${mint.mint}`,
-            { contract: mint.mint },
+            `Failed to insert error metadata for mint ${data.contract}`,
+            { contract: data.contract },
         );
 
         incrementError(serviceName);
@@ -174,9 +174,9 @@ export async function run(): Promise<void> {
         stats.startProgressLogging(mints.data.length);
 
         // Process all mints
-        for (const mint of mints.data) {
+        for (const data of mints.data) {
             queue.add(async () => {
-                await processSolanaMint(mint, network, stats);
+                await processSolanaMint(data, network, stats);
             });
         }
 
