@@ -16,11 +16,14 @@ A specialized tool for scraping and indexing ERC-20 token data on the TRON block
 ### 1. Setup Database
 
 ```bash
-# Deploy database schemas to ClickHouse
-npm run cli setup metadata
+# Deploy EVM metadata schemas to ClickHouse
+npm run cli setup metadata-evm
+
+# Deploy Solana metadata schemas to ClickHouse
+npm run cli setup metadata-solana
 
 # Or deploy custom SQL files
-npm run cli setup files sql.schemas/schema.metadata.sql
+npm run cli setup files sql.schemas/schema.metadata_evm.sql
 ```
 
 See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and cluster deployment.
@@ -32,6 +35,9 @@ See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and
 npm run cli run metadata-transfers
 npm run cli run metadata-swaps
 npm run cli run metadata-balances
+
+# Fetch Solana token metadata
+npm run cli run metadata-solana
 ```
 
 See [CLI Reference](docs/CLI.md) for all available commands and options.

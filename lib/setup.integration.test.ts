@@ -12,7 +12,8 @@ import { splitSqlStatements, transformSqlForCluster } from './setup';
 
 describe('Setup CLI Integration Tests', () => {
     const schemaFiles = [
-        'sql.schemas/schema.metadata.sql',
+        'sql.schemas/schema.metadata_evm.sql',
+        'sql.schemas/schema.metadata_solana.sql',
         'sql.schemas/schema.polymarket.sql',
     ];
 
@@ -63,7 +64,7 @@ describe('Setup CLI Integration Tests', () => {
 
     test('metadata schema should have expected statements', () => {
         const metadataContent = readFileSync(
-            'sql.schemas/schema.metadata.sql',
+            'sql.schemas/schema.metadata_evm.sql',
             'utf8',
         );
         const statements = splitSqlStatements(metadataContent);
