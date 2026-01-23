@@ -150,4 +150,26 @@ describe('Solana metadata service', () => {
             { contract: 'test-mint' },
         );
     });
+
+    test('should insert error record for NFTs (decimals=0)', async () => {
+        const errorData = {
+            network: 'solana',
+            contract: 'nft-mint',
+            error: 'NFT detected (decimals=0)',
+        };
+
+        await mockInsertRow(
+            'metadata_errors',
+            errorData,
+            'Failed to insert NFT error for mint nft-mint',
+            { contract: 'nft-mint' },
+        );
+
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata_errors',
+            errorData,
+            'Failed to insert NFT error for mint nft-mint',
+            { contract: 'nft-mint' },
+        );
+    });
 });

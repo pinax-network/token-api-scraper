@@ -39,6 +39,29 @@ async function processSolanaMint(
     const startTime = performance.now();
     console.log(data);
 
+    // Skip NFTs (tokens with 0 decimals) and insert error record
+    if (data.decimals === 0) {
+        log.debug('Skipping NFT (decimals=0)', {
+            mint: data.contract,
+            blockNum: data.block_num,
+        });
+
+        await insertRow(
+            'metadata_errors',
+            {
+                network,
+                contract: data.contract,
+                error: 'NFT detected (decimals=0)',
+            },
+            `Failed to insert NFT error for mint ${data.contract}`,
+            { contract: data.contract },
+        );
+
+        incrementError(serviceName);
+        stats.incrementError();
+        return;
+    }
+
     try {
         // Fetch metadata: use default retry options (undefined) and pass program_id for optimization
         const metadata = await fetchSolanaTokenMetadata(
