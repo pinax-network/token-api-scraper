@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS metadata (
     symbol                      String,
     uri                         String,
     source                      LowCardinality(String),
+    -- Metaplex TokenStandard enum:
+    -- 0=NonFungible, 1=FungibleAsset, 2=Fungible,
+    -- 3=NonFungibleEdition, 4=ProgrammableNonFungible, 5=ProgrammableNonFungibleEdition
     standard                    Nullable(UInt8),
 
     -- inserter details --
