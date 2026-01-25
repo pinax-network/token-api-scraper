@@ -56,6 +56,12 @@ export const METAPLEX_PROGRAM_ID =
     'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
 
 /**
+ * Wrapped SOL (WSOL) mint address
+ * This is the native SOL token wrapped as an SPL token
+ */
+export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+
+/**
  * Base58 alphabet used by Solana
  */
 const BASE58_ALPHABET =
@@ -1274,7 +1280,7 @@ export async function derivePumpAmmLpMetadata(
             }
 
             // Handle well-known tokens
-            if (mint === 'So11111111111111111111111111111111111111112') {
+            if (mint === WSOL_MINT) {
                 return 'SOL';
             }
 
@@ -1317,8 +1323,8 @@ export async function isPumpAmmLpToken(
             return { isLpToken: false, poolAddress: null };
         }
 
-        // Parse mint data - mint authority is at offset 4 (after 4 bytes of coption + maybe discriminator)
-        // Standard SPL mint layout: 4 bytes coption + 32 bytes mint authority
+        // Parse mint data - mint authority is at offset 4 (after 4 bytes of COption)
+        // Standard SPL mint layout: 4 bytes COption + 32 bytes mint authority
         const buffer = Buffer.from(mintInfo.data, 'base64');
 
         // Check if it has a mint authority
@@ -1474,7 +1480,7 @@ export async function deriveRaydiumLpMetadata(
             }
 
             // Handle well-known tokens
-            if (mint === 'So11111111111111111111111111111111111111112') {
+            if (mint === WSOL_MINT) {
                 return 'SOL';
             }
 
@@ -1513,8 +1519,8 @@ export async function isRaydiumAmmLpToken(
             return { isLpToken: false, poolAddress: null };
         }
 
-        // Parse mint data - mint authority is at offset 4 (after 4 bytes of coption)
-        // Standard SPL mint layout: 4 bytes coption + 32 bytes mint authority
+        // Parse mint data - mint authority is at offset 4 (after 4 bytes of COption)
+        // Standard SPL mint layout: 4 bytes COption + 32 bytes mint authority
         const buffer = Buffer.from(mintInfo.data, 'base64');
 
         // Check if it has a mint authority
