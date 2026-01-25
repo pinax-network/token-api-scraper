@@ -4,7 +4,6 @@
  * with verbose debug logging to help understand each step of the query
  */
 
-import { createLogger } from '../../lib/logger';
 import {
     decodeMetaplexMetadata,
     findMetadataPda,
@@ -17,8 +16,62 @@ import {
     TokenStandard,
 } from '../../lib/solana-rpc';
 
-const serviceName = 'metadata-solana-query';
-const log = createLogger(serviceName);
+const RESET = '\x1b[0m';
+const BOLD = '\x1b[1m';
+const DIM = '\x1b[2m';
+const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
+const RED = '\x1b[31m';
+const CYAN = '\x1b[36m';
+const MAGENTA = '\x1b[35m';
+
+function header(text: string): void {
+    console.log(`\n${BOLD}${CYAN}${'═'.repeat(80)}${RESET}`);
+    console.log(`${BOLD}${CYAN}  ${text}${RESET}`);
+    console.log(`${BOLD}${CYAN}${'═'.repeat(80)}${RESET}\n`);
+}
+
+function section(text: string): void {
+    console.log(`\n${BOLD}${MAGENTA}${'─'.repeat(80)}${RESET}`);
+    console.log(`${BOLD}${MAGENTA}  ${text}${RESET}`);
+    console.log(`${BOLD}${MAGENTA}${'─'.repeat(80)}${RESET}\n`);
+}
+
+function info(text: string, data?: Record<string, unknown>): void {
+    console.log(`${DIM}›${RESET} ${text}`);
+    if (data) {
+        for (const [key, value] of Object.entries(data)) {
+            console.log(`    ${DIM}${key}:${RESET} ${value}`);
+        }
+    }
+}
+
+function success(text: string, data?: Record<string, unknown>): void {
+    console.log(`${GREEN}✓${RESET} ${BOLD}${text}${RESET}`);
+    if (data) {
+        for (const [key, value] of Object.entries(data)) {
+            console.log(`    ${DIM}${key}:${RESET} ${value}`);
+        }
+    }
+}
+
+function warn(text: string, data?: Record<string, unknown>): void {
+    console.warn(`${YELLOW}⚠${RESET} ${YELLOW}${text}${RESET}`);
+    if (data) {
+        for (const [key, value] of Object.entries(data)) {
+            console.warn(`    ${DIM}${key}:${RESET} ${value}`);
+        }
+    }
+}
+
+function error(text: string, data?: Record<string, unknown>): void {
+    console.error(`${RED}✗${RESET} ${RED}${text}${RESET}`);
+    if (data) {
+        for (const [key, value] of Object.entries(data)) {
+            console.error(`    ${DIM}${key}:${RESET} ${value}`);
+        }
+    }
+}
 
 // Solana base58 address length constraints
 const MIN_BASE58_ADDRESS_LENGTH = 32;
@@ -35,12 +88,10 @@ export async function queryMetadata(
     mint: string,
     programId?: string,
 ): Promise<void> {
-    log.info('='.repeat(80));
-    log.info('Starting Solana metadata query', { mint });
-    log.info('='.repeat(80));
+    header(`Solana Metadata Query: ${mint}`);
 
     // Step 1: Validate the mint address format
-    log.info('Step 1: Validating mint address format');
+    section('Step 1: Validating mint address format');
     try {
         // Basic validation - should be a base58 string of reasonable length
         if (
@@ -48,28 +99,27 @@ export async function queryMetadata(
             mint.length < MIN_BASE58_ADDRESS_LENGTH ||
             mint.length > MAX_BASE58_ADDRESS_LENGTH
         ) {
-            log.error('Invalid mint address length', {
+            error('Invalid mint address length', {
                 mint,
                 length: mint.length,
                 expected: `${MIN_BASE58_ADDRESS_LENGTH}-${MAX_BASE58_ADDRESS_LENGTH} characters`,
             });
             return;
         }
-        log.info('Mint address format looks valid', {
+        success('Mint address format looks valid', {
             mint,
             length: mint.length,
         });
-    } catch (error) {
-        log.error('Failed to validate mint address', {
+    } catch (err) {
+        error('Failed to validate mint address', {
             mint,
-            error: (error as Error).message,
+            error: (err as Error).message,
         });
         return;
     }
 
     // Step 2: Get mint account info to determine program type
-    log.info('-'.repeat(80));
-    log.info('Step 2: Fetching mint account info to determine program type');
+    section('Step 2: Fetching mint account info');
     let mintAccountInfo = null;
     let detectedProgramId = programId;
 
@@ -77,14 +127,12 @@ export async function queryMetadata(
         mintAccountInfo = await getAccountInfo(mint);
 
         if (!mintAccountInfo) {
-            log.warn('Mint account not found', {
+            warn('Mint account not found', {
                 mint,
-                message:
-                    'The mint account does not exist or has been closed on the blockchain',
+                message: 'The mint account does not exist or has been closed',
             });
         } else {
-            log.info('Mint account found', {
-                mint,
+            success('Mint account found', {
                 owner: mintAccountInfo.owner,
                 lamports: mintAccountInfo.lamports,
                 dataLength: mintAccountInfo.data?.length || 0,
@@ -97,33 +145,29 @@ export async function queryMetadata(
             const isToken2022 = detectedProgramId === TOKEN_2022_PROGRAM_ID;
             const isStandardSPL = detectedProgramId === TOKEN_PROGRAM_ID;
 
-            log.info('Detected token program', {
+            info('Detected token program', {
                 programId: detectedProgramId,
-                isToken2022,
-                isStandardSPL,
-                programName: isToken2022
+                programType: isToken2022
                     ? 'Token-2022 (Token Extensions)'
                     : isStandardSPL
                       ? 'Standard SPL Token'
                       : 'Unknown',
             });
         }
-    } catch (error) {
-        log.error('Failed to fetch mint account info', {
+    } catch (err) {
+        error('Failed to fetch mint account info', {
             mint,
-            error: (error as Error).message,
+            error: (err as Error).message,
         });
     }
 
     // Step 3: Try Metaplex metadata
-    log.info('-'.repeat(80));
-    log.info('Step 3: Looking up Metaplex Token Metadata');
+    section('Step 3: Looking up Metaplex Token Metadata');
 
     let metaplexFound = false;
     try {
         const metadataPda = findMetadataPda(mint);
-        log.info('Computed Metaplex metadata PDA', {
-            mint,
+        info('Computed Metaplex metadata PDA', {
             metadataPda,
             metaplexProgramId: METAPLEX_PROGRAM_ID,
         });
@@ -131,13 +175,11 @@ export async function queryMetadata(
         const accountInfo = await getAccountInfo(metadataPda);
 
         if (!accountInfo) {
-            log.info('No Metaplex metadata account found at PDA', {
-                metadataPda,
+            info('No Metaplex metadata account found at PDA', {
                 message: 'This token may not have Metaplex metadata registered',
             });
         } else {
-            log.info('Metaplex metadata account found', {
-                metadataPda,
+            info('Metaplex metadata account found', {
                 dataLength: accountInfo.data?.length || 0,
                 owner: accountInfo.owner,
                 lamports: accountInfo.lamports,
@@ -145,7 +187,7 @@ export async function queryMetadata(
 
             // Try to decode the metadata
             if (accountInfo.data) {
-                log.info('Attempting to decode Metaplex metadata...');
+                info('Attempting to decode Metaplex metadata...');
 
                 const metadata = decodeMetaplexMetadata(accountInfo.data);
 
@@ -159,12 +201,11 @@ export async function queryMetadata(
                         metadata.tokenStandard !== null &&
                         isNftTokenStandard(metadata.tokenStandard);
 
-                    log.info('✓ Successfully decoded Metaplex metadata', {
+                    success('Decoded Metaplex metadata', {
                         name: metadata.name || '(empty)',
                         symbol: metadata.symbol || '(empty)',
                         uri: metadata.uri || '(empty)',
-                        tokenStandard: metadata.tokenStandard,
-                        tokenStandardName,
+                        tokenStandard: `${metadata.tokenStandard} (${tokenStandardName})`,
                         sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
                         primarySaleHappened: metadata.primarySaleHappened,
                         isMutable: metadata.isMutable,
@@ -172,65 +213,48 @@ export async function queryMetadata(
                     });
 
                     if (isNft) {
-                        log.warn('Token is detected as an NFT', {
+                        warn('Token is detected as an NFT', {
                             tokenStandardName,
-                            message:
-                                'This token would be skipped in the main metadata-solana service',
+                            message: 'Would be skipped in main metadata-solana service',
                         });
                     }
                 } else {
-                    log.warn('Failed to decode Metaplex metadata', {
-                        message:
-                            'Account exists but data could not be parsed as Metaplex metadata',
+                    warn('Failed to decode Metaplex metadata', {
+                        message: 'Account exists but data could not be parsed',
                         dataLengthBytes: accountInfo.data.length,
                     });
                 }
             } else {
-                log.warn('Metaplex account has no data', {
-                    metadataPda,
-                });
+                warn('Metaplex account has no data');
             }
         }
-    } catch (error) {
-        log.error('Error during Metaplex metadata lookup', {
+    } catch (err) {
+        error('Error during Metaplex metadata lookup', {
             mint,
-            error: (error as Error).message,
+            error: (err as Error).message,
         });
     }
 
     // Step 4: Try Token-2022 extensions (if applicable)
-    log.info('-'.repeat(80));
-    log.info('Step 4: Checking for Token-2022 metadata extension');
+    section('Step 4: Checking for Token-2022 metadata extension');
 
     const isToken2022Program = detectedProgramId === TOKEN_2022_PROGRAM_ID;
 
     if (!isToken2022Program) {
-        log.info(
-            'Skipping Token-2022 extension lookup - not a Token-2022 token',
-            {
-                detectedProgramId,
-                token2022ProgramId: TOKEN_2022_PROGRAM_ID,
-                message:
-                    'Token-2022 extensions are only available for tokens created with the Token-2022 program',
-            },
-        );
+        info('Skipping Token-2022 extension lookup - not a Token-2022 token', {
+            detectedProgramId,
+            token2022ProgramId: TOKEN_2022_PROGRAM_ID,
+        });
     } else if (!mintAccountInfo) {
-        log.warn(
-            'Cannot check Token-2022 extensions - mint account info not available',
-        );
+        warn('Cannot check Token-2022 extensions - mint account info not available');
     } else {
-        log.info(
-            'Token is a Token-2022 token, checking for metadata extension',
-        );
+        info('Token is a Token-2022 token, checking for metadata extension');
 
         try {
             if (mintAccountInfo.data) {
-                log.info(
-                    'Parsing Token-2022 extensions from mint account data',
-                    {
-                        dataLength: mintAccountInfo.data.length,
-                    },
-                );
+                info('Parsing Token-2022 extensions from mint account data', {
+                    dataLength: mintAccountInfo.data.length,
+                });
 
                 const token2022Metadata = parseToken2022Extensions(
                     mintAccountInfo.data,
@@ -238,61 +262,50 @@ export async function queryMetadata(
                 );
 
                 if (token2022Metadata) {
-                    log.info('✓ Found Token-2022 metadata extension', {
+                    success('Found Token-2022 metadata extension', {
                         name: token2022Metadata.name || '(empty)',
                         symbol: token2022Metadata.symbol || '(empty)',
                         uri: token2022Metadata.uri || '(empty)',
                     });
                 } else {
-                    log.info('No Token-2022 metadata extension found', {
-                        message:
-                            'The Token-2022 mint does not have the TOKEN_METADATA extension',
+                    info('No Token-2022 metadata extension found', {
+                        message: 'The Token-2022 mint does not have the TOKEN_METADATA extension',
                     });
                 }
             } else {
-                log.warn('Mint account has no data to parse for extensions');
+                warn('Mint account has no data to parse for extensions');
             }
-        } catch (error) {
-            log.error('Error parsing Token-2022 extensions', {
+        } catch (err) {
+            error('Error parsing Token-2022 extensions', {
                 mint,
-                error: (error as Error).message,
+                error: (err as Error).message,
             });
         }
     }
 
     // Summary
-    log.info('='.repeat(80));
-    log.info('Query Summary');
-    log.info('='.repeat(80));
+    header('Query Summary');
 
-    const summary = {
-        mint,
-        accountExists: mintAccountInfo !== null,
-        programId: detectedProgramId || 'unknown',
-        programType:
-            detectedProgramId === TOKEN_2022_PROGRAM_ID
-                ? 'Token-2022'
-                : detectedProgramId === TOKEN_PROGRAM_ID
-                  ? 'Standard SPL Token'
-                  : 'Unknown',
-        metaplexMetadataFound: metaplexFound,
-        isToken2022: isToken2022Program,
-    };
+    const programType =
+        detectedProgramId === TOKEN_2022_PROGRAM_ID
+            ? 'Token-2022'
+            : detectedProgramId === TOKEN_PROGRAM_ID
+              ? 'Standard SPL Token'
+              : 'Unknown';
 
-    log.info('Final summary', summary);
+    console.log(`  ${BOLD}Mint:${RESET}                  ${mint}`);
+    console.log(`  ${BOLD}Account exists:${RESET}        ${mintAccountInfo !== null ? `${GREEN}Yes${RESET}` : `${RED}No${RESET}`}`);
+    console.log(`  ${BOLD}Program:${RESET}               ${programType}`);
+    console.log(`  ${BOLD}Metaplex metadata:${RESET}     ${metaplexFound ? `${GREEN}Found${RESET}` : `${DIM}Not found${RESET}`}`);
+    console.log(`  ${BOLD}Token-2022:${RESET}            ${isToken2022Program ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`);
+    console.log();
 
     if (!mintAccountInfo) {
-        log.warn(
-            'Recommendation: Check if the mint address is correct and exists on the network',
-        );
+        warn('Check if the mint address is correct and exists on the network');
     } else if (!metaplexFound && !isToken2022Program) {
-        log.info(
-            'No metadata found - this token has no Metaplex metadata and is not a Token-2022 token',
-        );
+        info('No metadata found - token has no Metaplex metadata and is not Token-2022');
     } else if (!metaplexFound && isToken2022Program) {
-        log.info(
-            'No metadata found - this Token-2022 token has neither Metaplex metadata nor TOKEN_METADATA extension',
-        );
+        info('No metadata found - Token-2022 has neither Metaplex metadata nor TOKEN_METADATA extension');
     }
 }
 
@@ -302,7 +315,7 @@ export async function queryMetadata(
  */
 export async function run(mint: string, programId?: string): Promise<void> {
     if (!mint) {
-        log.error('No mint address provided');
+        error('No mint address provided');
         process.exit(1);
     }
 
