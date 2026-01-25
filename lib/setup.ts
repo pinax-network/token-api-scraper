@@ -255,7 +255,11 @@ export async function executeSqlSetup(
     filePaths: string[],
     options: SetupOptions = {},
 ): Promise<void> {
-    log.info('Starting SQL setup', { files: filePaths.length });
+    log.info('Starting SQL setup', {
+        files: filePaths.length,
+        clickhouseUrl: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+        clickhouseDatabase: process.env.CLICKHOUSE_DATABASE || '(not set)',
+    });
 
     for (const filePath of filePaths) {
         log.info('Processing file', { file: filePath });
