@@ -260,7 +260,7 @@ export async function executeSqlSetup(
     const setupDatabase =
         process.env.CLICKHOUSE_DATABASE_INSERT ||
         process.env.CLICKHOUSE_DATABASE;
-    
+
     log.info('Starting SQL setup', {
         files: filePaths.length,
         clickhouseUrl:

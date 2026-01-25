@@ -189,10 +189,7 @@ describe('Solana metadata service', () => {
             }),
         );
 
-        const result = await mockFetchSolanaTokenMetadata(
-            'burned-mint',
-            8,
-        );
+        const result = await mockFetchSolanaTokenMetadata('burned-mint', 8);
 
         expect(result.name).toBe('');
         expect(result.symbol).toBe('');

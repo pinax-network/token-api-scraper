@@ -1087,7 +1087,9 @@ export async function fetchSolanaTokenMetadata(
     // Validate programId is always provided - this is critical data we should always have
     if (!programId) {
         log.error('CRITICAL: programId is required but not provided', { mint });
-        console.error(`CRITICAL ERROR: programId is required for mint ${mint}. This indicates missing data in the source.`);
+        console.error(
+            `CRITICAL ERROR: programId is required for mint ${mint}. This indicates missing data in the source.`,
+        );
         process.exit(1);
     }
 
