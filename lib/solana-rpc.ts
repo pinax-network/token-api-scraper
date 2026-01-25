@@ -1184,7 +1184,7 @@ export async function fetchSolanaTokenMetadata(
         name: '',
         symbol: '',
         uri: '',
-        source: 'none',
+        source: '',
         tokenStandard: null,
         mintAccountExists,
     };

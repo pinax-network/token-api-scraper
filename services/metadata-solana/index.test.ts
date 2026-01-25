@@ -13,12 +13,7 @@ const mockFetchSolanaTokenMetadata = mock(
             name: 'Test Token',
             symbol: 'TEST',
             uri: 'https://example.com/metadata.json',
-            source: 'metaplex' as
-                | 'metaplex'
-                | 'token2022'
-                | 'pump-amm'
-                | 'none'
-                | 'burned',
+            source: 'metaplex' as '' | 'metaplex' | 'token2022' | 'pump-amm',
             tokenStandard: 2 as number | null, // Fungible
             mintAccountExists: true,
         }),
@@ -130,7 +125,9 @@ describe('Solana metadata service', () => {
                     name: 'URI Token Name',
                     description: 'Test description',
                     image: 'https://example.com/image.png',
-                } as { name: string; description: string; image: string } | undefined,
+                } as
+                    | { name: string; description: string; image: string }
+                    | undefined,
                 raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}' as
                     | string
                     | undefined,
@@ -177,7 +174,7 @@ describe('Solana metadata service', () => {
                 name: '',
                 symbol: '',
                 uri: '',
-                source: 'none' as const,
+                source: '' as const,
                 tokenStandard: null as number | null,
                 mintAccountExists: true,
             }),
@@ -190,7 +187,7 @@ describe('Solana metadata service', () => {
 
         expect(result.name).toBe('');
         expect(result.symbol).toBe('');
-        expect(result.source).toBe('none');
+        expect(result.source).toBe('');
         expect(result.tokenStandard).toBeNull();
         expect(result.mintAccountExists).toBe(true);
     });
@@ -202,7 +199,7 @@ describe('Solana metadata service', () => {
                 name: '',
                 symbol: '',
                 uri: '',
-                source: 'none' as const,
+                source: '' as const,
                 tokenStandard: null as number | null,
                 mintAccountExists: false,
             }),
@@ -212,13 +209,13 @@ describe('Solana metadata service', () => {
 
         expect(result.name).toBe('');
         expect(result.symbol).toBe('');
-        expect(result.source).toBe('none');
+        expect(result.source).toBe('');
         expect(result.tokenStandard).toBeNull();
         expect(result.mintAccountExists).toBe(false);
     });
 
     test('should insert metadata record when no metadata is found (account exists)', async () => {
-        // Tokens with source='none' and mintAccountExists=true should be inserted with source='none'
+        // Tokens with source='' should be inserted with empty source
         const metadataData = {
             network: 'solana',
             contract: 'no-metadata-mint',
@@ -228,7 +225,7 @@ describe('Solana metadata service', () => {
             name: '',
             symbol: '',
             uri: '',
-            source: 'none',
+            source: '',
             image: '',
             description: '',
         };
@@ -248,8 +245,8 @@ describe('Solana metadata service', () => {
         );
     });
 
-    test('should insert metadata record for burned/closed mint account with source=burned', async () => {
-        // Tokens with source='none' and mintAccountExists=false should be inserted with source='burned'
+    test('should insert metadata record for burned/closed mint account with source=empty', async () => {
+        // Tokens with burned accounts should be inserted with empty source
         const metadataData = {
             network: 'solana',
             contract: 'burned-mint',
@@ -259,7 +256,7 @@ describe('Solana metadata service', () => {
             name: '',
             symbol: '',
             uri: '',
-            source: 'burned',
+            source: '',
             image: '',
             description: '',
         };

@@ -10,12 +10,12 @@ CREATE TABLE IF NOT EXISTS metadata (
 
     -- token metadata --
     decimals                    UInt8,
-    name                        String,
-    symbol                      String,
-    uri                         String,
-    source                      Enum8('metaplex' = 0, 'token2022' = 1, 'none' = 2, 'burned' = 3, 'pump-amm' = 4),
+    name                        String DEFAULT '',
+    symbol                      String DEFAULT '',
+    source                      Enum8('' = 0, 'token2022' = 1, 'metaplex' = 2, 'pump-amm' = 4),
 
-    -- parsed token metadata --
+    -- token metadata (optional) --
+    uri                         String DEFAULT '',
     image                       String DEFAULT '',
     description                 String DEFAULT '',
 

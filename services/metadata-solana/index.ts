@@ -81,7 +81,7 @@ async function processSolanaMint(
             return;
         }
 
-        if (metadata.source !== 'none') {
+        if (metadata.source !== '') {
             // Fetch additional metadata from URI if available
             let image = '';
             let description = '';
@@ -262,11 +262,6 @@ async function processSolanaMint(
                 }
             } else {
                 // No metadata found - still insert to metadata table with decimals
-                // Determine source based on whether account exists
-                const noMetadataSource = metadata.mintAccountExists
-                    ? 'none'
-                    : 'burned';
-
                 const errorMessage = metadata.mintAccountExists
                     ? 'No on-chain metadata found'
                     : 'Mint account burned or closed';
@@ -278,7 +273,6 @@ async function processSolanaMint(
                     queryTimeMs,
                     isPumpAmmLp,
                     mintAccountExists: metadata.mintAccountExists,
-                    source: noMetadataSource,
                 });
 
                 // Insert to metadata table (with decimals info)
@@ -293,7 +287,7 @@ async function processSolanaMint(
                         name: '',
                         symbol: '',
                         uri: '',
-                        source: noMetadataSource,
+                        source: '',
                         image: '',
                         description: '',
                     },
