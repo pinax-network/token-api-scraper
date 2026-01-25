@@ -30,6 +30,16 @@ const mockIsNftTokenStandard = mock((tokenStandard: number | null) => {
         tokenStandard === 5
     );
 });
+const mockFetchUriMetadata = mock(() =>
+    Promise.resolve({
+        success: true,
+        metadata: {
+            name: 'URI Token Name',
+            description: 'Test description',
+            image: 'https://example.com/image.png',
+        },
+    }),
+);
 
 mock.module('../../lib/clickhouse', () => ({
     query: mockQuery,
@@ -46,6 +56,10 @@ mock.module('../../lib/solana-rpc', () => ({
         ProgrammableNonFungible: 4,
         ProgrammableNonFungibleEdition: 5,
     },
+}));
+
+mock.module('../../lib/uri-fetch', () => ({
+    fetchUriMetadata: mockFetchUriMetadata,
 }));
 
 mock.module('../../src/insert', () => ({
@@ -75,6 +89,7 @@ describe('Solana metadata service', () => {
         mockInitService.mockClear();
         mockShutdownBatchInsertQueue.mockClear();
         mockIsNftTokenStandard.mockClear();
+        mockFetchUriMetadata.mockClear();
 
         // Reset to default implementations
         mockQuery.mockReturnValue(Promise.resolve({ data: [] }));
@@ -89,6 +104,16 @@ describe('Solana metadata service', () => {
             }),
         );
         mockInsertRow.mockReturnValue(Promise.resolve(true));
+        mockFetchUriMetadata.mockReturnValue(
+            Promise.resolve({
+                success: true,
+                metadata: {
+                    name: 'URI Token Name',
+                    description: 'Test description',
+                    image: 'https://example.com/image.png',
+                },
+            }),
+        );
     });
 
     test('should handle successful metadata fetch from Metaplex', async () => {
@@ -154,7 +179,7 @@ describe('Solana metadata service', () => {
         );
     });
 
-    test('insert should be called with correct metadata structure', async () => {
+    test('insert should be called with correct metadata structure including image and description', async () => {
         const metadata = {
             network: 'solana',
             contract: 'test-mint',
@@ -166,6 +191,8 @@ describe('Solana metadata service', () => {
             uri: 'https://example.com/metadata.json',
             source: 'metaplex',
             token_standard: 2, // Fungible (original Metaplex enum value)
+            image: 'https://example.com/image.png',
+            description: 'Test description',
         };
 
         await mockInsertRow('metadata', metadata, 'test context', {
@@ -213,5 +240,31 @@ describe('Solana metadata service', () => {
         expect(mockIsNftTokenStandard(1)).toBe(false); // FungibleAsset
         expect(mockIsNftTokenStandard(2)).toBe(false); // Fungible
         expect(mockIsNftTokenStandard(null)).toBe(false); // null/unknown
+    });
+
+    test('fetchUriMetadata should extract image and description from URI', async () => {
+        const result = await mockFetchUriMetadata(
+            'https://example.com/metadata.json',
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.metadata?.description).toBe('Test description');
+        expect(result.metadata?.image).toBe('https://example.com/image.png');
+    });
+
+    test('fetchUriMetadata should handle failed fetch', async () => {
+        mockFetchUriMetadata.mockReturnValue(
+            Promise.resolve({
+                success: false,
+                error: 'HTTP 404',
+            }),
+        );
+
+        const result = await mockFetchUriMetadata(
+            'https://example.com/missing.json',
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('HTTP 404');
     });
 });

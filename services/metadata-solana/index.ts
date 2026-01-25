@@ -16,6 +16,7 @@ import {
     isNftTokenStandard,
     TokenStandard,
 } from '../../lib/solana-rpc';
+import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
 
 const serviceName = 'metadata-solana';
@@ -79,6 +80,29 @@ async function processSolanaMint(
         }
 
         if (metadata.source !== 'none') {
+            // Fetch additional metadata from URI if available
+            let image = '';
+            let description = '';
+
+            if (metadata.uri) {
+                const uriResult = await fetchUriMetadata(metadata.uri);
+                if (uriResult.success && uriResult.metadata) {
+                    image = uriResult.metadata.image || '';
+                    description = uriResult.metadata.description || '';
+                    log.debug('URI metadata fetched', {
+                        mint: data.contract,
+                        hasImage: !!image,
+                        hasDescription: !!description,
+                    });
+                } else {
+                    log.warn('Failed to fetch URI metadata after 3 retries', {
+                        mint: data.contract,
+                        uri: metadata.uri,
+                        error: uriResult.error,
+                    });
+                }
+            }
+
             // Successfully found metadata
             const success = await insertRow(
                 'metadata',
@@ -93,6 +117,8 @@ async function processSolanaMint(
                     uri: metadata.uri,
                     source: metadata.source,
                     token_standard: metadata.tokenStandard,
+                    image,
+                    description,
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },
@@ -110,6 +136,8 @@ async function processSolanaMint(
                     tokenStandard: metadata.tokenStandard,
                     blockNum: data.block_num,
                     queryTimeMs,
+                    hasImage: !!image,
+                    hasDescription: !!description,
                 });
             } else {
                 incrementError(serviceName);
@@ -131,6 +159,8 @@ async function processSolanaMint(
                     uri: '',
                     source: metadata.source,
                     token_standard: null,
+                    image: '',
+                    description: '',
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },

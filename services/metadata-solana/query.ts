@@ -215,7 +215,8 @@ export async function queryMetadata(
                     if (isNft) {
                         warn('Token is detected as an NFT', {
                             tokenStandardName,
-                            message: 'Would be skipped in main metadata-solana service',
+                            message:
+                                'Would be skipped in main metadata-solana service',
                         });
                     }
                 } else {
@@ -247,7 +248,9 @@ export async function queryMetadata(
             token2022ProgramId: TOKEN_2022_PROGRAM_ID,
         });
     } else if (!mintAccountInfo) {
-        warn('Cannot check Token-2022 extensions - mint account info not available');
+        warn(
+            'Cannot check Token-2022 extensions - mint account info not available',
+        );
     } else {
         info('Token is a Token-2022 token, checking for metadata extension');
 
@@ -271,7 +274,8 @@ export async function queryMetadata(
                     });
                 } else {
                     info('No Token-2022 metadata extension found', {
-                        message: 'The Token-2022 mint does not have the TOKEN_METADATA extension',
+                        message:
+                            'The Token-2022 mint does not have the TOKEN_METADATA extension',
                     });
                 }
             } else {
@@ -296,10 +300,16 @@ export async function queryMetadata(
               : 'Unknown';
 
     console.log(`  ${BOLD}Mint:${RESET}                  ${mint}`);
-    console.log(`  ${BOLD}Account exists:${RESET}        ${mintAccountInfo !== null ? `${GREEN}Yes${RESET}` : `${RED}No${RESET}`}`);
+    console.log(
+        `  ${BOLD}Account exists:${RESET}        ${mintAccountInfo !== null ? `${GREEN}Yes${RESET}` : `${RED}No${RESET}`}`,
+    );
     console.log(`  ${BOLD}Program:${RESET}               ${programType}`);
-    console.log(`  ${BOLD}Metaplex metadata:${RESET}     ${metaplexFound ? `${GREEN}Found${RESET}` : `${DIM}Not found${RESET}`}`);
-    console.log(`  ${BOLD}Token-2022 metadata:${RESET}   ${token2022Found ? `${GREEN}Found${RESET}` : isToken2022Program ? `${DIM}Not found${RESET}` : `${DIM}N/A${RESET}`}`);
+    console.log(
+        `  ${BOLD}Metaplex metadata:${RESET}     ${metaplexFound ? `${GREEN}Found${RESET}` : `${DIM}Not found${RESET}`}`,
+    );
+    console.log(
+        `  ${BOLD}Token-2022 metadata:${RESET}   ${token2022Found ? `${GREEN}Found${RESET}` : isToken2022Program ? `${DIM}Not found${RESET}` : `${DIM}N/A${RESET}`}`,
+    );
     console.log();
 
     if (!mintAccountInfo) {

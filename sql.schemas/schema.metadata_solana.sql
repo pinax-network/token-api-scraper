@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS metadata (
     -- Metaplex TokenStandard enum (NULL for tokens without metadata)
     token_standard              Nullable(Enum8('NonFungible' = 0, 'FungibleAsset' = 1, 'Fungible' = 2, 'NonFungibleEdition' = 3, 'ProgrammableNonFungible' = 4, 'ProgrammableNonFungibleEdition' = 5)),
 
+    -- token metadata URI --
+    image                       String DEFAULT '',
+    description                 String DEFAULT '',
+
     -- inserter details --
     created_at                  DateTime('UTC') DEFAULT now()
 )
@@ -37,5 +41,5 @@ TTL created_at + INTERVAL 1 WEEK
 ORDER BY ( network, contract );
 
 -- Solana network specific metadata --
-INSERT INTO metadata (network, contract, decimals, name, symbol, uri, source, token_standard) VALUES
-    ('solana', 'So11111111111111111111111111111111111111112', 9, 'Wrapped SOL', 'SOL', '', 'none', NULL);
+INSERT INTO metadata (network, contract, decimals, name, symbol, uri, source, token_standard, image, description) VALUES
+    ('solana', 'So11111111111111111111111111111111111111112', 9, 'Wrapped SOL', 'SOL', '', 'none', NULL, '', '');
