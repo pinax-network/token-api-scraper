@@ -239,6 +239,7 @@ export async function queryMetadata(
     section('Step 4: Checking for Token-2022 metadata extension');
 
     const isToken2022Program = detectedProgramId === TOKEN_2022_PROGRAM_ID;
+    let token2022Found = false;
 
     if (!isToken2022Program) {
         info('Skipping Token-2022 extension lookup - not a Token-2022 token', {
@@ -262,6 +263,7 @@ export async function queryMetadata(
                 );
 
                 if (token2022Metadata) {
+                    token2022Found = true;
                     success('Found Token-2022 metadata extension', {
                         name: token2022Metadata.name || '(empty)',
                         symbol: token2022Metadata.symbol || '(empty)',
@@ -297,15 +299,13 @@ export async function queryMetadata(
     console.log(`  ${BOLD}Account exists:${RESET}        ${mintAccountInfo !== null ? `${GREEN}Yes${RESET}` : `${RED}No${RESET}`}`);
     console.log(`  ${BOLD}Program:${RESET}               ${programType}`);
     console.log(`  ${BOLD}Metaplex metadata:${RESET}     ${metaplexFound ? `${GREEN}Found${RESET}` : `${DIM}Not found${RESET}`}`);
-    console.log(`  ${BOLD}Token-2022:${RESET}            ${isToken2022Program ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`);
+    console.log(`  ${BOLD}Token-2022 metadata:${RESET}   ${token2022Found ? `${GREEN}Found${RESET}` : isToken2022Program ? `${DIM}Not found${RESET}` : `${DIM}N/A${RESET}`}`);
     console.log();
 
     if (!mintAccountInfo) {
         warn('Check if the mint address is correct and exists on the network');
-    } else if (!metaplexFound && !isToken2022Program) {
-        info('No metadata found - token has no Metaplex metadata and is not Token-2022');
-    } else if (!metaplexFound && isToken2022Program) {
-        info('No metadata found - Token-2022 has neither Metaplex metadata nor TOKEN_METADATA extension');
+    } else if (!metaplexFound && !token2022Found) {
+        warn('No metadata found');
     }
 }
 

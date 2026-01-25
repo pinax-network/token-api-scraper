@@ -239,9 +239,10 @@ describe('Token-2022 extension parsing', () => {
     });
 
     test('should return null for account with wrong account type', () => {
-        // Create mint data with account type != 1
-        const data = new Uint8Array(100);
-        data[82] = 2; // Account type = 2 (not a mint)
+        // Create mint data with proper Token-2022 layout but wrong account type
+        // Token-2022 layout: 82 bytes mint + 83 bytes padding + 1 byte account type = 166
+        const data = new Uint8Array(200);
+        data[165] = 2; // Account type = 2 (Token Account, not Mint)
         const base64 = btoa(String.fromCharCode(...data));
         expect(
             parseToken2022Extensions(base64, TOKEN_2022_PROGRAM_ID),

@@ -920,6 +920,12 @@ export const TOKEN_2022_PROGRAM_ID =
 /**
  * Parse Token-2022 extensions from mint account data
  * Returns metadata if TOKEN_METADATA extension is found
+ *
+ * Token-2022 Mint layout:
+ * - Bytes 0-81: Standard mint data (82 bytes)
+ * - Bytes 82-164: Padding (83 bytes of zeros)
+ * - Byte 165: Account type (1 = Mint, 2 = Account)
+ * - Bytes 166+: TLV extensions
  */
 export function parseToken2022Extensions(
     base64Data: string,
@@ -933,31 +939,23 @@ export function parseToken2022Extensions(
 
         const data = base64ToUint8Array(base64Data);
 
-        // Token-2022 mint minimum size is 82 bytes (standard mint data)
-        // Extensions start after offset 82 or 165 depending on account type
-        if (data.length < 82) {
+        // Token-2022 mint with extensions is at least 166 bytes
+        // (82 mint data + 83 padding + 1 account type)
+        if (data.length <= 165) {
             return null;
         }
 
-        // Standard mint data is 82 bytes
-        // Account type byte follows if extensions are present
-        let offset = 82;
+        // Account type is at offset 165
+        const accountType = data[165];
 
-        // Check for extensions by looking at account type
-        if (data.length > 82) {
-            // Read account type (1 byte at offset 82)
-            const accountType = data[82];
-            offset = 83; // Start of TLV extensions
-
-            // Account type 1 = Mint, 2 = Account
-            if (accountType !== 1) {
-                // Not a mint account
-                return null;
-            }
-        } else {
-            // No extensions
+        // Account type 1 = Mint, 2 = Account
+        if (accountType !== 1) {
+            // Not a mint account or uninitialized
             return null;
         }
+
+        // TLV extensions start at offset 166
+        let offset = 166;
 
         // Parse TLV (Type-Length-Value) extensions
         while (offset + 4 <= data.length) {
