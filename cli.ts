@@ -728,6 +728,75 @@ Examples:
 addClickhouseOptions(setupFiles);
 
 // ============================================================================
+// COMMAND: query (for troubleshooting single contract queries)
+// ============================================================================
+const queryCommand = program
+    .command('query')
+    .description('Query single contracts for troubleshooting');
+
+// ---- query metadata-solana <mint> ----
+queryCommand
+    .command('metadata-solana <mint>')
+    .description(
+        'Query metadata for a single Solana mint address with verbose debug logging',
+    )
+    .option(
+        '--node-url <url>',
+        'Solana RPC node URL for querying blockchain data',
+        process.env.NODE_URL || process.env.SOLANA_NODE_URL,
+    )
+    .option(
+        '--program-id <id>',
+        'Override the detected program ID (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA for SPL Token, TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb for Token-2022)',
+    )
+    .addHelpText(
+        'after',
+        `
+This command queries metadata for a single Solana mint address with verbose debug logging.
+It's useful for troubleshooting to understand why a particular token may not be returning metadata.
+
+The command will:
+  1. Validate the mint address format
+  2. Fetch the mint account to determine if it's SPL Token or Token-2022
+  3. Look up Metaplex Token Metadata (works for both program types)
+  4. If Token-2022, also check for TOKEN_METADATA extension
+
+Examples:
+  $ bun run cli.ts query metadata-solana So11111111111111111111111111111111111111112
+  $ bun run cli.ts query metadata-solana C8y5X4NfcXexq5WvauuWCSj9CfWJVNMnBnUfeoo4pump
+  $ bun run cli.ts query metadata-solana <mint> --node-url https://api.mainnet-beta.solana.com
+`,
+    )
+    .action(
+        async (
+            mint: string,
+            options: { nodeUrl?: string; programId?: string },
+        ) => {
+            // Set NODE_URL environment variable if provided via CLI
+            if (options.nodeUrl) {
+                process.env.NODE_URL = options.nodeUrl;
+            }
+
+            // Validate NODE_URL is set
+            if (!process.env.NODE_URL && !process.env.SOLANA_NODE_URL) {
+                log.error(
+                    'NODE_URL or SOLANA_NODE_URL environment variable is required',
+                );
+                log.info(
+                    'Set it via environment variable or use --node-url option',
+                );
+                process.exit(1);
+            }
+
+            // Import and run the query service
+            const { run: runQuery } = await import(
+                './services/metadata-solana/query.ts'
+            );
+            await runQuery(mint, options.programId);
+        },
+    );
+
+// ============================================================================
 // Parse CLI arguments
 // ============================================================================
 program.parse(process.argv);
