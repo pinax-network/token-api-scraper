@@ -14,8 +14,8 @@ import {
     isMeteoraDlmmLpToken,
     isPumpAmmLpToken,
     isRaydiumAmmLpToken,
-    METEORA_DLMM_PROGRAM_ID,
     METAPLEX_PROGRAM_ID,
+    METEORA_DLMM_PROGRAM_ID,
     PUMP_AMM_PROGRAM_ID,
     parseToken2022Extensions,
     RAYDIUM_AMM_PROGRAM_ID,
@@ -261,14 +261,19 @@ export async function queryMetadata(
 
         if (lpCheck.isLpToken && lpCheck.poolType) {
             isRaydiumLp = true;
-            success(`This is a Raydium ${lpCheck.poolType.toUpperCase()} LP token`, {
-                poolAddress: lpCheck.poolAddress ?? 'Not found (pool search timed out)',
-                poolType: lpCheck.poolType,
-                raydiumProgram:
-                    lpCheck.poolType === 'amm-v4'
-                        ? RAYDIUM_AMM_PROGRAM_ID
-                        : RAYDIUM_CPMM_PROGRAM_ID,
-            });
+            success(
+                `This is a Raydium ${lpCheck.poolType.toUpperCase()} LP token`,
+                {
+                    poolAddress:
+                        lpCheck.poolAddress ??
+                        'Not found (pool search timed out)',
+                    poolType: lpCheck.poolType,
+                    raydiumProgram:
+                        lpCheck.poolType === 'amm-v4'
+                            ? RAYDIUM_AMM_PROGRAM_ID
+                            : RAYDIUM_CPMM_PROGRAM_ID,
+                },
+            );
 
             // Derive LP metadata from pool (only if we found the pool address)
             if (lpCheck.poolAddress) {
@@ -290,7 +295,8 @@ export async function queryMetadata(
             }
         } else {
             info('Not a Raydium LP token', {
-                message: 'Mint authority does not match any known Raydium authority',
+                message:
+                    'Mint authority does not match any known Raydium authority',
             });
         }
     } catch (err) {
@@ -532,7 +538,13 @@ export async function queryMetadata(
     console.log();
 
     // Final resolved values
-    if (finalName || finalSymbol || isPumpAmmLp || isMeteoraDlmmLp || isRaydiumLp) {
+    if (
+        finalName ||
+        finalSymbol ||
+        isPumpAmmLp ||
+        isMeteoraDlmmLp ||
+        isRaydiumLp
+    ) {
         const isLpToken = isPumpAmmLp || isMeteoraDlmmLp || isRaydiumLp;
         const lpMetadata = isPumpAmmLp
             ? pumpAmmLpMetadata
@@ -547,11 +559,13 @@ export async function queryMetadata(
                   : isRaydiumLp && raydiumLpMetadata
                     ? 'Raydium AMM LP derived'
                     : 'URI takes precedence';
-        
+
         // Use LP-derived values if available, otherwise use standard metadata
-        const displayName = isLpToken && lpMetadata ? lpMetadata.name : finalName;
-        const displaySymbol = isLpToken && lpMetadata ? lpMetadata.symbol : finalSymbol;
-        
+        const displayName =
+            isLpToken && lpMetadata ? lpMetadata.name : finalName;
+        const displaySymbol =
+            isLpToken && lpMetadata ? lpMetadata.symbol : finalSymbol;
+
         console.log(
             `  ${BOLD}${CYAN}Final Values (${precedenceSource}):${RESET}`,
         );

@@ -217,7 +217,7 @@ function createProgramAddress(
  * Returns null if the derived address is on the curve (invalid PDA).
  * This version doesn't throw errors, making it suitable for bulk checking.
  */
-function createProgramAddressUnchecked(
+function _createProgramAddressUnchecked(
     seeds: Uint8Array[],
     programId: Uint8Array,
 ): Uint8Array | null {
@@ -1537,7 +1537,8 @@ export async function deriveMeteoraDlmmLpMetadata(
         }
 
         // Check if tokenXMint is the system program (all zeros = native SOL)
-        const isTokenXNativeSol = pool.tokenXMint === '11111111111111111111111111111111';
+        const isTokenXNativeSol =
+            pool.tokenXMint === '11111111111111111111111111111111';
 
         // Get metadata for the tokens we need to fetch
         const addressesToFetch: string[] = [];
@@ -1548,7 +1549,10 @@ export async function deriveMeteoraDlmmLpMetadata(
         addressesToFetch.push(findMetadataPda(pool.tokenYMint));
         addressesToFetch.push(pool.tokenYMint);
 
-        const accountInfos = await getMultipleAccountsInfo(addressesToFetch, retryOrOpts);
+        const accountInfos = await getMultipleAccountsInfo(
+            addressesToFetch,
+            retryOrOpts,
+        );
 
         // Helper to get symbol from various sources
         const getSymbol = (
@@ -1592,14 +1596,26 @@ export async function deriveMeteoraDlmmLpMetadata(
             tokenXSymbol = 'SOL';
             const tokenYMetaInfo = accountInfos[0];
             const tokenYMintInfo = accountInfos[1];
-            tokenYSymbol = getSymbol(tokenYMetaInfo, tokenYMintInfo, pool.tokenYMint);
+            tokenYSymbol = getSymbol(
+                tokenYMetaInfo,
+                tokenYMintInfo,
+                pool.tokenYMint,
+            );
         } else {
             const tokenXMetaInfo = accountInfos[0];
             const tokenXMintInfo = accountInfos[1];
             const tokenYMetaInfo = accountInfos[2];
             const tokenYMintInfo = accountInfos[3];
-            tokenXSymbol = getSymbol(tokenXMetaInfo, tokenXMintInfo, pool.tokenXMint);
-            tokenYSymbol = getSymbol(tokenYMetaInfo, tokenYMintInfo, pool.tokenYMint);
+            tokenXSymbol = getSymbol(
+                tokenXMetaInfo,
+                tokenXMintInfo,
+                pool.tokenXMint,
+            );
+            tokenYSymbol = getSymbol(
+                tokenYMetaInfo,
+                tokenYMintInfo,
+                pool.tokenYMint,
+            );
         }
 
         return {
@@ -1680,12 +1696,14 @@ export const RAYDIUM_CPMM_PROGRAM_ID =
  * Raydium AMM V4 Authority PDA
  * Derived from seeds [b"amm authority"] with bump 254
  */
-export const RAYDIUM_AMM_AUTHORITY = '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1';
+export const RAYDIUM_AMM_AUTHORITY =
+    '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1';
 
 /**
  * Raydium CPMM Authority - Fixed address for all CPMM pools
  */
-export const RAYDIUM_CPMM_AUTHORITY = 'GpMZbSM2GgvTKHJirzeGfMFoaZ8UR2X7F4v8vHTvxFbL';
+export const RAYDIUM_CPMM_AUTHORITY =
+    'GpMZbSM2GgvTKHJirzeGfMFoaZ8UR2X7F4v8vHTvxFbL';
 
 /**
  * Raydium AMM Pool (AmmInfo) Layout:
@@ -2006,11 +2024,14 @@ export async function isRaydiumAmmLpToken(
                     pools && pools.length > 0 ? pools[0].pubkey : null;
             }
         } catch (poolError) {
-            log.debug('Failed to find Raydium pool address (LP detection still valid)', {
-                mintAddress,
-                poolType,
-                error: (poolError as Error).message,
-            });
+            log.debug(
+                'Failed to find Raydium pool address (LP detection still valid)',
+                {
+                    mintAddress,
+                    poolType,
+                    error: (poolError as Error).message,
+                },
+            );
             // Pool search failed but authority matched, so it's still an LP token
         }
 

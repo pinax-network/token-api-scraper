@@ -72,7 +72,11 @@ describe('Solana metadata query service', () => {
         );
         mockDeriveMeteoraDlmmLpMetadata.mockReturnValue(Promise.resolve(null));
         mockIsRaydiumAmmLpToken.mockReturnValue(
-            Promise.resolve({ isLpToken: false, poolAddress: null, poolType: null }),
+            Promise.resolve({
+                isLpToken: false,
+                poolAddress: null,
+                poolType: null,
+            }),
         );
         mockDeriveRaydiumLpMetadata.mockReturnValue(Promise.resolve(null));
     });

@@ -204,7 +204,9 @@ async function processSolanaMint(
             // Check Meteora DLMM LP token (if not already identified as LP)
             if (!isLpToken) {
                 try {
-                    const meteoraCheck = await isMeteoraDlmmLpToken(data.contract);
+                    const meteoraCheck = await isMeteoraDlmmLpToken(
+                        data.contract,
+                    );
                     if (meteoraCheck.isLpToken && meteoraCheck.poolAddress) {
                         const lpMetadata = await deriveMeteoraDlmmLpMetadata(
                             meteoraCheck.poolAddress,
@@ -233,7 +235,9 @@ async function processSolanaMint(
             // Check Raydium LP token - AMM V4 or CPMM (if not already identified as LP)
             if (!isLpToken) {
                 try {
-                    const raydiumCheck = await isRaydiumAmmLpToken(data.contract);
+                    const raydiumCheck = await isRaydiumAmmLpToken(
+                        data.contract,
+                    );
                     if (raydiumCheck.isLpToken && raydiumCheck.poolType) {
                         // If we have a pool address, try to derive full metadata
                         if (raydiumCheck.poolAddress) {
@@ -261,12 +265,15 @@ async function processSolanaMint(
                             lpName = `Raydium ${raydiumCheck.poolType.toUpperCase()} LP`;
                             lpSymbol = 'RAY-LP';
                             lpSource = 'raydium';
-                            log.debug('Detected Raydium LP token (pool address not found)', {
-                                mint: data.contract,
-                                poolType: raydiumCheck.poolType,
-                                name: lpName,
-                                symbol: lpSymbol,
-                            });
+                            log.debug(
+                                'Detected Raydium LP token (pool address not found)',
+                                {
+                                    mint: data.contract,
+                                    poolType: raydiumCheck.poolType,
+                                    name: lpName,
+                                    symbol: lpSymbol,
+                                },
+                            );
                         }
                     }
                 } catch (lpError) {

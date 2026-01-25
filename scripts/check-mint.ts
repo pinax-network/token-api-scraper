@@ -1,4 +1,4 @@
-import { getAccountInfo, base58Encode } from '../lib/solana-rpc.ts';
+import { base58Encode, getAccountInfo } from '../lib/solana-rpc.ts';
 
 const mint = process.argv[2] || 'J73NU7ttijwcjgoMB7ejeZ47f8ZB48jdc3SkecoLLUTA';
 
