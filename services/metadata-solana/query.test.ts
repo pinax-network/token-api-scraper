@@ -17,6 +17,10 @@ const mockIsMeteoraDlmmLpToken = mock(() =>
     Promise.resolve({ isLpToken: false, poolAddress: null }),
 );
 const mockDeriveMeteoraDlmmLpMetadata = mock(() => Promise.resolve(null));
+const mockIsRaydiumAmmLpToken = mock(() =>
+    Promise.resolve({ isLpToken: false, poolAddress: null, poolType: null }),
+);
+const mockDeriveRaydiumLpMetadata = mock(() => Promise.resolve(null));
 
 mock.module('../../lib/solana-rpc', () => ({
     getAccountInfo: mockGetAccountInfo,
@@ -27,11 +31,15 @@ mock.module('../../lib/solana-rpc', () => ({
     derivePumpAmmLpMetadata: mockDerivePumpAmmLpMetadata,
     isMeteoraDlmmLpToken: mockIsMeteoraDlmmLpToken,
     deriveMeteoraDlmmLpMetadata: mockDeriveMeteoraDlmmLpMetadata,
+    isRaydiumAmmLpToken: mockIsRaydiumAmmLpToken,
+    deriveRaydiumLpMetadata: mockDeriveRaydiumLpMetadata,
     TOKEN_PROGRAM_ID: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
     TOKEN_2022_PROGRAM_ID: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
     METAPLEX_PROGRAM_ID: 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',
     PUMP_AMM_PROGRAM_ID: 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA',
     METEORA_DLMM_PROGRAM_ID: '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi',
+    RAYDIUM_AMM_PROGRAM_ID: '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8',
+    RAYDIUM_CPMM_PROGRAM_ID: 'CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C',
 }));
 
 // Import the queryMetadata function after mocking
@@ -47,6 +55,8 @@ describe('Solana metadata query service', () => {
         mockDerivePumpAmmLpMetadata.mockClear();
         mockIsMeteoraDlmmLpToken.mockClear();
         mockDeriveMeteoraDlmmLpMetadata.mockClear();
+        mockIsRaydiumAmmLpToken.mockClear();
+        mockDeriveRaydiumLpMetadata.mockClear();
 
         // Reset to default implementations
         mockGetAccountInfo.mockReturnValue(Promise.resolve(null));
@@ -61,6 +71,10 @@ describe('Solana metadata query service', () => {
             Promise.resolve({ isLpToken: false, poolAddress: null }),
         );
         mockDeriveMeteoraDlmmLpMetadata.mockReturnValue(Promise.resolve(null));
+        mockIsRaydiumAmmLpToken.mockReturnValue(
+            Promise.resolve({ isLpToken: false, poolAddress: null, poolType: null }),
+        );
+        mockDeriveRaydiumLpMetadata.mockReturnValue(Promise.resolve(null));
     });
 
     test('should validate mint address format', async () => {

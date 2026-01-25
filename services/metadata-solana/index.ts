@@ -14,9 +14,11 @@ import { initService } from '../../lib/service-init';
 import {
     deriveMeteoraDlmmLpMetadata,
     derivePumpAmmLpMetadata,
+    deriveRaydiumLpMetadata,
     fetchSolanaTokenMetadata,
     isMeteoraDlmmLpToken,
     isPumpAmmLpToken,
+    isRaydiumAmmLpToken,
 } from '../../lib/solana-rpc';
 import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
@@ -222,6 +224,53 @@ async function processSolanaMint(
                     }
                 } catch (lpError) {
                     log.debug('Failed to check for Meteora DLMM LP token', {
+                        mint: data.contract,
+                        error: (lpError as Error).message,
+                    });
+                }
+            }
+
+            // Check Raydium LP token - AMM V4 or CPMM (if not already identified as LP)
+            if (!isLpToken) {
+                try {
+                    const raydiumCheck = await isRaydiumAmmLpToken(data.contract);
+                    if (raydiumCheck.isLpToken && raydiumCheck.poolType) {
+                        // If we have a pool address, try to derive full metadata
+                        if (raydiumCheck.poolAddress) {
+                            const lpMetadata = await deriveRaydiumLpMetadata(
+                                raydiumCheck.poolAddress,
+                                raydiumCheck.poolType,
+                            );
+                            if (lpMetadata) {
+                                isLpToken = true;
+                                lpName = lpMetadata.name;
+                                lpSymbol = lpMetadata.symbol;
+                                lpSource = 'raydium';
+                                log.debug('Derived Raydium LP metadata', {
+                                    mint: data.contract,
+                                    poolAddress: raydiumCheck.poolAddress,
+                                    poolType: raydiumCheck.poolType,
+                                    name: lpName,
+                                    symbol: lpSymbol,
+                                });
+                            }
+                        } else {
+                            // Pool address not found but we know it's a Raydium LP token
+                            // Mark as LP with generic metadata
+                            isLpToken = true;
+                            lpName = `Raydium ${raydiumCheck.poolType.toUpperCase()} LP`;
+                            lpSymbol = 'RAY-LP';
+                            lpSource = 'raydium';
+                            log.debug('Detected Raydium LP token (pool address not found)', {
+                                mint: data.contract,
+                                poolType: raydiumCheck.poolType,
+                                name: lpName,
+                                symbol: lpSymbol,
+                            });
+                        }
+                    }
+                } catch (lpError) {
+                    log.debug('Failed to check for Raydium LP token', {
                         mint: data.contract,
                         error: (lpError as Error).message,
                     });

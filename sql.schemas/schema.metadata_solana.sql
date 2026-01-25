@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS metadata (
     decimals                    UInt8,
     name                        String DEFAULT '',
     symbol                      String DEFAULT '',
-    source                      Enum8('' = 0, 'token2022' = 1, 'metaplex' = 2, 'pump-amm' = 4),
+    source                      Enum8('' = 0, 'token2022' = 1, 'metaplex' = 2, 'pump-amm' = 4, 'meteora-dlmm' = 5, 'raydium' = 6),
 
     -- token metadata (optional) --
     uri                         String DEFAULT '',
