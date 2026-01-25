@@ -6,18 +6,31 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // Mock dependencies
 const mockQuery = mock(() => Promise.resolve({ data: [] }));
-const mockFetchSolanaTokenMetadata = mock(() =>
-    Promise.resolve({
-        mint: 'test-mint',
-        name: 'Test Token',
-        symbol: 'TEST',
-        uri: 'https://example.com/metadata.json',
-        source: 'metaplex' as const,
-        tokenStandard: 2, // Fungible
-        mintAccountExists: true,
-    }),
+const mockFetchSolanaTokenMetadata = mock(
+    (_mint: string, _decimals: number, _programId?: string) =>
+        Promise.resolve({
+            mint: 'test-mint',
+            name: 'Test Token',
+            symbol: 'TEST',
+            uri: 'https://example.com/metadata.json',
+            source: 'metaplex' as
+                | 'metaplex'
+                | 'token2022'
+                | 'pump-amm'
+                | 'none'
+                | 'burned',
+            tokenStandard: 2 as number | null, // Fungible
+            mintAccountExists: true,
+        }),
 );
-const mockInsertRow = mock(() => Promise.resolve(true));
+const mockInsertRow = mock(
+    (
+        _table: string,
+        _data: Record<string, unknown>,
+        _context?: string,
+        _extra?: Record<string, unknown>,
+    ) => Promise.resolve(true),
+);
 const mockIncrementSuccess = mock(() => {});
 const mockIncrementError = mock(() => {});
 const mockInitService = mock(() => {});
@@ -31,15 +44,18 @@ const mockIsNftTokenStandard = mock((tokenStandard: number | null) => {
         tokenStandard === 5
     );
 });
-const mockFetchUriMetadata = mock(() =>
+const mockFetchUriMetadata = mock((_uri: string) =>
     Promise.resolve({
-        success: true,
+        success: true as boolean,
         metadata: {
             name: 'URI Token Name',
             description: 'Test description',
             image: 'https://example.com/image.png',
-        },
-        raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}',
+        } as { name: string; description: string; image: string } | undefined,
+        raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}' as
+            | string
+            | undefined,
+        error: undefined as string | undefined,
     }),
 );
 
@@ -102,20 +118,23 @@ describe('Solana metadata service', () => {
                 symbol: 'TEST',
                 uri: 'https://example.com/metadata.json',
                 source: 'metaplex' as const,
-                tokenStandard: 2, // Fungible
+                tokenStandard: 2 as number | null, // Fungible
                 mintAccountExists: true,
             }),
         );
         mockInsertRow.mockReturnValue(Promise.resolve(true));
         mockFetchUriMetadata.mockReturnValue(
             Promise.resolve({
-                success: true,
+                success: true as boolean,
                 metadata: {
                     name: 'URI Token Name',
                     description: 'Test description',
                     image: 'https://example.com/image.png',
-                },
-                raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}',
+                } as { name: string; description: string; image: string } | undefined,
+                raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}' as
+                    | string
+                    | undefined,
+                error: undefined as string | undefined,
             }),
         );
     });
@@ -138,7 +157,7 @@ describe('Solana metadata service', () => {
                 symbol: 'T22',
                 uri: 'https://example.com/t22.json',
                 source: 'token2022' as const,
-                tokenStandard: null, // Token-2022 doesn't use Metaplex tokenStandard
+                tokenStandard: null as number | null,
                 mintAccountExists: true,
             }),
         );
@@ -159,7 +178,7 @@ describe('Solana metadata service', () => {
                 symbol: '',
                 uri: '',
                 source: 'none' as const,
-                tokenStandard: null,
+                tokenStandard: null as number | null,
                 mintAccountExists: true,
             }),
         );
@@ -184,7 +203,7 @@ describe('Solana metadata service', () => {
                 symbol: '',
                 uri: '',
                 source: 'none' as const,
-                tokenStandard: null,
+                tokenStandard: null as number | null,
                 mintAccountExists: false,
             }),
         );
@@ -348,8 +367,10 @@ describe('Solana metadata service', () => {
     test('fetchUriMetadata should handle failed fetch', async () => {
         mockFetchUriMetadata.mockReturnValue(
             Promise.resolve({
-                success: false,
-                error: 'HTTP 404',
+                success: false as boolean,
+                metadata: undefined,
+                raw: undefined,
+                error: 'HTTP 404' as string | undefined,
             }),
         );
 
@@ -364,9 +385,10 @@ describe('Solana metadata service', () => {
     test('fetchUriMetadata should return raw even on parse failure', async () => {
         mockFetchUriMetadata.mockReturnValue(
             Promise.resolve({
-                success: false,
-                error: 'Failed to parse JSON',
-                raw: 'invalid json content',
+                success: false as boolean,
+                metadata: undefined,
+                raw: 'invalid json content' as string | undefined,
+                error: 'Failed to parse JSON' as string | undefined,
             }),
         );
 
