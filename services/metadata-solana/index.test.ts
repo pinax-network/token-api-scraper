@@ -181,7 +181,7 @@ describe('Solana metadata service', () => {
         );
     });
 
-    test('insert should be called with correct metadata structure including image, description, and uri_raw', async () => {
+    test('insert should be called with correct metadata structure including image and description', async () => {
         const metadata = {
             network: 'solana',
             contract: 'test-mint',
@@ -195,8 +195,6 @@ describe('Solana metadata service', () => {
             token_standard: 2, // Fungible (original Metaplex enum value)
             image: 'https://example.com/image.png',
             description: 'Test description',
-            uri_raw:
-                '{"name":"Test Token","image":"https://example.com/image.png"}',
         };
 
         await mockInsertRow('metadata', metadata, 'test context', {
