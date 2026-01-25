@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS metadata (
     -- token metadata URI --
     image                       String DEFAULT '',
     description                 String DEFAULT '',
+    -- raw URI response and parsed JSON (if valid)
+    uri_raw                     String DEFAULT '',
+    uri_json                    String MATERIALIZED if(isValidJSON(uri_raw), uri_raw, ''),
 
     -- inserter details --
     created_at                  DateTime('UTC') DEFAULT now()

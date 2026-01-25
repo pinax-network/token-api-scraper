@@ -344,7 +344,10 @@ export async function queryMetadata(
                 success('URI metadata fetched', {
                     name: uriName || '(empty)',
                     symbol: uriSymbol || '(empty)',
-                    description: uriDescription ? uriDescription.slice(0, 100) + (uriDescription.length > 100 ? '...' : '') : '(empty)',
+                    description: uriDescription
+                        ? uriDescription.slice(0, 100) +
+                          (uriDescription.length > 100 ? '...' : '')
+                        : '(empty)',
                     image: uriImage || '(empty)',
                 });
             } else {
@@ -395,11 +398,19 @@ export async function queryMetadata(
 
     // Final resolved values
     if (finalName || finalSymbol) {
-        console.log(`  ${BOLD}${CYAN}Final Values (URI takes precedence):${RESET}`);
-        console.log(`  ${BOLD}Name:${RESET}                  ${finalName || `${DIM}(empty)${RESET}`}`);
-        console.log(`  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`);
+        console.log(
+            `  ${BOLD}${CYAN}Final Values (URI takes precedence):${RESET}`,
+        );
+        console.log(
+            `  ${BOLD}Name:${RESET}                  ${finalName || `${DIM}(empty)${RESET}`}`,
+        );
+        console.log(
+            `  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`,
+        );
         if (uriDescription) {
-            console.log(`  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`);
+            console.log(
+                `  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`,
+            );
         }
         if (uriImage) {
             console.log(`  ${BOLD}Image:${RESET}                 ${uriImage}`);

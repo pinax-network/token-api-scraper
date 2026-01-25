@@ -85,6 +85,7 @@ async function processSolanaMint(
             let description = '';
             let uriName = '';
             let uriSymbol = '';
+            let uriRaw = '';
 
             if (metadata.uri) {
                 const uriResult = await fetchUriMetadata(metadata.uri);
@@ -93,18 +94,23 @@ async function processSolanaMint(
                     description = uriResult.metadata.description || '';
                     uriName = uriResult.metadata.name || '';
                     uriSymbol = uriResult.metadata.symbol || '';
+                    uriRaw = uriResult.raw || '';
                     log.debug('URI metadata fetched', {
                         mint: data.contract,
                         hasImage: !!image,
                         hasDescription: !!description,
                         hasName: !!uriName,
                         hasSymbol: !!uriSymbol,
+                        hasRaw: !!uriRaw,
                     });
                 } else {
+                    // Store raw response even on parse failure (if available)
+                    uriRaw = uriResult.raw || '';
                     log.warn('Failed to fetch URI metadata after 3 retries', {
                         mint: data.contract,
                         uri: metadata.uri,
                         error: uriResult.error,
+                        hasRaw: !!uriRaw,
                     });
                 }
             }
@@ -129,6 +135,7 @@ async function processSolanaMint(
                     token_standard: metadata.tokenStandard,
                     image,
                     description,
+                    uri_raw: uriRaw,
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },
@@ -171,6 +178,7 @@ async function processSolanaMint(
                     token_standard: null,
                     image: '',
                     description: '',
+                    uri_raw: '',
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },

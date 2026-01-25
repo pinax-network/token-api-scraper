@@ -44,6 +44,8 @@ export interface UriMetadata {
 export interface UriMetadataResult {
     success: boolean;
     metadata?: UriMetadata;
+    /** Raw response string from the URI */
+    raw?: string;
     error?: string;
 }
 
@@ -198,10 +200,13 @@ export async function fetchUriMetadata(
                 continue;
             }
 
+            // Get raw response text first
+            const rawText = await response.text();
+
             // Try to parse as JSON
             let json: any;
             try {
-                json = await response.json();
+                json = JSON.parse(rawText);
             } catch (parseError) {
                 lastError = 'Failed to parse JSON response';
                 log.debug('Failed to parse URI response as JSON', {
@@ -210,6 +215,7 @@ export async function fetchUriMetadata(
                 });
                 return {
                     success: false,
+                    raw: rawText,
                     error: lastError,
                 };
             }
@@ -237,6 +243,7 @@ export async function fetchUriMetadata(
             return {
                 success: true,
                 metadata,
+                raw: rawText,
             };
         } catch (error) {
             clearTimeout(timer);
