@@ -12,8 +12,8 @@ import {
     isNftTokenStandard,
     isPumpAmmLpToken,
     METAPLEX_PROGRAM_ID,
-    parseToken2022Extensions,
     PUMP_AMM_PROGRAM_ID,
+    parseToken2022Extensions,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     TokenStandard,
@@ -167,23 +167,25 @@ export async function queryMetadata(
 
     // Step 2.5: Check if this is a Pump.fun AMM LP token
     section('Step 2.5: Checking for Pump.fun AMM LP Token');
-    
+
     let pumpAmmLpMetadata: { name: string; symbol: string } | null = null;
     let isPumpAmmLp = false;
-    
+
     try {
         const lpCheck = await isPumpAmmLpToken(mint);
-        
+
         if (lpCheck.isLpToken && lpCheck.poolAddress) {
             isPumpAmmLp = true;
             success('This is a Pump.fun AMM LP token', {
                 poolAddress: lpCheck.poolAddress,
                 pumpAmmProgram: PUMP_AMM_PROGRAM_ID,
             });
-            
+
             // Derive LP metadata from pool
-            pumpAmmLpMetadata = await derivePumpAmmLpMetadata(lpCheck.poolAddress);
-            
+            pumpAmmLpMetadata = await derivePumpAmmLpMetadata(
+                lpCheck.poolAddress,
+            );
+
             if (pumpAmmLpMetadata) {
                 success('Derived LP token metadata from pool', {
                     derivedName: pumpAmmLpMetadata.name,
@@ -410,7 +412,7 @@ export async function queryMetadata(
     // Final values: URI takes precedence over on-chain, Pump.fun AMM LP takes precedence for LP tokens
     let finalName = uriName || onChainName;
     let finalSymbol = uriSymbol || onChainSymbol;
-    
+
     // For Pump.fun AMM LP tokens, use derived metadata if available
     if (isPumpAmmLp && pumpAmmLpMetadata) {
         finalName = pumpAmmLpMetadata.name;
@@ -448,8 +450,12 @@ export async function queryMetadata(
 
     // Final resolved values
     if (finalName || finalSymbol) {
+        const precedenceSource =
+            isPumpAmmLp && pumpAmmLpMetadata
+                ? 'Pump.fun AMM LP derived'
+                : 'URI takes precedence';
         console.log(
-            `  ${BOLD}${CYAN}Final Values (URI takes precedence):${RESET}`,
+            `  ${BOLD}${CYAN}Final Values (${precedenceSource}):${RESET}`,
         );
         console.log(
             `  ${BOLD}Name:${RESET}                  ${finalName || `${DIM}(empty)${RESET}`}`,
@@ -457,18 +463,10 @@ export async function queryMetadata(
         console.log(
             `  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`,
         );
-        if (uriDescription) {
+        if (uriDescription && !isPumpAmmLp) {
             console.log(
                 `  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`,
             );
-        const precedenceSource = isPumpAmmLp && pumpAmmLpMetadata 
-            ? 'Pump.fun AMM LP derived' 
-            : 'URI takes precedence';
-        console.log(`  ${BOLD}${CYAN}Final Values (${precedenceSource}):${RESET}`);
-        console.log(`  ${BOLD}Name:${RESET}                  ${finalName || `${DIM}(empty)${RESET}`}`);
-        console.log(`  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`);
-        if (uriDescription && !isPumpAmmLp) {
-            console.log(`  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`);
         }
         if (uriImage && !isPumpAmmLp) {
             console.log(`  ${BOLD}Image:${RESET}                 ${uriImage}`);

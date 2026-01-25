@@ -10,6 +10,10 @@ const mockDecodeMetaplexMetadata = mock(() => null);
 const mockParseToken2022Extensions = mock(() => null);
 const mockFindMetadataPda = mock(() => 'test-pda');
 const mockIsNftTokenStandard = mock(() => false);
+const mockIsPumpAmmLpToken = mock(() =>
+    Promise.resolve({ isLpToken: false, poolAddress: null }),
+);
+const mockDerivePumpAmmLpMetadata = mock(() => Promise.resolve(null));
 
 mock.module('../../lib/solana-rpc', () => ({
     getAccountInfo: mockGetAccountInfo,
@@ -17,9 +21,12 @@ mock.module('../../lib/solana-rpc', () => ({
     parseToken2022Extensions: mockParseToken2022Extensions,
     findMetadataPda: mockFindMetadataPda,
     isNftTokenStandard: mockIsNftTokenStandard,
+    isPumpAmmLpToken: mockIsPumpAmmLpToken,
+    derivePumpAmmLpMetadata: mockDerivePumpAmmLpMetadata,
     TOKEN_PROGRAM_ID: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
     TOKEN_2022_PROGRAM_ID: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
     METAPLEX_PROGRAM_ID: 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',
+    PUMP_AMM_PROGRAM_ID: 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA',
     TokenStandard: {
         NonFungible: 0,
         FungibleAsset: 1,
@@ -40,6 +47,8 @@ describe('Solana metadata query service', () => {
         mockParseToken2022Extensions.mockClear();
         mockFindMetadataPda.mockClear();
         mockIsNftTokenStandard.mockClear();
+        mockIsPumpAmmLpToken.mockClear();
+        mockDerivePumpAmmLpMetadata.mockClear();
 
         // Reset to default implementations
         mockGetAccountInfo.mockReturnValue(Promise.resolve(null));
@@ -47,6 +56,10 @@ describe('Solana metadata query service', () => {
         mockParseToken2022Extensions.mockReturnValue(null);
         mockFindMetadataPda.mockReturnValue('test-pda');
         mockIsNftTokenStandard.mockReturnValue(false);
+        mockIsPumpAmmLpToken.mockReturnValue(
+            Promise.resolve({ isLpToken: false, poolAddress: null }),
+        );
+        mockDerivePumpAmmLpMetadata.mockReturnValue(Promise.resolve(null));
     });
 
     test('should validate mint address format', async () => {
