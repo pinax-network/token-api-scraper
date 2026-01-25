@@ -261,6 +261,7 @@ export async function executeSqlSetup(
         clickhouseUrl:
             process.env.CLICKHOUSE_URL || DEFAULT_CONFIG.CLICKHOUSE_URL,
         clickhouseDatabase: process.env.CLICKHOUSE_DATABASE,
+        clickhouseDatabaseInsert: process.env.CLICKHOUSE_DATABASE_INSERT,
     });
 
     for (const filePath of filePaths) {
