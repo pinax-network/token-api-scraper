@@ -1207,7 +1207,8 @@ export const PUMP_AMM_PROGRAM_ID =
 const PUMP_AMM_POOL_QUOTE_MINT_OFFSET = 43;
 const PUMP_AMM_POOL_BASE_MINT_OFFSET = 75;
 const PUMP_AMM_POOL_LP_MINT_OFFSET = 107;
-const PUMP_AMM_POOL_SIZE = 244;
+// Minimum pool size - pools can be larger if struct is extended with new fields
+const PUMP_AMM_POOL_MIN_SIZE = 139; // lpMint ends at offset 107 + 32 = 139
 
 export interface PumpAmmPoolInfo {
     quoteMint: string;
@@ -1221,7 +1222,8 @@ export interface PumpAmmPoolInfo {
 export function parsePumpAmmPool(data: string): PumpAmmPoolInfo | null {
     const buffer = Buffer.from(data, 'base64');
 
-    if (buffer.length !== PUMP_AMM_POOL_SIZE) {
+    // Check minimum size to ensure all required fields are present
+    if (buffer.length < PUMP_AMM_POOL_MIN_SIZE) {
         return null;
     }
 
