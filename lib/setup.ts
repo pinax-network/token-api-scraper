@@ -2,6 +2,7 @@ import { select } from '@inquirer/prompts';
 import { existsSync, readFileSync } from 'fs';
 import { basename } from 'path';
 import { client } from './clickhouse';
+import { DEFAULT_CONFIG } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('setup');
@@ -255,7 +256,13 @@ export async function executeSqlSetup(
     filePaths: string[],
     options: SetupOptions = {},
 ): Promise<void> {
-    log.info('Starting SQL setup', { files: filePaths.length });
+    log.info('Starting SQL setup', {
+        files: filePaths.length,
+        clickhouseUrl:
+            process.env.CLICKHOUSE_URL || DEFAULT_CONFIG.CLICKHOUSE_URL,
+        clickhouseDatabase: process.env.CLICKHOUSE_DATABASE,
+        clickhouseDatabaseInsert: process.env.CLICKHOUSE_DATABASE_INSERT,
+    });
 
     for (const filePath of filePaths) {
         log.info('Processing file', { file: filePath });
