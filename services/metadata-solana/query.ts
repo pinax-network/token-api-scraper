@@ -6,11 +6,14 @@
 
 import {
     decodeMetaplexMetadata,
+    derivePumpAmmLpMetadata,
     findMetadataPda,
     getAccountInfo,
     isNftTokenStandard,
+    isPumpAmmLpToken,
     METAPLEX_PROGRAM_ID,
     parseToken2022Extensions,
+    PUMP_AMM_PROGRAM_ID,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     TokenStandard,
@@ -158,6 +161,44 @@ export async function queryMetadata(
     } catch (err) {
         error('Failed to fetch mint account info', {
             mint,
+            error: (err as Error).message,
+        });
+    }
+
+    // Step 2.5: Check if this is a Pump.fun AMM LP token
+    section('Step 2.5: Checking for Pump.fun AMM LP Token');
+    
+    let pumpAmmLpMetadata: { name: string; symbol: string } | null = null;
+    let isPumpAmmLp = false;
+    
+    try {
+        const lpCheck = await isPumpAmmLpToken(mint);
+        
+        if (lpCheck.isLpToken && lpCheck.poolAddress) {
+            isPumpAmmLp = true;
+            success('This is a Pump.fun AMM LP token', {
+                poolAddress: lpCheck.poolAddress,
+                pumpAmmProgram: PUMP_AMM_PROGRAM_ID,
+            });
+            
+            // Derive LP metadata from pool
+            pumpAmmLpMetadata = await derivePumpAmmLpMetadata(lpCheck.poolAddress);
+            
+            if (pumpAmmLpMetadata) {
+                success('Derived LP token metadata from pool', {
+                    derivedName: pumpAmmLpMetadata.name,
+                    derivedSymbol: pumpAmmLpMetadata.symbol,
+                });
+            } else {
+                warn('Could not derive LP metadata from pool');
+            }
+        } else {
+            info('Not a Pump.fun AMM LP token', {
+                message: 'Mint authority is not owned by Pump.fun AMM program',
+            });
+        }
+    } catch (err) {
+        info('Could not check for Pump.fun AMM LP token', {
             error: (err as Error).message,
         });
     }
@@ -363,9 +404,15 @@ export async function queryMetadata(
         info('No URI available to fetch metadata from');
     }
 
-    // Final values: URI takes precedence over on-chain
-    const finalName = uriName || onChainName;
-    const finalSymbol = uriSymbol || onChainSymbol;
+    // Final values: URI takes precedence over on-chain, Pump.fun AMM LP takes precedence for LP tokens
+    let finalName = uriName || onChainName;
+    let finalSymbol = uriSymbol || onChainSymbol;
+    
+    // For Pump.fun AMM LP tokens, use derived metadata if available
+    if (isPumpAmmLp && pumpAmmLpMetadata) {
+        finalName = pumpAmmLpMetadata.name;
+        finalSymbol = pumpAmmLpMetadata.symbol;
+    }
 
     // Summary
     header('Query Summary');
@@ -383,6 +430,9 @@ export async function queryMetadata(
     );
     console.log(`  ${BOLD}Program:${RESET}               ${programType}`);
     console.log(
+        `  ${BOLD}Pump.fun AMM LP:${RESET}       ${isPumpAmmLp ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`,
+    );
+    console.log(
         `  ${BOLD}Metaplex metadata:${RESET}     ${metaplexFound ? `${GREEN}Found${RESET}` : `${DIM}Not found${RESET}`}`,
     );
     console.log(
@@ -395,13 +445,16 @@ export async function queryMetadata(
 
     // Final resolved values
     if (finalName || finalSymbol) {
-        console.log(`  ${BOLD}${CYAN}Final Values (URI takes precedence):${RESET}`);
+        const precedenceSource = isPumpAmmLp && pumpAmmLpMetadata 
+            ? 'Pump.fun AMM LP derived' 
+            : 'URI takes precedence';
+        console.log(`  ${BOLD}${CYAN}Final Values (${precedenceSource}):${RESET}`);
         console.log(`  ${BOLD}Name:${RESET}                  ${finalName || `${DIM}(empty)${RESET}`}`);
         console.log(`  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`);
-        if (uriDescription) {
+        if (uriDescription && !isPumpAmmLp) {
             console.log(`  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`);
         }
-        if (uriImage) {
+        if (uriImage && !isPumpAmmLp) {
             console.log(`  ${BOLD}Image:${RESET}                 ${uriImage}`);
         }
         console.log();

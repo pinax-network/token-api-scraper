@@ -12,8 +12,10 @@ import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import {
+    derivePumpAmmLpMetadata,
     fetchSolanaTokenMetadata,
     isNftTokenStandard,
+    isPumpAmmLpToken,
     TokenStandard,
 } from '../../lib/solana-rpc';
 import { fetchUriMetadata } from '../../lib/uri-fetch';
@@ -154,8 +156,36 @@ async function processSolanaMint(
                 stats.incrementError();
             }
         } else {
-            // No metadata found - insert with empty name/symbol
-            // The mint exists and has decimals, just no metadata
+            // No standard metadata found - check if this is a Pump.fun AMM LP token
+            let pumpAmmName = '';
+            let pumpAmmSymbol = '';
+            let isPumpAmmLp = false;
+            
+            try {
+                const lpCheck = await isPumpAmmLpToken(data.contract);
+                if (lpCheck.isLpToken && lpCheck.poolAddress) {
+                    isPumpAmmLp = true;
+                    const lpMetadata = await derivePumpAmmLpMetadata(lpCheck.poolAddress);
+                    if (lpMetadata) {
+                        pumpAmmName = lpMetadata.name;
+                        pumpAmmSymbol = lpMetadata.symbol;
+                        log.debug('Derived Pump.fun AMM LP metadata', {
+                            mint: data.contract,
+                            poolAddress: lpCheck.poolAddress,
+                            name: pumpAmmName,
+                            symbol: pumpAmmSymbol,
+                        });
+                    }
+                }
+            } catch (lpError) {
+                log.debug('Failed to check for Pump.fun AMM LP token', {
+                    mint: data.contract,
+                    error: (lpError as Error).message,
+                });
+            }
+            
+            // Insert metadata - use Pump.fun AMM derived metadata if available
+            const finalSource = isPumpAmmLp && pumpAmmName ? 'pump-amm' : metadata.source;
             const success = await insertRow(
                 'metadata',
                 {
@@ -164,10 +194,10 @@ async function processSolanaMint(
                     block_num: data.block_num,
                     timestamp: data.timestamp,
                     decimals: data.decimals,
-                    name: '',
-                    symbol: '',
+                    name: pumpAmmName,
+                    symbol: pumpAmmSymbol,
                     uri: '',
-                    source: metadata.source,
+                    source: finalSource,
                     token_standard: null,
                     image: '',
                     description: '',
@@ -179,11 +209,17 @@ async function processSolanaMint(
             if (success) {
                 incrementSuccess(serviceName);
                 stats.incrementSuccess();
-                log.debug('Metadata inserted (no on-chain metadata found)', {
+                const logMessage = isPumpAmmLp && pumpAmmName 
+                    ? 'Pump.fun AMM LP metadata derived' 
+                    : 'Metadata inserted (no on-chain metadata found)';
+                log.debug(logMessage, {
                     mint: data.contract,
+                    name: pumpAmmName || '(empty)',
+                    symbol: pumpAmmSymbol || '(empty)',
                     decimals: data.decimals,
                     blockNum: data.block_num,
                     queryTimeMs,
+                    isPumpAmmLp,
                 });
             } else {
                 incrementError(serviceName);
