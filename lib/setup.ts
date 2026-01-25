@@ -2,6 +2,7 @@ import { select } from '@inquirer/prompts';
 import { existsSync, readFileSync } from 'fs';
 import { basename } from 'path';
 import { client } from './clickhouse';
+import { DEFAULT_CONFIG } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('setup');
@@ -257,8 +258,9 @@ export async function executeSqlSetup(
 ): Promise<void> {
     log.info('Starting SQL setup', {
         files: filePaths.length,
-        clickhouseUrl: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
-        clickhouseDatabase: process.env.CLICKHOUSE_DATABASE || '(not set)',
+        clickhouseUrl:
+            process.env.CLICKHOUSE_URL || DEFAULT_CONFIG.CLICKHOUSE_URL,
+        clickhouseDatabase: process.env.CLICKHOUSE_DATABASE,
     });
 
     for (const filePath of filePaths) {
