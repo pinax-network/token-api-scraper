@@ -6,6 +6,7 @@ const log = createLogger('clickhouse');
 // Lazy initialization of ClickHouse clients to allow CLI to set env vars first
 let _client: ClickHouseClient | null = null;
 let _insertClient: ClickHouseClient | null = null;
+let _setupClient: ClickHouseClient | null = null;
 
 /**
  * Get the database name for insert operations
@@ -19,7 +20,7 @@ function getInsertDatabase(): string | undefined {
 }
 
 /**
- * Get the ClickHouse client for read operations (SELECT queries) and DDL commands
+ * Get the ClickHouse client for read operations (SELECT queries)
  * Uses CLICKHOUSE_DATABASE
  */
 function getClient(): ClickHouseClient {
@@ -51,6 +52,23 @@ function getInsertClient(): ClickHouseClient {
 }
 
 /**
+ * Get the ClickHouse client for setup/DDL operations (CREATE TABLE, etc.)
+ * Uses CLICKHOUSE_DATABASE_INSERT if defined, otherwise CLICKHOUSE_DATABASE
+ * This ensures tables are created in the same database where data will be inserted
+ */
+function getSetupClient(): ClickHouseClient {
+    if (!_setupClient) {
+        _setupClient = createClient({
+            url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+            username: process.env.CLICKHOUSE_USERNAME || 'default',
+            password: process.env.CLICKHOUSE_PASSWORD || '',
+            database: getInsertDatabase(),
+        });
+    }
+    return _setupClient;
+}
+
+/**
  * Client for insert operations
  * Uses CLICKHOUSE_DATABASE_INSERT or falls back to CLICKHOUSE_DATABASE
  */
@@ -60,6 +78,23 @@ export const insertClient = {
     },
     get close() {
         return getInsertClient().close.bind(getInsertClient());
+    },
+};
+
+/**
+ * Client for setup/DDL operations (CREATE TABLE, ALTER TABLE, etc.)
+ * Uses CLICKHOUSE_DATABASE_INSERT if defined, otherwise CLICKHOUSE_DATABASE
+ * This ensures tables are created in the same database where data will be inserted
+ */
+export const setupClient = {
+    get command() {
+        return getSetupClient().command.bind(getSetupClient());
+    },
+    get query() {
+        return getSetupClient().query.bind(getSetupClient());
+    },
+    get close() {
+        return getSetupClient().close.bind(getSetupClient());
     },
 };
 
@@ -78,9 +113,11 @@ export const client = {
         return getInsertClient().insert.bind(getInsertClient());
     },
     get close() {
-        // Close both clients concurrently
+        // Close all clients concurrently
         return async () => {
-            await Promise.all([getClient().close(), getInsertClient().close()]);
+            const clients = [getClient(), getInsertClient()];
+            if (_setupClient) clients.push(_setupClient);
+            await Promise.all(clients.map((c) => c.close()));
         };
     },
 };

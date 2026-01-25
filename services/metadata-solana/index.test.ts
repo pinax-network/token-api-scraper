@@ -14,6 +14,7 @@ const mockFetchSolanaTokenMetadata = mock(() =>
         uri: 'https://example.com/metadata.json',
         source: 'metaplex' as const,
         tokenStandard: 2, // Fungible
+        mintAccountExists: true,
     }),
 );
 const mockInsertRow = mock(() => Promise.resolve(true));
@@ -102,6 +103,7 @@ describe('Solana metadata service', () => {
                 uri: 'https://example.com/metadata.json',
                 source: 'metaplex' as const,
                 tokenStandard: 2, // Fungible
+                mintAccountExists: true,
             }),
         );
         mockInsertRow.mockReturnValue(Promise.resolve(true));
@@ -137,6 +139,7 @@ describe('Solana metadata service', () => {
                 uri: 'https://example.com/t22.json',
                 source: 'token2022' as const,
                 tokenStandard: null, // Token-2022 doesn't use Metaplex tokenStandard
+                mintAccountExists: true,
             }),
         );
 
@@ -157,6 +160,7 @@ describe('Solana metadata service', () => {
                 uri: '',
                 source: 'none' as const,
                 tokenStandard: null,
+                mintAccountExists: true,
             }),
         );
 
@@ -169,6 +173,96 @@ describe('Solana metadata service', () => {
         expect(result.symbol).toBe('');
         expect(result.source).toBe('none');
         expect(result.tokenStandard).toBeNull();
+        expect(result.mintAccountExists).toBe(true);
+    });
+
+    test('should handle burned/closed mint account', async () => {
+        mockFetchSolanaTokenMetadata.mockReturnValue(
+            Promise.resolve({
+                mint: 'burned-mint',
+                name: '',
+                symbol: '',
+                uri: '',
+                source: 'none' as const,
+                tokenStandard: null,
+                mintAccountExists: false,
+            }),
+        );
+
+        const result = await mockFetchSolanaTokenMetadata(
+            'burned-mint',
+            8,
+        );
+
+        expect(result.name).toBe('');
+        expect(result.symbol).toBe('');
+        expect(result.source).toBe('none');
+        expect(result.tokenStandard).toBeNull();
+        expect(result.mintAccountExists).toBe(false);
+    });
+
+    test('should insert metadata record when no metadata is found (account exists)', async () => {
+        // Tokens with source='none' and mintAccountExists=true should be inserted with source='none'
+        const metadataData = {
+            network: 'solana',
+            contract: 'no-metadata-mint',
+            block_num: 12345,
+            timestamp: 1609459200,
+            decimals: 9,
+            name: '',
+            symbol: '',
+            uri: '',
+            source: 'none',
+            token_standard: null,
+            image: '',
+            description: '',
+        };
+
+        await mockInsertRow(
+            'metadata',
+            metadataData,
+            'Failed to insert metadata for mint no-metadata-mint',
+            { contract: 'no-metadata-mint' },
+        );
+
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata',
+            metadataData,
+            'Failed to insert metadata for mint no-metadata-mint',
+            { contract: 'no-metadata-mint' },
+        );
+    });
+
+    test('should insert metadata record for burned/closed mint account with source=burned', async () => {
+        // Tokens with source='none' and mintAccountExists=false should be inserted with source='burned'
+        const metadataData = {
+            network: 'solana',
+            contract: 'burned-mint',
+            block_num: 12345,
+            timestamp: 1609459200,
+            decimals: 9,
+            name: '',
+            symbol: '',
+            uri: '',
+            source: 'burned',
+            token_standard: null,
+            image: '',
+            description: '',
+        };
+
+        await mockInsertRow(
+            'metadata',
+            metadataData,
+            'Failed to insert metadata for mint burned-mint',
+            { contract: 'burned-mint' },
+        );
+
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata',
+            metadataData,
+            'Failed to insert metadata for mint burned-mint',
+            { contract: 'burned-mint' },
+        );
     });
 
     test('should handle RPC errors gracefully', async () => {

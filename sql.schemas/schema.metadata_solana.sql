@@ -39,7 +39,3 @@ CREATE TABLE IF NOT EXISTS metadata_errors (
 ENGINE = ReplacingMergeTree(created_at)
 TTL created_at + INTERVAL 1 WEEK
 ORDER BY ( network, contract );
-
--- Solana network specific metadata --
-INSERT INTO metadata (network, contract, decimals, name, symbol, uri, source, token_standard, image, description) VALUES
-    ('solana', 'So11111111111111111111111111111111111111112', 9, 'Wrapped SOL', 'SOL', '', 'none', NULL, '', '');

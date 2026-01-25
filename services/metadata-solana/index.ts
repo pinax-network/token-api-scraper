@@ -89,25 +89,51 @@ async function processSolanaMint(
             let uriSymbol = '';
 
             if (metadata.uri) {
-                const uriResult = await fetchUriMetadata(metadata.uri);
-                if (uriResult.success && uriResult.metadata) {
-                    image = uriResult.metadata.image || '';
-                    description = uriResult.metadata.description || '';
-                    uriName = uriResult.metadata.name || '';
-                    uriSymbol = uriResult.metadata.symbol || '';
-                    log.debug('URI metadata fetched', {
-                        mint: data.contract,
-                        hasImage: !!image,
-                        hasDescription: !!description,
-                        hasName: !!uriName,
-                        hasSymbol: !!uriSymbol,
-                    });
-                } else {
-                    log.warn('Failed to fetch URI metadata after 3 retries', {
+                // Check if URI is a direct image link (skip fetching JSON)
+                const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+                const uriLower = metadata.uri.toLowerCase();
+                const isDirectImageUri = imageExtensions.some(ext => uriLower.endsWith(ext));
+
+                if (isDirectImageUri) {
+                    // URI points directly to an image - use it as the image field
+                    image = metadata.uri;
+                    log.debug('URI is direct image link', {
                         mint: data.contract,
                         uri: metadata.uri,
-                        error: uriResult.error,
                     });
+                } else {
+                    const uriResult = await fetchUriMetadata(metadata.uri);
+                    if (uriResult.success && uriResult.metadata) {
+                        image = uriResult.metadata.image || '';
+                        description = uriResult.metadata.description || '';
+                        uriName = uriResult.metadata.name || '';
+                        uriSymbol = uriResult.metadata.symbol || '';
+                        log.debug('URI metadata fetched', {
+                            mint: data.contract,
+                            hasImage: !!image,
+                            hasDescription: !!description,
+                            hasName: !!uriName,
+                            hasSymbol: !!uriSymbol,
+                        });
+                    } else {
+                        log.warn('Failed to fetch URI metadata after 3 retries', {
+                            mint: data.contract,
+                            uri: metadata.uri,
+                            error: uriResult.error,
+                        });
+
+                        // Track URI fetch failure as error (metadata will still be inserted)
+                        await insertRow(
+                            'metadata_errors',
+                            {
+                                network,
+                                contract: data.contract,
+                                error: `URI fetch failed: ${uriResult.error}`,
+                            },
+                            `Failed to insert URI error for mint ${data.contract}`,
+                            { contract: data.contract },
+                        );
+                    }
                 }
             }
 
@@ -186,48 +212,104 @@ async function processSolanaMint(
                 });
             }
 
-            // Insert metadata - use Pump.fun AMM derived metadata if available
-            const finalSource =
-                isPumpAmmLp && pumpAmmName ? 'pump-amm' : metadata.source;
-            const success = await insertRow(
-                'metadata',
-                {
-                    network,
-                    contract: data.contract,
-                    block_num: data.block_num,
-                    timestamp: data.timestamp,
-                    decimals: data.decimals,
-                    name: pumpAmmName,
-                    symbol: pumpAmmSymbol,
-                    uri: '',
-                    source: finalSource,
-                    token_standard: null,
-                    image: '',
-                    description: '',
-                },
-                `Failed to insert metadata for mint ${data.contract}`,
-                { contract: data.contract },
-            );
+            // If we derived Pump.fun AMM LP metadata, insert to metadata table
+            if (isPumpAmmLp && pumpAmmName) {
+                const success = await insertRow(
+                    'metadata',
+                    {
+                        network,
+                        contract: data.contract,
+                        block_num: data.block_num,
+                        timestamp: data.timestamp,
+                        decimals: data.decimals,
+                        name: pumpAmmName,
+                        symbol: pumpAmmSymbol,
+                        uri: '',
+                        source: 'pump-amm',
+                        token_standard: null,
+                        image: '',
+                        description: '',
+                    },
+                    `Failed to insert metadata for mint ${data.contract}`,
+                    { contract: data.contract },
+                );
 
-            if (success) {
-                incrementSuccess(serviceName);
-                stats.incrementSuccess();
-                const logMessage =
-                    isPumpAmmLp && pumpAmmName
-                        ? 'Pump.fun AMM LP metadata derived'
-                        : 'Metadata inserted (no on-chain metadata found)';
-                log.debug(logMessage, {
+                if (success) {
+                    incrementSuccess(serviceName);
+                    stats.incrementSuccess();
+                    log.debug('Pump.fun AMM LP metadata derived', {
+                        mint: data.contract,
+                        name: pumpAmmName,
+                        symbol: pumpAmmSymbol,
+                        decimals: data.decimals,
+                        blockNum: data.block_num,
+                        queryTimeMs,
+                    });
+                } else {
+                    incrementError(serviceName);
+                    stats.incrementError();
+                }
+            } else {
+                // No metadata found - still insert to metadata table with decimals
+                // Determine source based on whether account exists
+                const noMetadataSource = metadata.mintAccountExists
+                    ? 'none'
+                    : 'burned';
+
+                const errorMessage = metadata.mintAccountExists
+                    ? 'No on-chain metadata found'
+                    : 'Mint account burned or closed';
+
+                log.debug('Inserting token with no metadata', {
                     mint: data.contract,
-                    name: pumpAmmName || '(empty)',
-                    symbol: pumpAmmSymbol || '(empty)',
                     decimals: data.decimals,
                     blockNum: data.block_num,
                     queryTimeMs,
                     isPumpAmmLp,
+                    mintAccountExists: metadata.mintAccountExists,
+                    source: noMetadataSource,
                 });
-            } else {
-                incrementError(serviceName);
-                stats.incrementError();
+
+                // Insert to metadata table (with decimals info)
+                const success = await insertRow(
+                    'metadata',
+                    {
+                        network,
+                        contract: data.contract,
+                        block_num: data.block_num,
+                        timestamp: data.timestamp,
+                        decimals: data.decimals,
+                        name: '',
+                        symbol: '',
+                        uri: '',
+                        source: noMetadataSource,
+                        token_standard: null,
+                        image: '',
+                        description: '',
+                    },
+                    `Failed to insert metadata for mint ${data.contract}`,
+                    { contract: data.contract },
+                );
+
+                // Also insert to metadata_errors for tracking
+                await insertRow(
+                    'metadata_errors',
+                    {
+                        network,
+                        contract: data.contract,
+                        error: errorMessage,
+                    },
+                    `Failed to insert error for mint ${data.contract}`,
+                    { contract: data.contract },
+                );
+
+                if (success) {
+                    incrementSuccess(serviceName);
+                    stats.incrementSuccess();
+                } else {
+                    incrementError(serviceName);
+                    stats.incrementError();
+                }
             }
         }
     } catch (error) {

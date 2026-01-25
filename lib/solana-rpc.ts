@@ -1051,6 +1051,24 @@ export interface SolanaTokenMetadata {
     uri: string;
     source: 'metaplex' | 'token2022' | 'none';
     tokenStandard: TokenStandard | null;
+    /** Whether the mint account exists on-chain (false if burned/closed) */
+    mintAccountExists: boolean;
+}
+
+/**
+ * Check if a mint account exists on-chain
+ * Returns false if the account has been burned/closed
+ */
+export async function checkMintAccountExists(
+    mint: string,
+    retryOrOpts?: number | RetryOptions,
+): Promise<boolean> {
+    try {
+        const accountInfo = await getAccountInfo(mint, retryOrOpts);
+        return accountInfo !== null;
+    } catch {
+        return false;
+    }
 }
 
 /**
@@ -1058,14 +1076,24 @@ export interface SolanaTokenMetadata {
  * Tries Metaplex first, then Token-2022 extensions (if applicable)
  *
  * @param mint - The mint address to fetch metadata for
+ * @param programId - Program ID of the token (required). Used to determine if Token-2022 lookup is needed.
  * @param retryOrOpts - Retry options for RPC calls
- * @param programId - Optional program ID of the token. If provided, can skip Token-2022 lookup for standard SPL tokens
  */
 export async function fetchSolanaTokenMetadata(
     mint: string,
     programId: string,
     retryOrOpts?: number | RetryOptions,
 ): Promise<SolanaTokenMetadata> {
+    // Validate programId is always provided - this is critical data we should always have
+    if (!programId) {
+        log.error('CRITICAL: programId is required but not provided', { mint });
+        console.error(`CRITICAL ERROR: programId is required for mint ${mint}. This indicates missing data in the source.`);
+        process.exit(1);
+    }
+
+    // Check if mint account exists
+    const mintAccountExists = await checkMintAccountExists(mint, retryOrOpts);
+
     // First, try Metaplex metadata (works for both SPL Token and Token-2022)
     try {
         const metadataPda = findMetadataPda(mint);
@@ -1094,6 +1122,7 @@ export async function fetchSolanaTokenMetadata(
                     uri: metadata.uri,
                     source: 'metaplex',
                     tokenStandard: metadata.tokenStandard,
+                    mintAccountExists,
                 };
             }
         }
@@ -1104,9 +1133,7 @@ export async function fetchSolanaTokenMetadata(
         });
     }
 
-    // Only try Token-2022 extensions if:
-    // 1. programId is not provided (backward compatibility), OR
-    // 2. programId is the Token-2022 program
+    // Only try Token-2022 extensions if programId is the Token-2022 program
     // Skip for standard SPL Token program as it doesn't support extensions
     if (programId === TOKEN_2022_PROGRAM_ID) {
         try {
@@ -1131,6 +1158,7 @@ export async function fetchSolanaTokenMetadata(
                         uri: token2022Metadata.uri,
                         source: 'token2022',
                         tokenStandard: null, // Token-2022 doesn't use Metaplex tokenStandard
+                        mintAccountExists,
                     };
                 }
             }
@@ -1148,7 +1176,7 @@ export async function fetchSolanaTokenMetadata(
     }
 
     // No metadata found
-    log.debug('No metadata found for mint', { mint });
+    log.debug('No metadata found for mint', { mint, mintAccountExists });
     return {
         mint,
         name: '',
@@ -1156,6 +1184,7 @@ export async function fetchSolanaTokenMetadata(
         uri: '',
         source: 'none',
         tokenStandard: null,
+        mintAccountExists,
     };
 }
 

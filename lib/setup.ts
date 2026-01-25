@@ -1,7 +1,7 @@
 import { select } from '@inquirer/prompts';
 import { existsSync, readFileSync } from 'fs';
 import { basename } from 'path';
-import { client } from './clickhouse';
+import { client, setupClient } from './clickhouse';
 import { DEFAULT_CONFIG } from './config';
 import { createLogger } from './logger';
 
@@ -256,12 +256,19 @@ export async function executeSqlSetup(
     filePaths: string[],
     options: SetupOptions = {},
 ): Promise<void> {
+    // Setup uses CLICKHOUSE_DATABASE_INSERT if defined, otherwise CLICKHOUSE_DATABASE
+    const setupDatabase =
+        process.env.CLICKHOUSE_DATABASE_INSERT ||
+        process.env.CLICKHOUSE_DATABASE;
+    
     log.info('Starting SQL setup', {
         files: filePaths.length,
         clickhouseUrl:
             process.env.CLICKHOUSE_URL || DEFAULT_CONFIG.CLICKHOUSE_URL,
-        clickhouseDatabase: process.env.CLICKHOUSE_DATABASE,
-        clickhouseDatabaseInsert: process.env.CLICKHOUSE_DATABASE_INSERT,
+        setupDatabase,
+        note: process.env.CLICKHOUSE_DATABASE_INSERT
+            ? 'Using CLICKHOUSE_DATABASE_INSERT for DDL'
+            : 'Using CLICKHOUSE_DATABASE for DDL',
     });
 
     for (const filePath of filePaths) {
@@ -315,7 +322,7 @@ export async function executeSqlSetup(
                     .replace(/\n/g, ' ');
 
                 try {
-                    await client.command({
+                    await setupClient.command({
                         query: statement,
                     });
                     log.debug('Statement executed', {
