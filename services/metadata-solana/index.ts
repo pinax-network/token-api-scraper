@@ -108,6 +108,18 @@ async function processSolanaMint(
                         uri: metadata.uri,
                         error: uriResult.error,
                     });
+
+                    // Track URI fetch failure as error (metadata will still be inserted)
+                    await insertRow(
+                        'metadata_errors',
+                        {
+                            network,
+                            contract: data.contract,
+                            error: `URI fetch failed: ${uriResult.error}`,
+                        },
+                        `Failed to insert URI error for mint ${data.contract}`,
+                        { contract: data.contract },
+                    );
                 }
             }
 
@@ -230,6 +242,10 @@ async function processSolanaMint(
                     ? 'none'
                     : 'burned';
 
+                const errorMessage = metadata.mintAccountExists
+                    ? 'No on-chain metadata found'
+                    : 'Mint account burned or closed';
+
                 log.debug('Inserting token with no metadata', {
                     mint: data.contract,
                     decimals: data.decimals,
@@ -240,6 +256,7 @@ async function processSolanaMint(
                     source: noMetadataSource,
                 });
 
+                // Insert to metadata table (with decimals info)
                 const success = await insertRow(
                     'metadata',
                     {
@@ -257,6 +274,18 @@ async function processSolanaMint(
                         description: '',
                     },
                     `Failed to insert metadata for mint ${data.contract}`,
+                    { contract: data.contract },
+                );
+
+                // Also insert to metadata_errors for tracking
+                await insertRow(
+                    'metadata_errors',
+                    {
+                        network,
+                        contract: data.contract,
+                        error: errorMessage,
+                    },
+                    `Failed to insert error for mint ${data.contract}`,
                     { contract: data.contract },
                 );
 
