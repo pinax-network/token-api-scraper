@@ -13,9 +13,7 @@ CREATE TABLE IF NOT EXISTS metadata (
     name                        String,
     symbol                      String,
     uri                         String,
-    source                      LowCardinality(String),
-    -- Metaplex TokenStandard enum (NULL for tokens without metadata)
-    token_standard              Nullable(Enum8('NonFungible' = 0, 'FungibleAsset' = 1, 'Fungible' = 2, 'NonFungibleEdition' = 3, 'ProgrammableNonFungible' = 4, 'ProgrammableNonFungibleEdition' = 5)),
+    source                      Enum8('metaplex' = 0, 'token2022' = 1, 'none' = 2, 'burned' = 3, 'pump-amm' = 4),
 
     -- parsed token metadata --
     image                       String DEFAULT '',

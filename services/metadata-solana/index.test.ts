@@ -213,7 +213,6 @@ describe('Solana metadata service', () => {
             symbol: '',
             uri: '',
             source: 'none',
-            token_standard: null,
             image: '',
             description: '',
         };
@@ -245,7 +244,6 @@ describe('Solana metadata service', () => {
             symbol: '',
             uri: '',
             source: 'burned',
-            token_standard: null,
             image: '',
             description: '',
         };
@@ -286,7 +284,6 @@ describe('Solana metadata service', () => {
             symbol: 'TEST',
             uri: 'https://example.com/metadata.json',
             source: 'metaplex',
-            token_standard: 2, // Fungible (original Metaplex enum value)
             image: 'https://example.com/image.png',
             description: 'Test description',
         };
