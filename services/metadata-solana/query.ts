@@ -6,10 +6,13 @@
 
 import {
     decodeMetaplexMetadata,
+    deriveMeteoraDlmmLpMetadata,
     derivePumpAmmLpMetadata,
     findMetadataPda,
     getAccountInfo,
+    isMeteoraDlmmLpToken,
     isPumpAmmLpToken,
+    METEORA_DLMM_PROGRAM_ID,
     METAPLEX_PROGRAM_ID,
     PUMP_AMM_PROGRAM_ID,
     parseToken2022Extensions,
@@ -199,6 +202,46 @@ export async function queryMetadata(
         }
     } catch (err) {
         info('Could not check for Pump.fun AMM LP token', {
+            error: (err as Error).message,
+        });
+    }
+
+    // Step 2.6: Check if this is a Meteora DLMM LP token
+    section('Step 2.6: Checking for Meteora DLMM LP Token');
+
+    let meteoraDlmmLpMetadata: { name: string; symbol: string } | null = null;
+    let isMeteoraDlmmLp = false;
+
+    try {
+        const lpCheck = await isMeteoraDlmmLpToken(mint);
+
+        if (lpCheck.isLpToken && lpCheck.poolAddress) {
+            isMeteoraDlmmLp = true;
+            success('This is a Meteora DLMM LP token', {
+                poolAddress: lpCheck.poolAddress,
+                meteoraDlmmProgram: METEORA_DLMM_PROGRAM_ID,
+            });
+
+            // Derive LP metadata from pool
+            meteoraDlmmLpMetadata = await deriveMeteoraDlmmLpMetadata(
+                lpCheck.poolAddress,
+            );
+
+            if (meteoraDlmmLpMetadata) {
+                success('Derived LP token metadata from pool', {
+                    derivedName: meteoraDlmmLpMetadata.name,
+                    derivedSymbol: meteoraDlmmLpMetadata.symbol,
+                });
+            } else {
+                warn('Could not derive LP metadata from pool');
+            }
+        } else {
+            info('Not a Meteora DLMM LP token', {
+                message: 'Mint authority is not owned by Meteora DLMM program',
+            });
+        }
+    } catch (err) {
+        info('Could not check for Meteora DLMM LP token', {
             error: (err as Error).message,
         });
     }
@@ -419,6 +462,9 @@ export async function queryMetadata(
         `  ${BOLD}Pump.fun AMM LP:${RESET}       ${isPumpAmmLp ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`,
     );
     console.log(
+        `  ${BOLD}Meteora DLMM LP:${RESET}       ${isMeteoraDlmmLp ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`,
+    );
+    console.log(
         `  ${BOLD}Metaplex metadata:${RESET}     ${metaplexFound ? `${GREEN}Found${RESET}` : `${DIM}Not found${RESET}`}`,
     );
     console.log(
@@ -430,26 +476,35 @@ export async function queryMetadata(
     console.log();
 
     // Final resolved values
-    if (finalName || finalSymbol) {
+    if (finalName || finalSymbol || isPumpAmmLp || isMeteoraDlmmLp) {
+        const isLpToken = isPumpAmmLp || isMeteoraDlmmLp;
+        const lpMetadata = isPumpAmmLp ? pumpAmmLpMetadata : meteoraDlmmLpMetadata;
         const precedenceSource =
             isPumpAmmLp && pumpAmmLpMetadata
                 ? 'Pump.fun AMM LP derived'
-                : 'URI takes precedence';
+                : isMeteoraDlmmLp && meteoraDlmmLpMetadata
+                  ? 'Meteora DLMM LP derived'
+                  : 'URI takes precedence';
+        
+        // Use LP-derived values if available, otherwise use standard metadata
+        const displayName = isLpToken && lpMetadata ? lpMetadata.name : finalName;
+        const displaySymbol = isLpToken && lpMetadata ? lpMetadata.symbol : finalSymbol;
+        
         console.log(
             `  ${BOLD}${CYAN}Final Values (${precedenceSource}):${RESET}`,
         );
         console.log(
-            `  ${BOLD}Name:${RESET}                  ${finalName || `${DIM}(empty)${RESET}`}`,
+            `  ${BOLD}Name:${RESET}                  ${displayName || `${DIM}(empty)${RESET}`}`,
         );
         console.log(
-            `  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`,
+            `  ${BOLD}Symbol:${RESET}                ${displaySymbol || `${DIM}(empty)${RESET}`}`,
         );
-        if (uriDescription && !isPumpAmmLp) {
+        if (uriDescription && !isLpToken) {
             console.log(
                 `  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`,
             );
         }
-        if (uriImage && !isPumpAmmLp) {
+        if (uriImage && !isLpToken) {
             console.log(`  ${BOLD}Image:${RESET}                 ${uriImage}`);
         }
         console.log();

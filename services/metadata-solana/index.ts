@@ -12,8 +12,10 @@ import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import {
+    deriveMeteoraDlmmLpMetadata,
     derivePumpAmmLpMetadata,
     fetchSolanaTokenMetadata,
+    isMeteoraDlmmLpToken,
     isPumpAmmLpToken,
 } from '../../lib/solana-rpc';
 import { fetchUriMetadata } from '../../lib/uri-fetch';
@@ -164,26 +166,29 @@ async function processSolanaMint(
                 stats.incrementError();
             }
         } else {
-            // No standard metadata found - check if this is a Pump.fun AMM LP token
-            let pumpAmmName = '';
-            let pumpAmmSymbol = '';
-            let isPumpAmmLp = false;
+            // No standard metadata found - check if this is an LP token from supported protocols
+            let lpName = '';
+            let lpSymbol = '';
+            let lpSource = '';
+            let isLpToken = false;
 
+            // Check Pump.fun AMM LP token
             try {
-                const lpCheck = await isPumpAmmLpToken(data.contract);
-                if (lpCheck.isLpToken && lpCheck.poolAddress) {
-                    isPumpAmmLp = true;
+                const pumpAmmCheck = await isPumpAmmLpToken(data.contract);
+                if (pumpAmmCheck.isLpToken && pumpAmmCheck.poolAddress) {
                     const lpMetadata = await derivePumpAmmLpMetadata(
-                        lpCheck.poolAddress,
+                        pumpAmmCheck.poolAddress,
                     );
                     if (lpMetadata) {
-                        pumpAmmName = lpMetadata.name;
-                        pumpAmmSymbol = lpMetadata.symbol;
+                        isLpToken = true;
+                        lpName = lpMetadata.name;
+                        lpSymbol = lpMetadata.symbol;
+                        lpSource = 'pump-amm';
                         log.debug('Derived Pump.fun AMM LP metadata', {
                             mint: data.contract,
-                            poolAddress: lpCheck.poolAddress,
-                            name: pumpAmmName,
-                            symbol: pumpAmmSymbol,
+                            poolAddress: pumpAmmCheck.poolAddress,
+                            name: lpName,
+                            symbol: lpSymbol,
                         });
                     }
                 }
@@ -194,8 +199,37 @@ async function processSolanaMint(
                 });
             }
 
-            // If we derived Pump.fun AMM LP metadata, insert to metadata table
-            if (isPumpAmmLp && pumpAmmName) {
+            // Check Meteora DLMM LP token (if not already identified as LP)
+            if (!isLpToken) {
+                try {
+                    const meteoraCheck = await isMeteoraDlmmLpToken(data.contract);
+                    if (meteoraCheck.isLpToken && meteoraCheck.poolAddress) {
+                        const lpMetadata = await deriveMeteoraDlmmLpMetadata(
+                            meteoraCheck.poolAddress,
+                        );
+                        if (lpMetadata) {
+                            isLpToken = true;
+                            lpName = lpMetadata.name;
+                            lpSymbol = lpMetadata.symbol;
+                            lpSource = 'meteora-dlmm';
+                            log.debug('Derived Meteora DLMM LP metadata', {
+                                mint: data.contract,
+                                poolAddress: meteoraCheck.poolAddress,
+                                name: lpName,
+                                symbol: lpSymbol,
+                            });
+                        }
+                    }
+                } catch (lpError) {
+                    log.debug('Failed to check for Meteora DLMM LP token', {
+                        mint: data.contract,
+                        error: (lpError as Error).message,
+                    });
+                }
+            }
+
+            // If we derived LP metadata, insert to metadata table
+            if (isLpToken && lpName) {
                 const success = await insertRow(
                     'metadata',
                     {
@@ -204,10 +238,10 @@ async function processSolanaMint(
                         block_num: data.block_num,
                         timestamp: data.timestamp,
                         decimals: data.decimals,
-                        name: pumpAmmName,
-                        symbol: pumpAmmSymbol,
+                        name: lpName,
+                        symbol: lpSymbol,
                         uri: '',
-                        source: 'pump-amm',
+                        source: lpSource,
                         image: '',
                         description: '',
                     },
@@ -218,10 +252,11 @@ async function processSolanaMint(
                 if (success) {
                     incrementSuccess(serviceName);
                     stats.incrementSuccess();
-                    log.debug('Pump.fun AMM LP metadata derived', {
+                    log.debug('LP metadata derived', {
                         mint: data.contract,
-                        name: pumpAmmName,
-                        symbol: pumpAmmSymbol,
+                        name: lpName,
+                        symbol: lpSymbol,
+                        source: lpSource,
                         decimals: data.decimals,
                         blockNum: data.block_num,
                         queryTimeMs,
@@ -241,7 +276,7 @@ async function processSolanaMint(
                     decimals: data.decimals,
                     blockNum: data.block_num,
                     queryTimeMs,
-                    isPumpAmmLp,
+                    isLpToken,
                     mintAccountExists: metadata.mintAccountExists,
                 });
 

@@ -13,6 +13,10 @@ const mockIsPumpAmmLpToken = mock(() =>
     Promise.resolve({ isLpToken: false, poolAddress: null }),
 );
 const mockDerivePumpAmmLpMetadata = mock(() => Promise.resolve(null));
+const mockIsMeteoraDlmmLpToken = mock(() =>
+    Promise.resolve({ isLpToken: false, poolAddress: null }),
+);
+const mockDeriveMeteoraDlmmLpMetadata = mock(() => Promise.resolve(null));
 
 mock.module('../../lib/solana-rpc', () => ({
     getAccountInfo: mockGetAccountInfo,
@@ -21,10 +25,13 @@ mock.module('../../lib/solana-rpc', () => ({
     findMetadataPda: mockFindMetadataPda,
     isPumpAmmLpToken: mockIsPumpAmmLpToken,
     derivePumpAmmLpMetadata: mockDerivePumpAmmLpMetadata,
+    isMeteoraDlmmLpToken: mockIsMeteoraDlmmLpToken,
+    deriveMeteoraDlmmLpMetadata: mockDeriveMeteoraDlmmLpMetadata,
     TOKEN_PROGRAM_ID: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
     TOKEN_2022_PROGRAM_ID: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
     METAPLEX_PROGRAM_ID: 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',
     PUMP_AMM_PROGRAM_ID: 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA',
+    METEORA_DLMM_PROGRAM_ID: '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi',
 }));
 
 // Import the queryMetadata function after mocking
@@ -38,6 +45,8 @@ describe('Solana metadata query service', () => {
         mockFindMetadataPda.mockClear();
         mockIsPumpAmmLpToken.mockClear();
         mockDerivePumpAmmLpMetadata.mockClear();
+        mockIsMeteoraDlmmLpToken.mockClear();
+        mockDeriveMeteoraDlmmLpMetadata.mockClear();
 
         // Reset to default implementations
         mockGetAccountInfo.mockReturnValue(Promise.resolve(null));
@@ -48,6 +57,10 @@ describe('Solana metadata query service', () => {
             Promise.resolve({ isLpToken: false, poolAddress: null }),
         );
         mockDerivePumpAmmLpMetadata.mockReturnValue(Promise.resolve(null));
+        mockIsMeteoraDlmmLpToken.mockReturnValue(
+            Promise.resolve({ isLpToken: false, poolAddress: null }),
+        );
+        mockDeriveMeteoraDlmmLpMetadata.mockReturnValue(Promise.resolve(null));
     });
 
     test('should validate mint address format', async () => {
