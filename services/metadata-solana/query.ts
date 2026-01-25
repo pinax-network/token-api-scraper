@@ -15,6 +15,7 @@ import {
     TOKEN_PROGRAM_ID,
     TokenStandard,
 } from '../../lib/solana-rpc';
+import { fetchUriMetadata } from '../../lib/uri-fetch';
 
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
@@ -289,6 +290,83 @@ export async function queryMetadata(
         }
     }
 
+    // Step 5: Fetch URI metadata (if URI is available)
+    section('Step 5: Fetching URI metadata');
+
+    // Collect URI from whichever source found it
+    let onChainName = '';
+    let onChainSymbol = '';
+    let onChainUri = '';
+
+    if (metaplexFound) {
+        // Re-fetch metaplex to get values (we already decoded above)
+        const metadataPda = findMetadataPda(mint);
+        const accountInfo = await getAccountInfo(metadataPda);
+        if (accountInfo?.data) {
+            const metadata = decodeMetaplexMetadata(accountInfo.data);
+            if (metadata) {
+                onChainName = metadata.name || '';
+                onChainSymbol = metadata.symbol || '';
+                onChainUri = metadata.uri || '';
+            }
+        }
+    } else if (token2022Found && mintAccountInfo?.data) {
+        const token2022Metadata = parseToken2022Extensions(
+            mintAccountInfo.data,
+            mintAccountInfo.owner,
+        );
+        if (token2022Metadata) {
+            onChainName = token2022Metadata.name || '';
+            onChainSymbol = token2022Metadata.symbol || '';
+            onChainUri = token2022Metadata.uri || '';
+        }
+    }
+
+    let uriName = '';
+    let uriSymbol = '';
+    let uriDescription = '';
+    let uriImage = '';
+    let uriFound = false;
+
+    if (onChainUri) {
+        info('Fetching metadata from URI', { uri: onChainUri });
+
+        try {
+            const uriResult = await fetchUriMetadata(onChainUri);
+
+            if (uriResult.success && uriResult.metadata) {
+                uriFound = true;
+                uriName = uriResult.metadata.name || '';
+                uriSymbol = uriResult.metadata.symbol || '';
+                uriDescription = uriResult.metadata.description || '';
+                uriImage = uriResult.metadata.image || '';
+
+                success('URI metadata fetched', {
+                    name: uriName || '(empty)',
+                    symbol: uriSymbol || '(empty)',
+                    description: uriDescription ? uriDescription.slice(0, 100) + (uriDescription.length > 100 ? '...' : '') : '(empty)',
+                    image: uriImage || '(empty)',
+                });
+            } else {
+                warn('Failed to fetch URI metadata', {
+                    uri: onChainUri,
+                    error: uriResult.error,
+                });
+            }
+        } catch (err) {
+            error('Error fetching URI metadata', {
+                uri: onChainUri,
+                error: (err as Error).message,
+            });
+        }
+    } else {
+        info('No URI available to fetch metadata from');
+    }
+
+    // Final values: URI takes precedence over on-chain
+    const finalName = uriName || onChainName;
+    const finalSymbol = uriSymbol || onChainSymbol;
+
     // Summary
     header('Query Summary');
 
@@ -310,7 +388,24 @@ export async function queryMetadata(
     console.log(
         `  ${BOLD}Token-2022 metadata:${RESET}   ${token2022Found ? `${GREEN}Found${RESET}` : isToken2022Program ? `${DIM}Not found${RESET}` : `${DIM}N/A${RESET}`}`,
     );
+    console.log(
+        `  ${BOLD}URI metadata:${RESET}          ${uriFound ? `${GREEN}Found${RESET}` : onChainUri ? `${DIM}Not found${RESET}` : `${DIM}No URI${RESET}`}`,
+    );
     console.log();
+
+    // Final resolved values
+    if (finalName || finalSymbol) {
+        console.log(`  ${BOLD}${CYAN}Final Values (URI takes precedence):${RESET}`);
+        console.log(`  ${BOLD}Name:${RESET}                  ${finalName || `${DIM}(empty)${RESET}`}`);
+        console.log(`  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`);
+        if (uriDescription) {
+            console.log(`  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`);
+        }
+        if (uriImage) {
+            console.log(`  ${BOLD}Image:${RESET}                 ${uriImage}`);
+        }
+        console.log();
+    }
 
     if (!mintAccountInfo) {
         warn('Check if the mint address is correct and exists on the network');

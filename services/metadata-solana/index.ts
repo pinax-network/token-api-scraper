@@ -83,16 +83,22 @@ async function processSolanaMint(
             // Fetch additional metadata from URI if available
             let image = '';
             let description = '';
+            let uriName = '';
+            let uriSymbol = '';
 
             if (metadata.uri) {
                 const uriResult = await fetchUriMetadata(metadata.uri);
                 if (uriResult.success && uriResult.metadata) {
                     image = uriResult.metadata.image || '';
                     description = uriResult.metadata.description || '';
+                    uriName = uriResult.metadata.name || '';
+                    uriSymbol = uriResult.metadata.symbol || '';
                     log.debug('URI metadata fetched', {
                         mint: data.contract,
                         hasImage: !!image,
                         hasDescription: !!description,
+                        hasName: !!uriName,
+                        hasSymbol: !!uriSymbol,
                     });
                 } else {
                     log.warn('Failed to fetch URI metadata after 3 retries', {
@@ -103,6 +109,10 @@ async function processSolanaMint(
                 }
             }
 
+            // Use on-chain name/symbol, falling back to URI metadata if empty
+            const finalName = metadata.name || uriName;
+            const finalSymbol = metadata.symbol || uriSymbol;
+
             // Successfully found metadata
             const success = await insertRow(
                 'metadata',
@@ -112,8 +122,8 @@ async function processSolanaMint(
                     block_num: data.block_num,
                     timestamp: data.timestamp,
                     decimals: data.decimals,
-                    name: metadata.name,
-                    symbol: metadata.symbol,
+                    name: finalName,
+                    symbol: finalSymbol,
                     uri: metadata.uri,
                     source: metadata.source,
                     token_standard: metadata.tokenStandard,
@@ -129,8 +139,8 @@ async function processSolanaMint(
                 stats.incrementSuccess();
                 log.debug('Metadata scraped successfully', {
                     mint: data.contract,
-                    name: metadata.name,
-                    symbol: metadata.symbol,
+                    name: finalName,
+                    symbol: finalSymbol,
                     decimals: data.decimals,
                     source: metadata.source,
                     tokenStandard: metadata.tokenStandard,
