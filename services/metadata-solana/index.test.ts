@@ -38,6 +38,7 @@ const mockFetchUriMetadata = mock(() =>
             description: 'Test description',
             image: 'https://example.com/image.png',
         },
+        raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}',
     }),
 );
 
@@ -112,6 +113,7 @@ describe('Solana metadata service', () => {
                     description: 'Test description',
                     image: 'https://example.com/image.png',
                 },
+                raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}',
             }),
         );
     });
@@ -179,7 +181,7 @@ describe('Solana metadata service', () => {
         );
     });
 
-    test('insert should be called with correct metadata structure including image and description', async () => {
+    test('insert should be called with correct metadata structure including image, description, and uri_raw', async () => {
         const metadata = {
             network: 'solana',
             contract: 'test-mint',
@@ -193,6 +195,8 @@ describe('Solana metadata service', () => {
             token_standard: 2, // Fungible (original Metaplex enum value)
             image: 'https://example.com/image.png',
             description: 'Test description',
+            uri_raw:
+                '{"name":"Test Token","image":"https://example.com/image.png"}',
         };
 
         await mockInsertRow('metadata', metadata, 'test context', {
@@ -250,6 +254,9 @@ describe('Solana metadata service', () => {
         expect(result.success).toBe(true);
         expect(result.metadata?.description).toBe('Test description');
         expect(result.metadata?.image).toBe('https://example.com/image.png');
+        expect(result.raw).toBe(
+            '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}',
+        );
     });
 
     test('fetchUriMetadata should handle failed fetch', async () => {
@@ -266,5 +273,23 @@ describe('Solana metadata service', () => {
 
         expect(result.success).toBe(false);
         expect(result.error).toBe('HTTP 404');
+    });
+
+    test('fetchUriMetadata should return raw even on parse failure', async () => {
+        mockFetchUriMetadata.mockReturnValue(
+            Promise.resolve({
+                success: false,
+                error: 'Failed to parse JSON',
+                raw: 'invalid json content',
+            }),
+        );
+
+        const result = await mockFetchUriMetadata(
+            'https://example.com/invalid.json',
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('Failed to parse JSON');
+        expect(result.raw).toBe('invalid json content');
     });
 });

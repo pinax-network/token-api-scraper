@@ -59,16 +59,17 @@ describe('URI Fetch Module', () => {
             // when the fetch fails (it will show the normalized URL)
             const originalFetch = globalThis.fetch;
             let capturedUrl: string | undefined;
+            const testJson = {
+                name: 'Test',
+                description: 'Test description',
+                image: 'https://example.com/image.png',
+            };
 
             globalThis.fetch = mock(async (url: string | URL | Request) => {
                 capturedUrl = url.toString();
                 return {
                     ok: true,
-                    json: async () => ({
-                        name: 'Test',
-                        description: 'Test description',
-                        image: 'https://example.com/image.png',
-                    }),
+                    text: async () => JSON.stringify(testJson),
                 } as Response;
             }) as unknown as typeof globalThis.fetch;
 
@@ -87,16 +88,17 @@ describe('URI Fetch Module', () => {
         test('should handle Arweave URIs correctly', async () => {
             const originalFetch = globalThis.fetch;
             let capturedUrl: string | undefined;
+            const testJson = {
+                name: 'Test',
+                description: 'Test description',
+                image: 'https://example.com/image.png',
+            };
 
             globalThis.fetch = mock(async (url: string | URL | Request) => {
                 capturedUrl = url.toString();
                 return {
                     ok: true,
-                    json: async () => ({
-                        name: 'Test',
-                        description: 'Test description',
-                        image: 'https://example.com/image.png',
-                    }),
+                    text: async () => JSON.stringify(testJson),
                 } as Response;
             }) as unknown as typeof globalThis.fetch;
 
@@ -112,16 +114,17 @@ describe('URI Fetch Module', () => {
     describe('Successful metadata fetch', () => {
         test('should extract metadata fields from JSON response', async () => {
             const originalFetch = globalThis.fetch;
+            const testJson = {
+                name: 'Test Token',
+                symbol: 'TEST',
+                description: 'A test token for testing',
+                image: 'https://example.com/image.png',
+            };
 
             globalThis.fetch = mock(async () => {
                 return {
                     ok: true,
-                    json: async () => ({
-                        name: 'Test Token',
-                        symbol: 'TEST',
-                        description: 'A test token for testing',
-                        image: 'https://example.com/image.png',
-                    }),
+                    text: async () => JSON.stringify(testJson),
                 } as Response;
             }) as unknown as typeof globalThis.fetch;
 
@@ -138,6 +141,7 @@ describe('URI Fetch Module', () => {
                 expect(result.metadata?.image).toBe(
                     'https://example.com/image.png',
                 );
+                expect(result.raw).toBe(JSON.stringify(testJson));
             } finally {
                 globalThis.fetch = originalFetch;
             }
@@ -145,14 +149,15 @@ describe('URI Fetch Module', () => {
 
         test('should handle partial metadata', async () => {
             const originalFetch = globalThis.fetch;
+            const testJson = {
+                description: 'Only description',
+                image: 'https://example.com/image.png',
+            };
 
             globalThis.fetch = mock(async () => {
                 return {
                     ok: true,
-                    json: async () => ({
-                        description: 'Only description',
-                        image: 'https://example.com/image.png',
-                    }),
+                    text: async () => JSON.stringify(testJson),
                 } as Response;
             }) as unknown as typeof globalThis.fetch;
 
@@ -167,6 +172,30 @@ describe('URI Fetch Module', () => {
                 expect(result.metadata?.image).toBe(
                     'https://example.com/image.png',
                 );
+                expect(result.raw).toBe(JSON.stringify(testJson));
+            } finally {
+                globalThis.fetch = originalFetch;
+            }
+        });
+
+        test('should return raw response string', async () => {
+            const originalFetch = globalThis.fetch;
+            const rawResponse = '{"name":"Raw Test","extra_field":"ignored"}';
+
+            globalThis.fetch = mock(async () => {
+                return {
+                    ok: true,
+                    text: async () => rawResponse,
+                } as Response;
+            }) as unknown as typeof globalThis.fetch;
+
+            try {
+                const result = await fetchUriMetadata(
+                    'https://example.com/metadata.json',
+                );
+                expect(result.success).toBe(true);
+                expect(result.raw).toBe(rawResponse);
+                expect(result.metadata?.name).toBe('Raw Test');
             } finally {
                 globalThis.fetch = originalFetch;
             }
@@ -195,15 +224,14 @@ describe('URI Fetch Module', () => {
             }
         });
 
-        test('should handle invalid JSON response', async () => {
+        test('should handle invalid JSON response and return raw', async () => {
             const originalFetch = globalThis.fetch;
+            const invalidJson = 'not valid json {{}';
 
             globalThis.fetch = mock(async () => {
                 return {
                     ok: true,
-                    json: async () => {
-                        throw new Error('Invalid JSON');
-                    },
+                    text: async () => invalidJson,
                 } as Response;
             }) as unknown as typeof globalThis.fetch;
 
@@ -213,6 +241,7 @@ describe('URI Fetch Module', () => {
                 );
                 expect(result.success).toBe(false);
                 expect(result.error).toContain('Failed to parse JSON');
+                expect(result.raw).toBe(invalidJson);
             } finally {
                 globalThis.fetch = originalFetch;
             }
@@ -220,15 +249,16 @@ describe('URI Fetch Module', () => {
 
         test('should handle non-string metadata fields', async () => {
             const originalFetch = globalThis.fetch;
+            const testJson = {
+                name: 123, // number instead of string
+                description: { nested: 'object' },
+                image: ['array'],
+            };
 
             globalThis.fetch = mock(async () => {
                 return {
                     ok: true,
-                    json: async () => ({
-                        name: 123, // number instead of string
-                        description: { nested: 'object' },
-                        image: ['array'],
-                    }),
+                    text: async () => JSON.stringify(testJson),
                 } as Response;
             }) as unknown as typeof globalThis.fetch;
 
@@ -241,6 +271,7 @@ describe('URI Fetch Module', () => {
                 expect(result.metadata?.name).toBeUndefined();
                 expect(result.metadata?.description).toBeUndefined();
                 expect(result.metadata?.image).toBeUndefined();
+                expect(result.raw).toBe(JSON.stringify(testJson));
             } finally {
                 globalThis.fetch = originalFetch;
             }
@@ -297,6 +328,7 @@ describe('URI Fetch Module', () => {
         test('should succeed on retry after transient failure', async () => {
             const originalFetch = globalThis.fetch;
             let fetchCount = 0;
+            const testJson = { description: 'Success after retry' };
 
             globalThis.fetch = mock(async () => {
                 fetchCount++;
@@ -308,9 +340,7 @@ describe('URI Fetch Module', () => {
                 }
                 return {
                     ok: true,
-                    json: async () => ({
-                        description: 'Success after retry',
-                    }),
+                    text: async () => JSON.stringify(testJson),
                 } as Response;
             }) as unknown as typeof globalThis.fetch;
 
@@ -322,6 +352,7 @@ describe('URI Fetch Module', () => {
                 expect(result.metadata?.description).toBe(
                     'Success after retry',
                 );
+                expect(result.raw).toBe(JSON.stringify(testJson));
                 expect(fetchCount).toBe(2);
             } finally {
                 globalThis.fetch = originalFetch;
