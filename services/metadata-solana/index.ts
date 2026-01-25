@@ -89,37 +89,51 @@ async function processSolanaMint(
             let uriSymbol = '';
 
             if (metadata.uri) {
-                const uriResult = await fetchUriMetadata(metadata.uri);
-                if (uriResult.success && uriResult.metadata) {
-                    image = uriResult.metadata.image || '';
-                    description = uriResult.metadata.description || '';
-                    uriName = uriResult.metadata.name || '';
-                    uriSymbol = uriResult.metadata.symbol || '';
-                    log.debug('URI metadata fetched', {
-                        mint: data.contract,
-                        hasImage: !!image,
-                        hasDescription: !!description,
-                        hasName: !!uriName,
-                        hasSymbol: !!uriSymbol,
-                    });
-                } else {
-                    log.warn('Failed to fetch URI metadata after 3 retries', {
+                // Check if URI is a direct image link (skip fetching JSON)
+                const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+                const uriLower = metadata.uri.toLowerCase();
+                const isDirectImageUri = imageExtensions.some(ext => uriLower.endsWith(ext));
+
+                if (isDirectImageUri) {
+                    // URI points directly to an image - use it as the image field
+                    image = metadata.uri;
+                    log.debug('URI is direct image link', {
                         mint: data.contract,
                         uri: metadata.uri,
-                        error: uriResult.error,
                     });
+                } else {
+                    const uriResult = await fetchUriMetadata(metadata.uri);
+                    if (uriResult.success && uriResult.metadata) {
+                        image = uriResult.metadata.image || '';
+                        description = uriResult.metadata.description || '';
+                        uriName = uriResult.metadata.name || '';
+                        uriSymbol = uriResult.metadata.symbol || '';
+                        log.debug('URI metadata fetched', {
+                            mint: data.contract,
+                            hasImage: !!image,
+                            hasDescription: !!description,
+                            hasName: !!uriName,
+                            hasSymbol: !!uriSymbol,
+                        });
+                    } else {
+                        log.warn('Failed to fetch URI metadata after 3 retries', {
+                            mint: data.contract,
+                            uri: metadata.uri,
+                            error: uriResult.error,
+                        });
 
-                    // Track URI fetch failure as error (metadata will still be inserted)
-                    await insertRow(
-                        'metadata_errors',
-                        {
-                            network,
-                            contract: data.contract,
-                            error: `URI fetch failed: ${uriResult.error}`,
-                        },
-                        `Failed to insert URI error for mint ${data.contract}`,
-                        { contract: data.contract },
-                    );
+                        // Track URI fetch failure as error (metadata will still be inserted)
+                        await insertRow(
+                            'metadata_errors',
+                            {
+                                network,
+                                contract: data.contract,
+                                error: `URI fetch failed: ${uriResult.error}`,
+                            },
+                            `Failed to insert URI error for mint ${data.contract}`,
+                            { contract: data.contract },
+                        );
+                    }
                 }
             }
 
