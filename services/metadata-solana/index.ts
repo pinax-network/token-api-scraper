@@ -186,46 +186,64 @@ async function processSolanaMint(
                 });
             }
 
-            // Insert metadata - use Pump.fun AMM derived metadata if available
-            const finalSource =
-                isPumpAmmLp && pumpAmmName ? 'pump-amm' : metadata.source;
-            const success = await insertRow(
-                'metadata',
-                {
-                    network,
-                    contract: data.contract,
-                    block_num: data.block_num,
-                    timestamp: data.timestamp,
-                    decimals: data.decimals,
-                    name: pumpAmmName,
-                    symbol: pumpAmmSymbol,
-                    uri: '',
-                    source: finalSource,
-                    token_standard: null,
-                    image: '',
-                    description: '',
-                },
-                `Failed to insert metadata for mint ${data.contract}`,
-                { contract: data.contract },
-            );
+            // If we derived Pump.fun AMM LP metadata, insert to metadata table
+            if (isPumpAmmLp && pumpAmmName) {
+                const success = await insertRow(
+                    'metadata',
+                    {
+                        network,
+                        contract: data.contract,
+                        block_num: data.block_num,
+                        timestamp: data.timestamp,
+                        decimals: data.decimals,
+                        name: pumpAmmName,
+                        symbol: pumpAmmSymbol,
+                        uri: '',
+                        source: 'pump-amm',
+                        token_standard: null,
+                        image: '',
+                        description: '',
+                    },
+                    `Failed to insert metadata for mint ${data.contract}`,
+                    { contract: data.contract },
+                );
 
-            if (success) {
-                incrementSuccess(serviceName);
-                stats.incrementSuccess();
-                const logMessage =
-                    isPumpAmmLp && pumpAmmName
-                        ? 'Pump.fun AMM LP metadata derived'
-                        : 'Metadata inserted (no on-chain metadata found)';
-                log.debug(logMessage, {
+                if (success) {
+                    incrementSuccess(serviceName);
+                    stats.incrementSuccess();
+                    log.debug('Pump.fun AMM LP metadata derived', {
+                        mint: data.contract,
+                        name: pumpAmmName,
+                        symbol: pumpAmmSymbol,
+                        decimals: data.decimals,
+                        blockNum: data.block_num,
+                        queryTimeMs,
+                    });
+                } else {
+                    incrementError(serviceName);
+                    stats.incrementError();
+                }
+            } else {
+                // No metadata found at all - insert to metadata_errors
+                log.debug('No metadata found for mint', {
                     mint: data.contract,
-                    name: pumpAmmName || '(empty)',
-                    symbol: pumpAmmSymbol || '(empty)',
                     decimals: data.decimals,
                     blockNum: data.block_num,
                     queryTimeMs,
                     isPumpAmmLp,
                 });
-            } else {
+
+                await insertRow(
+                    'metadata_errors',
+                    {
+                        network,
+                        contract: data.contract,
+                        error: 'No on-chain metadata found',
+                    },
+                    `Failed to insert error for mint ${data.contract}`,
+                    { contract: data.contract },
+                );
+
                 incrementError(serviceName);
                 stats.incrementError();
             }

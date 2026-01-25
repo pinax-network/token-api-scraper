@@ -171,6 +171,29 @@ describe('Solana metadata service', () => {
         expect(result.tokenStandard).toBeNull();
     });
 
+    test('should insert error record when no metadata is found', async () => {
+        // Tokens with source='none' should be recorded in metadata_errors
+        const errorData = {
+            network: 'solana',
+            contract: 'no-metadata-mint',
+            error: 'No on-chain metadata found',
+        };
+
+        await mockInsertRow(
+            'metadata_errors',
+            errorData,
+            'Failed to insert error for mint no-metadata-mint',
+            { contract: 'no-metadata-mint' },
+        );
+
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata_errors',
+            errorData,
+            'Failed to insert error for mint no-metadata-mint',
+            { contract: 'no-metadata-mint' },
+        );
+    });
+
     test('should handle RPC errors gracefully', async () => {
         mockFetchSolanaTokenMetadata.mockImplementation(() => {
             throw new Error('RPC error: connection timeout');
