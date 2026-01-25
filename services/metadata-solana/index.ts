@@ -14,9 +14,7 @@ import { initService } from '../../lib/service-init';
 import {
     derivePumpAmmLpMetadata,
     fetchSolanaTokenMetadata,
-    isNftTokenStandard,
     isPumpAmmLpToken,
-    TokenStandard,
 } from '../../lib/solana-rpc';
 import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
@@ -52,34 +50,6 @@ async function processSolanaMint(
             data.program_id, // Skip Token-2022 lookup if standard SPL token
         );
         const queryTimeMs = Math.round(performance.now() - startTime);
-
-        // Check if this is an NFT based on tokenStandard
-        if (
-            metadata.tokenStandard !== null &&
-            isNftTokenStandard(metadata.tokenStandard)
-        ) {
-            const tokenStandardName = TokenStandard[metadata.tokenStandard];
-            log.debug('Skipping NFT (tokenStandard)', {
-                mint: data.contract,
-                tokenStandard: tokenStandardName,
-                blockNum: data.block_num,
-            });
-
-            await insertRow(
-                'metadata_errors',
-                {
-                    network,
-                    contract: data.contract,
-                    error: `NFT detected (tokenStandard=${tokenStandardName})`,
-                },
-                `Failed to insert NFT error for mint ${data.contract}`,
-                { contract: data.contract },
-            );
-
-            incrementError(serviceName);
-            stats.incrementError();
-            return;
-        }
 
         if (metadata.source !== '') {
             // Fetch additional metadata from URI if available

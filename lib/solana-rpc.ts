@@ -639,34 +639,6 @@ export async function getMultipleAccountsInfo(
  *  ---------------------------------------------------------------------*/
 
 /**
- * Metaplex Token Standard enum values
- * See: https://developers.metaplex.com/token-metadata/token-standard
- */
-export enum TokenStandard {
-    NonFungible = 0, // NFT
-    FungibleAsset = 1, // Semi-fungible (SFT)
-    Fungible = 2, // Fungible token
-    NonFungibleEdition = 3, // NFT edition
-    ProgrammableNonFungible = 4, // Programmable NFT
-    ProgrammableNonFungibleEdition = 5, // Programmable NFT edition
-}
-
-/**
- * Check if a token standard represents an NFT type
- */
-export function isNftTokenStandard(
-    tokenStandard: TokenStandard | null,
-): boolean {
-    if (tokenStandard === null) return false;
-    return (
-        tokenStandard === TokenStandard.NonFungible ||
-        tokenStandard === TokenStandard.NonFungibleEdition ||
-        tokenStandard === TokenStandard.ProgrammableNonFungible ||
-        tokenStandard === TokenStandard.ProgrammableNonFungibleEdition
-    );
-}
-
-/**
  * Metaplex metadata structure
  */
 export interface MetaplexMetadata {
@@ -676,7 +648,6 @@ export interface MetaplexMetadata {
     sellerFeeBasisPoints: number;
     primarySaleHappened: boolean;
     isMutable: boolean;
-    tokenStandard: TokenStandard | null;
 }
 
 /**
@@ -749,7 +720,6 @@ export function decodeMetaplexMetadata(
         // Read primary sale happened (bool)
         let primarySaleHappened = false;
         let isMutable = true;
-        let tokenStandard: TokenStandard | null = null;
 
         if (offset < data.length) {
             // Skip creators option (1 byte for option, then variable)
@@ -780,21 +750,6 @@ export function decodeMetaplexMetadata(
                 isMutable = data[offset] === 1;
                 offset += 1;
             }
-
-            // Read token standard (optional field - 1 byte for Option, then 1 byte for value)
-            if (offset < data.length) {
-                const hasTokenStandard = data[offset] === 1;
-                offset += 1;
-
-                if (hasTokenStandard && offset < data.length) {
-                    const standardValue = data[offset];
-                    // Validate it's a known TokenStandard value (0-5)
-                    if (standardValue <= 5) {
-                        tokenStandard = standardValue as TokenStandard;
-                    }
-                    offset += 1;
-                }
-            }
         }
 
         // Clean up strings (remove null bytes and trim)
@@ -805,7 +760,6 @@ export function decodeMetaplexMetadata(
             sellerFeeBasisPoints,
             primarySaleHappened,
             isMutable,
-            tokenStandard,
         };
     } catch (error) {
         log.debug('Failed to decode Metaplex metadata', {
@@ -1042,6 +996,15 @@ function parseTokenMetadataExtension(data: Uint8Array): Token2022Metadata {
  *  ---------------------------------------------------------------------*/
 
 /**
+ * Metadata source type - indicates where the metadata was retrieved from
+ * - '' (empty): No metadata found
+ * - 'metaplex': Metaplex Token Metadata Program
+ * - 'token2022': Token-2022 extension metadata
+ * - 'pump-amm': Pump.fun AMM LP token (derived metadata)
+ */
+export type MetadataSource = '' | 'metaplex' | 'token2022' | 'pump-amm';
+
+/**
  * Result of fetching Solana token metadata
  */
 export interface SolanaTokenMetadata {
@@ -1049,8 +1012,7 @@ export interface SolanaTokenMetadata {
     name: string;
     symbol: string;
     uri: string;
-    source: 'metaplex' | 'token2022' | 'none';
-    tokenStandard: TokenStandard | null;
+    source: MetadataSource;
     /** Whether the mint account exists on-chain (false if burned/closed) */
     mintAccountExists: boolean;
 }
@@ -1115,7 +1077,6 @@ export async function fetchSolanaTokenMetadata(
                     mint,
                     name: metadata.name,
                     symbol: metadata.symbol,
-                    tokenStandard: metadata.tokenStandard,
                 });
                 return {
                     mint,
@@ -1123,7 +1084,6 @@ export async function fetchSolanaTokenMetadata(
                     symbol: metadata.symbol,
                     uri: metadata.uri,
                     source: 'metaplex',
-                    tokenStandard: metadata.tokenStandard,
                     mintAccountExists,
                 };
             }
@@ -1159,7 +1119,6 @@ export async function fetchSolanaTokenMetadata(
                         symbol: token2022Metadata.symbol,
                         uri: token2022Metadata.uri,
                         source: 'token2022',
-                        tokenStandard: null, // Token-2022 doesn't use Metaplex tokenStandard
                         mintAccountExists,
                     };
                 }
@@ -1185,7 +1144,6 @@ export async function fetchSolanaTokenMetadata(
         symbol: '',
         uri: '',
         source: '',
-        tokenStandard: null,
         mintAccountExists,
     };
 }

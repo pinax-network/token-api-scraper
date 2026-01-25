@@ -9,14 +9,12 @@ import {
     derivePumpAmmLpMetadata,
     findMetadataPda,
     getAccountInfo,
-    isNftTokenStandard,
     isPumpAmmLpToken,
     METAPLEX_PROGRAM_ID,
     PUMP_AMM_PROGRAM_ID,
     parseToken2022Extensions,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
-    TokenStandard,
 } from '../../lib/solana-rpc';
 import { fetchUriMetadata } from '../../lib/uri-fetch';
 
@@ -237,32 +235,15 @@ export async function queryMetadata(
 
                 if (metadata) {
                     metaplexFound = true;
-                    const tokenStandardName =
-                        metadata.tokenStandard !== null
-                            ? TokenStandard[metadata.tokenStandard]
-                            : 'null (not set)';
-                    const isNft =
-                        metadata.tokenStandard !== null &&
-                        isNftTokenStandard(metadata.tokenStandard);
 
                     success('Decoded Metaplex metadata', {
                         name: metadata.name || '(empty)',
                         symbol: metadata.symbol || '(empty)',
                         uri: metadata.uri || '(empty)',
-                        tokenStandard: `${metadata.tokenStandard} (${tokenStandardName})`,
                         sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
                         primarySaleHappened: metadata.primarySaleHappened,
                         isMutable: metadata.isMutable,
-                        isNft,
                     });
-
-                    if (isNft) {
-                        warn('Token is detected as an NFT', {
-                            tokenStandardName,
-                            message:
-                                'Would be skipped in main metadata-solana service',
-                        });
-                    }
                 } else {
                     warn('Failed to decode Metaplex metadata', {
                         message: 'Account exists but data could not be parsed',
