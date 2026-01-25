@@ -20,6 +20,14 @@ function getTimeoutMs(): number {
     );
 }
 
+/** Read max delay from environment variables (same as RPC retry config) */
+function getMaxDelayMs(): number {
+    return parseInt(
+        process.env.MAX_DELAY_MS || String(DEFAULT_CONFIG.MAX_DELAY_MS),
+        10,
+    );
+}
+
 /**
  * Metadata fetched from a token's URI
  */
@@ -135,6 +143,7 @@ export async function fetchUriMetadata(
         process.env.BASE_DELAY_MS || String(DEFAULT_CONFIG.BASE_DELAY_MS),
         10,
     );
+    const maxDelayMs = getMaxDelayMs();
 
     let lastError: string | undefined;
 
@@ -181,7 +190,10 @@ export async function fetchUriMetadata(
                 });
 
                 // Exponential backoff
-                const delay = Math.min(baseDelayMs * 2 ** (attempt - 1), 10000);
+                const delay = Math.min(
+                    baseDelayMs * 2 ** (attempt - 1),
+                    maxDelayMs,
+                );
                 await sleep(delay);
                 continue;
             }
@@ -253,7 +265,10 @@ export async function fetchUriMetadata(
             });
 
             // Exponential backoff
-            const delay = Math.min(baseDelayMs * 2 ** (attempt - 1), 10000);
+            const delay = Math.min(
+                baseDelayMs * 2 ** (attempt - 1),
+                maxDelayMs,
+            );
             await sleep(delay);
         }
     }
