@@ -17,12 +17,9 @@ CREATE TABLE IF NOT EXISTS metadata (
     -- Metaplex TokenStandard enum (NULL for tokens without metadata)
     token_standard              Nullable(Enum8('NonFungible' = 0, 'FungibleAsset' = 1, 'Fungible' = 2, 'NonFungibleEdition' = 3, 'ProgrammableNonFungible' = 4, 'ProgrammableNonFungibleEdition' = 5)),
 
-    -- token metadata URI --
+    -- parsed token metadata --
     image                       String DEFAULT '',
     description                 String DEFAULT '',
-    -- raw URI response and parsed JSON (if valid)
-    uri_raw                     String DEFAULT '',
-    uri_json                    String MATERIALIZED if(isValidJSON(uri_raw), uri_raw, ''),
 
     -- inserter details --
     created_at                  DateTime('UTC') DEFAULT now()
