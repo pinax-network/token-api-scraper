@@ -13,8 +13,10 @@ import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import {
     derivePumpAmmLpMetadata,
+    deriveRaydiumLpMetadata,
     fetchSolanaTokenMetadata,
     isPumpAmmLpToken,
+    isRaydiumAmmLpToken,
 } from '../../lib/solana-rpc';
 import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
@@ -231,58 +233,127 @@ async function processSolanaMint(
                     stats.incrementError();
                 }
             } else {
-                // No metadata found - still insert to metadata table with decimals
-                const errorMessage = metadata.mintAccountExists
-                    ? 'No on-chain metadata found'
-                    : 'Mint account burned or closed';
+                // Check if this is a Raydium AMM LP token
+                let raydiumName = '';
+                let raydiumSymbol = '';
+                let isRaydiumLp = false;
 
-                log.debug('Inserting token with no metadata', {
-                    mint: data.contract,
-                    decimals: data.decimals,
-                    blockNum: data.block_num,
-                    queryTimeMs,
-                    isPumpAmmLp,
-                    mintAccountExists: metadata.mintAccountExists,
-                });
+                try {
+                    const lpCheck = await isRaydiumAmmLpToken(data.contract);
+                    if (lpCheck.isLpToken && lpCheck.poolAddress) {
+                        isRaydiumLp = true;
+                        const lpMetadata = await deriveRaydiumLpMetadata(
+                            lpCheck.poolAddress,
+                        );
+                        if (lpMetadata) {
+                            raydiumName = lpMetadata.name;
+                            raydiumSymbol = lpMetadata.symbol;
+                            log.debug('Derived Raydium AMM LP metadata', {
+                                mint: data.contract,
+                                poolAddress: lpCheck.poolAddress,
+                                name: raydiumName,
+                                symbol: raydiumSymbol,
+                            });
+                        }
+                    }
+                } catch (lpError) {
+                    log.debug('Failed to check for Raydium AMM LP token', {
+                        mint: data.contract,
+                        error: (lpError as Error).message,
+                    });
+                }
 
-                // Insert to metadata table (with decimals info)
-                const success = await insertRow(
-                    'metadata',
-                    {
-                        network,
-                        contract: data.contract,
-                        block_num: data.block_num,
-                        timestamp: data.timestamp,
-                        decimals: data.decimals,
-                        name: '',
-                        symbol: '',
-                        uri: '',
-                        source: '',
-                        image: '',
-                        description: '',
-                    },
-                    `Failed to insert metadata for mint ${data.contract}`,
-                    { contract: data.contract },
-                );
+                // If we derived Raydium LP metadata, insert to metadata table
+                if (isRaydiumLp && raydiumName) {
+                    const success = await insertRow(
+                        'metadata',
+                        {
+                            network,
+                            contract: data.contract,
+                            block_num: data.block_num,
+                            timestamp: data.timestamp,
+                            decimals: data.decimals,
+                            name: raydiumName,
+                            symbol: raydiumSymbol,
+                            uri: '',
+                            source: 'raydium',
+                            image: '',
+                            description: '',
+                        },
+                        `Failed to insert metadata for mint ${data.contract}`,
+                        { contract: data.contract },
+                    );
 
-                // Also insert to metadata_errors for tracking
-                await insertRow(
-                    'metadata_errors',
-                    {
-                        network,
-                        contract: data.contract,
-                        error: errorMessage,
-                    },
-                    `Failed to insert error for mint ${data.contract}`,
-                    { contract: data.contract },
-                );
-
-                if (success) {
-                    incrementSuccess(serviceName);
-                    stats.incrementSuccess();
+                    if (success) {
+                        incrementSuccess(serviceName);
+                        stats.incrementSuccess();
+                        log.debug('Raydium AMM LP metadata derived', {
+                            mint: data.contract,
+                            name: raydiumName,
+                            symbol: raydiumSymbol,
+                            decimals: data.decimals,
+                            blockNum: data.block_num,
+                            queryTimeMs,
+                        });
+                    } else {
+                        incrementError(serviceName);
+                        stats.incrementError();
+                    }
                 } else {
-                    incrementError(serviceName);
-                    stats.incrementError();
+                    // No metadata found - still insert to metadata table with decimals
+                    const errorMessage = metadata.mintAccountExists
+                        ? 'No on-chain metadata found'
+                        : 'Mint account burned or closed';
+
+                    log.debug('Inserting token with no metadata', {
+                        mint: data.contract,
+                        decimals: data.decimals,
+                        blockNum: data.block_num,
+                        queryTimeMs,
+                        isPumpAmmLp,
+                        isRaydiumLp,
+                        mintAccountExists: metadata.mintAccountExists,
+                    });
+
+                    // Insert to metadata table (with decimals info)
+                    const success = await insertRow(
+                        'metadata',
+                        {
+                            network,
+                            contract: data.contract,
+                            block_num: data.block_num,
+                            timestamp: data.timestamp,
+                            decimals: data.decimals,
+                            name: '',
+                            symbol: '',
+                            uri: '',
+                            source: '',
+                            image: '',
+                            description: '',
+                        },
+                        `Failed to insert metadata for mint ${data.contract}`,
+                        { contract: data.contract },
+                    );
+
+                    // Also insert to metadata_errors for tracking
+                    await insertRow(
+                        'metadata_errors',
+                        {
+                            network,
+                            contract: data.contract,
+                            error: errorMessage,
+                        },
+                        `Failed to insert error for mint ${data.contract}`,
+                        { contract: data.contract },
+                    );
+
+                    if (success) {
+                        incrementSuccess(serviceName);
+                        stats.incrementSuccess();
+                    } else {
+                        incrementError(serviceName);
+                        stats.incrementError();
+                    }
                 }
             }
         }

@@ -7,12 +7,15 @@
 import {
     decodeMetaplexMetadata,
     derivePumpAmmLpMetadata,
+    deriveRaydiumLpMetadata,
     findMetadataPda,
     getAccountInfo,
     isPumpAmmLpToken,
+    isRaydiumAmmLpToken,
     METAPLEX_PROGRAM_ID,
     PUMP_AMM_PROGRAM_ID,
     parseToken2022Extensions,
+    RAYDIUM_AMM_PROGRAM_ID,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
 } from '../../lib/solana-rpc';
@@ -199,6 +202,46 @@ export async function queryMetadata(
         }
     } catch (err) {
         info('Could not check for Pump.fun AMM LP token', {
+            error: (err as Error).message,
+        });
+    }
+
+    // Step 2.6: Check if this is a Raydium AMM LP token
+    section('Step 2.6: Checking for Raydium AMM LP Token');
+
+    let raydiumLpMetadata: { name: string; symbol: string } | null = null;
+    let isRaydiumLp = false;
+
+    try {
+        const lpCheck = await isRaydiumAmmLpToken(mint);
+
+        if (lpCheck.isLpToken && lpCheck.poolAddress) {
+            isRaydiumLp = true;
+            success('This is a Raydium AMM LP token', {
+                poolAddress: lpCheck.poolAddress,
+                raydiumAmmProgram: RAYDIUM_AMM_PROGRAM_ID,
+            });
+
+            // Derive LP metadata from pool
+            raydiumLpMetadata = await deriveRaydiumLpMetadata(
+                lpCheck.poolAddress,
+            );
+
+            if (raydiumLpMetadata) {
+                success('Derived LP token metadata from pool', {
+                    derivedName: raydiumLpMetadata.name,
+                    derivedSymbol: raydiumLpMetadata.symbol,
+                });
+            } else {
+                warn('Could not derive LP metadata from pool');
+            }
+        } else {
+            info('Not a Raydium AMM LP token', {
+                message: 'Mint authority is not owned by Raydium AMM program',
+            });
+        }
+    } catch (err) {
+        info('Could not check for Raydium AMM LP token', {
             error: (err as Error).message,
         });
     }
@@ -390,7 +433,7 @@ export async function queryMetadata(
         info('No URI available to fetch metadata from');
     }
 
-    // Final values: URI takes precedence over on-chain, Pump.fun AMM LP takes precedence for LP tokens
+    // Final values: URI takes precedence over on-chain, LP derived metadata takes precedence for LP tokens
     let finalName = uriName || onChainName;
     let finalSymbol = uriSymbol || onChainSymbol;
 
@@ -398,6 +441,12 @@ export async function queryMetadata(
     if (isPumpAmmLp && pumpAmmLpMetadata) {
         finalName = pumpAmmLpMetadata.name;
         finalSymbol = pumpAmmLpMetadata.symbol;
+    }
+
+    // For Raydium AMM LP tokens, use derived metadata if available
+    if (isRaydiumLp && raydiumLpMetadata) {
+        finalName = raydiumLpMetadata.name;
+        finalSymbol = raydiumLpMetadata.symbol;
     }
 
     // Summary
@@ -419,6 +468,9 @@ export async function queryMetadata(
         `  ${BOLD}Pump.fun AMM LP:${RESET}       ${isPumpAmmLp ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`,
     );
     console.log(
+        `  ${BOLD}Raydium AMM LP:${RESET}        ${isRaydiumLp ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`,
+    );
+    console.log(
         `  ${BOLD}Metaplex metadata:${RESET}     ${metaplexFound ? `${GREEN}Found${RESET}` : `${DIM}Not found${RESET}`}`,
     );
     console.log(
@@ -434,7 +486,9 @@ export async function queryMetadata(
         const precedenceSource =
             isPumpAmmLp && pumpAmmLpMetadata
                 ? 'Pump.fun AMM LP derived'
-                : 'URI takes precedence';
+                : isRaydiumLp && raydiumLpMetadata
+                  ? 'Raydium AMM LP derived'
+                  : 'URI takes precedence';
         console.log(
             `  ${BOLD}${CYAN}Final Values (${precedenceSource}):${RESET}`,
         );
@@ -444,12 +498,12 @@ export async function queryMetadata(
         console.log(
             `  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`,
         );
-        if (uriDescription && !isPumpAmmLp) {
+        if (uriDescription && !isPumpAmmLp && !isRaydiumLp) {
             console.log(
                 `  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`,
             );
         }
-        if (uriImage && !isPumpAmmLp) {
+        if (uriImage && !isPumpAmmLp && !isRaydiumLp) {
             console.log(`  ${BOLD}Image:${RESET}                 ${uriImage}`);
         }
         console.log();
@@ -457,7 +511,12 @@ export async function queryMetadata(
 
     if (!mintAccountInfo) {
         warn('Check if the mint address is correct and exists on the network');
-    } else if (!metaplexFound && !token2022Found) {
+    } else if (
+        !metaplexFound &&
+        !token2022Found &&
+        !isPumpAmmLp &&
+        !isRaydiumLp
+    ) {
         warn('No metadata found');
     }
 }

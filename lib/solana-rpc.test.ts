@@ -5,7 +5,9 @@ import {
     decodeMetaplexMetadata,
     findMetadataPda,
     METAPLEX_PROGRAM_ID,
+    parseRaydiumAmmPool,
     parseToken2022Extensions,
+    RAYDIUM_AMM_PROGRAM_ID,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
 } from './solana-rpc';
@@ -263,5 +265,73 @@ describe('Token program ID constants', () => {
 
     test('TOKEN_PROGRAM_ID and TOKEN_2022_PROGRAM_ID should be different', () => {
         expect(TOKEN_PROGRAM_ID).not.toBe(TOKEN_2022_PROGRAM_ID);
+    });
+});
+
+describe('Raydium AMM pool parsing', () => {
+    test('should have correct Raydium AMM program ID', () => {
+        expect(RAYDIUM_AMM_PROGRAM_ID).toBe(
+            '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8',
+        );
+    });
+
+    test('should return null for data too short', () => {
+        // Raydium AMM pool needs at least 504 bytes
+        const shortData = btoa(String.fromCharCode(...new Uint8Array(100)));
+        expect(parseRaydiumAmmPool(shortData)).toBeNull();
+    });
+
+    test('should parse valid Raydium AMM pool data', () => {
+        // Create mock pool data with known pubkeys at expected offsets
+        // Total size should be at least 504 bytes
+        const data = new Uint8Array(520);
+
+        // Offsets from the AmmInfo struct:
+        // coin_vault_mint at offset 408
+        // pc_vault_mint at offset 440
+        // lp_mint at offset 472
+
+        // Set some recognizable bytes at the coin_mint position (offset 408)
+        // Use a simple pattern we can verify
+        for (let i = 0; i < 32; i++) {
+            data[408 + i] = i + 1; // coin_mint: 1, 2, 3, ..., 32
+        }
+
+        // Set pc_mint at offset 440
+        for (let i = 0; i < 32; i++) {
+            data[440 + i] = i + 33; // pc_mint: 33, 34, 35, ..., 64
+        }
+
+        // Set lp_mint at offset 472
+        for (let i = 0; i < 32; i++) {
+            data[472 + i] = i + 65; // lp_mint: 65, 66, 67, ..., 96
+        }
+
+        const base64 = btoa(String.fromCharCode(...data));
+        const result = parseRaydiumAmmPool(base64);
+
+        expect(result).not.toBeNull();
+        expect(result?.coinMint).toBeTruthy();
+        expect(result?.pcMint).toBeTruthy();
+        expect(result?.lpMint).toBeTruthy();
+
+        // The mints should all be different
+        expect(result?.coinMint).not.toBe(result?.pcMint);
+        expect(result?.coinMint).not.toBe(result?.lpMint);
+        expect(result?.pcMint).not.toBe(result?.lpMint);
+    });
+
+    test('should return null for exactly 503 bytes (off by one)', () => {
+        const data = new Uint8Array(503);
+        const base64 = btoa(String.fromCharCode(...data));
+        expect(parseRaydiumAmmPool(base64)).toBeNull();
+    });
+
+    test('should parse data with exactly 504 bytes (minimum valid)', () => {
+        const data = new Uint8Array(504);
+        const base64 = btoa(String.fromCharCode(...data));
+        // Should parse without error (all zeros = valid base58 addresses)
+        const result = parseRaydiumAmmPool(base64);
+        expect(result).not.toBeNull();
     });
 });

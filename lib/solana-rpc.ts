@@ -1001,8 +1001,14 @@ function parseTokenMetadataExtension(data: Uint8Array): Token2022Metadata {
  * - 'metaplex': Metaplex Token Metadata Program
  * - 'token2022': Token-2022 extension metadata
  * - 'pump-amm': Pump.fun AMM LP token (derived metadata)
+ * - 'raydium': Raydium AMM LP token (derived metadata)
  */
-export type MetadataSource = '' | 'metaplex' | 'token2022' | 'pump-amm';
+export type MetadataSource =
+    | ''
+    | 'metaplex'
+    | 'token2022'
+    | 'pump-amm'
+    | 'raydium';
 
 /**
  * Result of fetching Solana token metadata
@@ -1332,6 +1338,202 @@ export async function isPumpAmmLpToken(
         return { isLpToken: false, poolAddress: null };
     } catch (error) {
         log.debug('Failed to check if mint is Pump.fun AMM LP token', {
+            mintAddress,
+            error: (error as Error).message,
+        });
+        return { isLpToken: false, poolAddress: null };
+    }
+}
+
+/** -----------------------------------------------------------------------
+ *  Raydium AMM LP Token Support
+ *  ---------------------------------------------------------------------*/
+
+/**
+ * Raydium AMM V4 Program ID (mainnet)
+ * This is the standard AMM program for Raydium liquidity pools
+ */
+export const RAYDIUM_AMM_PROGRAM_ID =
+    '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8';
+
+/**
+ * Raydium AMM Pool (AmmInfo) Layout:
+ * Based on the official Raydium AMM state.rs struct
+ * https://github.com/raydium-io/raydium-amm/blob/master/program/src/state.rs
+ *
+ * The struct is #[repr(C, packed)] with the following fields:
+ * - status to sys_decimal_value: 17 x u64 = 136 bytes (offset 0-135)
+ * - fees: Fees struct = 64 bytes (offset 136-199)
+ * - state_data: StateData struct = 144 bytes (offset 200-343)
+ * - coin_vault: Pubkey = 32 bytes (offset 344-375)
+ * - pc_vault: Pubkey = 32 bytes (offset 376-407)
+ * - coin_vault_mint: Pubkey = 32 bytes (offset 408-439) - token A mint
+ * - pc_vault_mint: Pubkey = 32 bytes (offset 440-471) - token B mint
+ * - lp_mint: Pubkey = 32 bytes (offset 472-503) - LP token mint
+ */
+const RAYDIUM_AMM_COIN_MINT_OFFSET = 408;
+const RAYDIUM_AMM_PC_MINT_OFFSET = 440;
+const RAYDIUM_AMM_LP_MINT_OFFSET = 472;
+const RAYDIUM_AMM_MIN_SIZE = 504; // lp_mint ends at offset 472 + 32 = 504
+
+export interface RaydiumAmmPoolInfo {
+    coinMint: string;
+    pcMint: string;
+    lpMint: string;
+}
+
+/**
+ * Parse Raydium AMM pool data to extract token mints
+ */
+export function parseRaydiumAmmPool(data: string): RaydiumAmmPoolInfo | null {
+    const buffer = Buffer.from(data, 'base64');
+
+    // Check minimum size to ensure all required fields are present
+    if (buffer.length < RAYDIUM_AMM_MIN_SIZE) {
+        return null;
+    }
+
+    // Extract pubkeys at known offsets
+    const coinMint = base58Encode(
+        buffer.slice(
+            RAYDIUM_AMM_COIN_MINT_OFFSET,
+            RAYDIUM_AMM_COIN_MINT_OFFSET + 32,
+        ),
+    );
+    const pcMint = base58Encode(
+        buffer.slice(
+            RAYDIUM_AMM_PC_MINT_OFFSET,
+            RAYDIUM_AMM_PC_MINT_OFFSET + 32,
+        ),
+    );
+    const lpMint = base58Encode(
+        buffer.slice(
+            RAYDIUM_AMM_LP_MINT_OFFSET,
+            RAYDIUM_AMM_LP_MINT_OFFSET + 32,
+        ),
+    );
+
+    return { coinMint, pcMint, lpMint };
+}
+
+/**
+ * Derive LP token name from pool constituent tokens
+ * Returns a name like "Raydium (WSOL-AURA) LP Token"
+ */
+export async function deriveRaydiumLpMetadata(
+    poolAddress: string,
+    retryOrOpts?: number | RetryOptions,
+): Promise<{ name: string; symbol: string } | null> {
+    try {
+        // Get pool account data
+        const poolInfo = await getAccountInfo(poolAddress, retryOrOpts);
+        if (!poolInfo?.data || poolInfo.owner !== RAYDIUM_AMM_PROGRAM_ID) {
+            return null;
+        }
+
+        const pool = parseRaydiumAmmPool(poolInfo.data);
+        if (!pool) {
+            return null;
+        }
+
+        // Get metadata PDAs and mint accounts for both tokens
+        const [coinMetaInfo, pcMetaInfo, coinMintInfo, pcMintInfo] =
+            await getMultipleAccountsInfo(
+                [
+                    findMetadataPda(pool.coinMint),
+                    findMetadataPda(pool.pcMint),
+                    pool.coinMint,
+                    pool.pcMint,
+                ],
+                retryOrOpts,
+            );
+
+        // Helper to get symbol from various sources
+        const getSymbol = (
+            metaInfo: { data: string; owner: string } | null,
+            mintInfo: { data: string; owner: string } | null,
+            mint: string,
+        ): string => {
+            // Try Metaplex first
+            if (metaInfo?.data) {
+                const metadata = decodeMetaplexMetadata(metaInfo.data);
+                if (metadata?.symbol) {
+                    return metadata.symbol;
+                }
+            }
+
+            // Try Token-2022 extensions
+            if (mintInfo?.data && mintInfo.owner === TOKEN_2022_PROGRAM_ID) {
+                const t2022 = parseToken2022Extensions(
+                    mintInfo.data,
+                    mintInfo.owner,
+                );
+                if (t2022?.symbol) {
+                    return t2022.symbol;
+                }
+            }
+
+            // Handle well-known tokens
+            if (mint === 'So11111111111111111111111111111111111111112') {
+                return 'SOL';
+            }
+
+            // Fall back to truncated mint address
+            return mint.slice(0, 6);
+        };
+
+        const coinSymbol = getSymbol(coinMetaInfo, coinMintInfo, pool.coinMint);
+        const pcSymbol = getSymbol(pcMetaInfo, pcMintInfo, pool.pcMint);
+
+        return {
+            name: `Raydium (${coinSymbol}-${pcSymbol}) LP Token`,
+            symbol: `${coinSymbol}-${pcSymbol}-LP`,
+        };
+    } catch (error) {
+        log.debug('Failed to derive Raydium LP metadata', {
+            poolAddress,
+            error: (error as Error).message,
+        });
+        return null;
+    }
+}
+
+/**
+ * Check if a mint is a Raydium AMM LP token and get its pool address
+ * LP tokens have a mint authority that is a PDA derived from the Raydium AMM program
+ */
+export async function isRaydiumAmmLpToken(
+    mintAddress: string,
+    retryOrOpts?: number | RetryOptions,
+): Promise<{ isLpToken: boolean; poolAddress: string | null }> {
+    try {
+        // Get mint account
+        const mintInfo = await getAccountInfo(mintAddress, retryOrOpts);
+        if (!mintInfo?.data) {
+            return { isLpToken: false, poolAddress: null };
+        }
+
+        // Parse mint data - mint authority is at offset 4 (after 4 bytes of coption)
+        // Standard SPL mint layout: 4 bytes coption + 32 bytes mint authority
+        const buffer = Buffer.from(mintInfo.data, 'base64');
+
+        // Check if it has a mint authority
+        const hasAuthority = buffer.readUInt32LE(0) === 1; // COption::Some
+        if (!hasAuthority) {
+            return { isLpToken: false, poolAddress: null };
+        }
+
+        const mintAuthority = base58Encode(buffer.slice(4, 36));
+
+        // Check if mint authority is owned by Raydium AMM program
+        const authorityInfo = await getAccountInfo(mintAuthority, retryOrOpts);
+        if (authorityInfo?.owner === RAYDIUM_AMM_PROGRAM_ID) {
+            return { isLpToken: true, poolAddress: mintAuthority };
+        }
+
+        return { isLpToken: false, poolAddress: null };
+    } catch (error) {
+        log.debug('Failed to check if mint is Raydium AMM LP token', {
             mintAddress,
             error: (error as Error).message,
         });
