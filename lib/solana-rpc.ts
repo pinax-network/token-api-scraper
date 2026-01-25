@@ -1051,6 +1051,24 @@ export interface SolanaTokenMetadata {
     uri: string;
     source: 'metaplex' | 'token2022' | 'none';
     tokenStandard: TokenStandard | null;
+    /** Whether the mint account exists on-chain (false if burned/closed) */
+    mintAccountExists: boolean;
+}
+
+/**
+ * Check if a mint account exists on-chain
+ * Returns false if the account has been burned/closed
+ */
+export async function checkMintAccountExists(
+    mint: string,
+    retryOrOpts?: number | RetryOptions,
+): Promise<boolean> {
+    try {
+        const accountInfo = await getAccountInfo(mint, retryOrOpts);
+        return accountInfo !== null;
+    } catch {
+        return false;
+    }
 }
 
 /**
@@ -1066,6 +1084,9 @@ export async function fetchSolanaTokenMetadata(
     programId: string,
     retryOrOpts?: number | RetryOptions,
 ): Promise<SolanaTokenMetadata> {
+    // Check if mint account exists
+    const mintAccountExists = await checkMintAccountExists(mint, retryOrOpts);
+
     // First, try Metaplex metadata (works for both SPL Token and Token-2022)
     try {
         const metadataPda = findMetadataPda(mint);
@@ -1094,6 +1115,7 @@ export async function fetchSolanaTokenMetadata(
                     uri: metadata.uri,
                     source: 'metaplex',
                     tokenStandard: metadata.tokenStandard,
+                    mintAccountExists,
                 };
             }
         }
@@ -1131,6 +1153,7 @@ export async function fetchSolanaTokenMetadata(
                         uri: token2022Metadata.uri,
                         source: 'token2022',
                         tokenStandard: null, // Token-2022 doesn't use Metaplex tokenStandard
+                        mintAccountExists,
                     };
                 }
             }
@@ -1148,7 +1171,7 @@ export async function fetchSolanaTokenMetadata(
     }
 
     // No metadata found
-    log.debug('No metadata found for mint', { mint });
+    log.debug('No metadata found for mint', { mint, mintAccountExists });
     return {
         mint,
         name: '',
@@ -1156,6 +1179,7 @@ export async function fetchSolanaTokenMetadata(
         uri: '',
         source: 'none',
         tokenStandard: null,
+        mintAccountExists,
     };
 }
 

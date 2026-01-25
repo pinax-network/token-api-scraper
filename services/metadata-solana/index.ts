@@ -224,28 +224,49 @@ async function processSolanaMint(
                     stats.incrementError();
                 }
             } else {
-                // No metadata found at all - insert to metadata_errors
-                log.debug('No metadata found for mint', {
+                // No metadata found - still insert to metadata table with decimals
+                // Determine source based on whether account exists
+                const noMetadataSource = metadata.mintAccountExists
+                    ? 'none'
+                    : 'burned';
+
+                log.debug('Inserting token with no metadata', {
                     mint: data.contract,
                     decimals: data.decimals,
                     blockNum: data.block_num,
                     queryTimeMs,
                     isPumpAmmLp,
+                    mintAccountExists: metadata.mintAccountExists,
+                    source: noMetadataSource,
                 });
 
-                await insertRow(
-                    'metadata_errors',
+                const success = await insertRow(
+                    'metadata',
                     {
                         network,
                         contract: data.contract,
-                        error: 'No on-chain metadata found',
+                        block_num: data.block_num,
+                        timestamp: data.timestamp,
+                        decimals: data.decimals,
+                        name: '',
+                        symbol: '',
+                        uri: '',
+                        source: noMetadataSource,
+                        token_standard: null,
+                        image: '',
+                        description: '',
                     },
-                    `Failed to insert error for mint ${data.contract}`,
+                    `Failed to insert metadata for mint ${data.contract}`,
                     { contract: data.contract },
                 );
 
-                incrementError(serviceName);
-                stats.incrementError();
+                if (success) {
+                    incrementSuccess(serviceName);
+                    stats.incrementSuccess();
+                } else {
+                    incrementError(serviceName);
+                    stats.incrementError();
+                }
             }
         }
     } catch (error) {
