@@ -9,4 +9,5 @@ SELECT
 FROM initialize_mint im
 ANTI LEFT JOIN (SELECT contract FROM {db:Identifier}.metadata_errors WHERE network = {network: String}) me ON im.mint = me.contract
 ANTI LEFT JOIN (SELECT contract FROM {db:Identifier}.metadata WHERE network = {network: String}) m ON im.mint = m.contract
+ORDER BY im.timestamp DESC
 LIMIT 1000;
