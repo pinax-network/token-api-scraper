@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { AccountInfo, MetaplexMetadata } from '../../lib/solana-rpc';
 
 // Mock dependencies - use explicit type annotations to allow flexible return values
-const mockGetAccountInfo = mock<() => Promise<AccountInfo | null>>(
-    () => Promise.resolve(null),
+const mockGetAccountInfo = mock<() => Promise<AccountInfo | null>>(() =>
+    Promise.resolve(null),
 );
 const mockDecodeMetaplexMetadata = mock<() => MetaplexMetadata | null>(
     () => null,
