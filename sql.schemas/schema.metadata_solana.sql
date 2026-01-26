@@ -5,16 +5,18 @@ CREATE TABLE IF NOT EXISTS metadata (
     timestamp                   DateTime('UTC'),
 
     -- token identity --
-    network                     String,
+    network                     LowCardinality(String),
     contract                    String,
+    source                      LowCardinality(String) DEFAULT '',
 
-    -- token metadata --
+    -- token metadata (required) --
     decimals                    UInt8,
-    name                        String DEFAULT '',
-    symbol                      String DEFAULT '',
-    source                      Enum8('' = 0, 'token2022' = 1, 'metaplex' = 2, 'pump-amm' = 3, 'meteora-dlmm' = 4, 'raydium' = 5),
 
     -- token metadata (optional) --
+    name                        String DEFAULT '',
+    symbol                      String DEFAULT '',
+
+    -- token metadata from external URL (optional) --
     uri                         String DEFAULT '',
     image                       String DEFAULT '',
     description                 String DEFAULT '',
