@@ -6,20 +6,10 @@
 
 import {
     decodeMetaplexMetadata,
-    deriveMeteoraDlmmLpMetadata,
-    derivePumpAmmLpMetadata,
-    deriveRaydiumLpMetadata,
     findMetadataPda,
     getAccountInfo,
-    isMeteoraDlmmLpToken,
-    isPumpAmmLpToken,
-    isRaydiumAmmLpToken,
     METAPLEX_PROGRAM_ID,
-    METEORA_DLMM_PROGRAM_ID,
-    PUMP_AMM_PROGRAM_ID,
     parseToken2022Extensions,
-    RAYDIUM_AMM_PROGRAM_ID,
-    RAYDIUM_CPMM_PROGRAM_ID,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
 } from '../../lib/solana-rpc';
@@ -166,141 +156,6 @@ export async function queryMetadata(
     } catch (err) {
         error('Failed to fetch mint account info', {
             mint,
-            error: (err as Error).message,
-        });
-    }
-
-    // Step 2.5: Check if this is a Pump.fun AMM LP token
-    section('Step 2.5: Checking for Pump.fun AMM LP Token');
-
-    let pumpAmmLpMetadata: { name: string; symbol: string } | null = null;
-    let isPumpAmmLp = false;
-
-    try {
-        const lpCheck = await isPumpAmmLpToken(mint);
-
-        if (lpCheck.isLpToken && lpCheck.poolAddress) {
-            isPumpAmmLp = true;
-            success('This is a Pump.fun AMM LP token', {
-                poolAddress: lpCheck.poolAddress,
-                pumpAmmProgram: PUMP_AMM_PROGRAM_ID,
-            });
-
-            // Derive LP metadata from pool
-            pumpAmmLpMetadata = await derivePumpAmmLpMetadata(
-                lpCheck.poolAddress,
-            );
-
-            if (pumpAmmLpMetadata) {
-                success('Derived LP token metadata from pool', {
-                    derivedName: pumpAmmLpMetadata.name,
-                    derivedSymbol: pumpAmmLpMetadata.symbol,
-                });
-            } else {
-                warn('Could not derive LP metadata from pool');
-            }
-        } else {
-            info('Not a Pump.fun AMM LP token', {
-                message: 'Mint authority is not owned by Pump.fun AMM program',
-            });
-        }
-    } catch (err) {
-        info('Could not check for Pump.fun AMM LP token', {
-            error: (err as Error).message,
-        });
-    }
-
-    // Step 2.6: Check if this is a Meteora DLMM LP token
-    section('Step 2.6: Checking for Meteora DLMM LP Token');
-
-    let meteoraDlmmLpMetadata: { name: string; symbol: string } | null = null;
-    let isMeteoraDlmmLp = false;
-
-    try {
-        const lpCheck = await isMeteoraDlmmLpToken(mint);
-
-        if (lpCheck.isLpToken && lpCheck.poolAddress) {
-            isMeteoraDlmmLp = true;
-            success('This is a Meteora DLMM LP token', {
-                poolAddress: lpCheck.poolAddress,
-                meteoraDlmmProgram: METEORA_DLMM_PROGRAM_ID,
-            });
-
-            // Derive LP metadata from pool
-            meteoraDlmmLpMetadata = await deriveMeteoraDlmmLpMetadata(
-                lpCheck.poolAddress,
-            );
-
-            if (meteoraDlmmLpMetadata) {
-                success('Derived LP token metadata from pool', {
-                    derivedName: meteoraDlmmLpMetadata.name,
-                    derivedSymbol: meteoraDlmmLpMetadata.symbol,
-                });
-            } else {
-                warn('Could not derive LP metadata from pool');
-            }
-        } else {
-            info('Not a Meteora DLMM LP token', {
-                message: 'Mint authority is not owned by Meteora DLMM program',
-            });
-        }
-    } catch (err) {
-        info('Could not check for Meteora DLMM LP token', {
-            error: (err as Error).message,
-        });
-    }
-
-    // Step 2.7: Check if this is a Raydium LP token (AMM V4 or CPMM)
-    section('Step 2.7: Checking for Raydium LP Token (AMM V4 / CPMM)');
-
-    let raydiumLpMetadata: { name: string; symbol: string } | null = null;
-    let isRaydiumLp = false;
-
-    try {
-        const lpCheck = await isRaydiumAmmLpToken(mint);
-
-        if (lpCheck.isLpToken && lpCheck.poolType) {
-            isRaydiumLp = true;
-            success(
-                `This is a Raydium ${lpCheck.poolType.toUpperCase()} LP token`,
-                {
-                    poolAddress:
-                        lpCheck.poolAddress ??
-                        'Not found (pool search timed out)',
-                    poolType: lpCheck.poolType,
-                    raydiumProgram:
-                        lpCheck.poolType === 'amm-v4'
-                            ? RAYDIUM_AMM_PROGRAM_ID
-                            : RAYDIUM_CPMM_PROGRAM_ID,
-                },
-            );
-
-            // Derive LP metadata from pool (only if we found the pool address)
-            if (lpCheck.poolAddress) {
-                raydiumLpMetadata = await deriveRaydiumLpMetadata(
-                    lpCheck.poolAddress,
-                    lpCheck.poolType,
-                );
-
-                if (raydiumLpMetadata) {
-                    success('Derived LP token metadata from pool', {
-                        derivedName: raydiumLpMetadata.name,
-                        derivedSymbol: raydiumLpMetadata.symbol,
-                    });
-                } else {
-                    warn('Could not derive LP metadata from pool');
-                }
-            } else {
-                warn('Pool address not found - cannot derive LP metadata');
-            }
-        } else {
-            info('Not a Raydium LP token', {
-                message:
-                    'Mint authority does not match any known Raydium authority',
-            });
-        }
-    } catch (err) {
-        info('Could not check for Raydium LP token', {
             error: (err as Error).message,
         });
     }
@@ -492,15 +347,9 @@ export async function queryMetadata(
         info('No URI available to fetch metadata from');
     }
 
-    // Final values: URI takes precedence over on-chain, Pump.fun AMM LP takes precedence for LP tokens
-    let finalName = uriName || onChainName;
-    let finalSymbol = uriSymbol || onChainSymbol;
-
-    // For Pump.fun AMM LP tokens, use derived metadata if available
-    if (isPumpAmmLp && pumpAmmLpMetadata) {
-        finalName = pumpAmmLpMetadata.name;
-        finalSymbol = pumpAmmLpMetadata.symbol;
-    }
+    // Final values: on-chain takes precedence, URI fills in missing values
+    const finalName = onChainName || uriName;
+    const finalSymbol = onChainSymbol || uriSymbol;
 
     // Summary
     header('Query Summary');
@@ -518,15 +367,6 @@ export async function queryMetadata(
     );
     console.log(`  ${BOLD}Program:${RESET}               ${programType}`);
     console.log(
-        `  ${BOLD}Pump.fun AMM LP:${RESET}       ${isPumpAmmLp ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`,
-    );
-    console.log(
-        `  ${BOLD}Meteora DLMM LP:${RESET}       ${isMeteoraDlmmLp ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`,
-    );
-    console.log(
-        `  ${BOLD}Raydium AMM LP:${RESET}        ${isRaydiumLp ? `${GREEN}Yes${RESET}` : `${DIM}No${RESET}`}`,
-    );
-    console.log(
         `  ${BOLD}Metaplex metadata:${RESET}     ${metaplexFound ? `${GREEN}Found${RESET}` : `${DIM}Not found${RESET}`}`,
     );
     console.log(
@@ -538,49 +378,22 @@ export async function queryMetadata(
     console.log();
 
     // Final resolved values
-    if (
-        finalName ||
-        finalSymbol ||
-        isPumpAmmLp ||
-        isMeteoraDlmmLp ||
-        isRaydiumLp
-    ) {
-        const isLpToken = isPumpAmmLp || isMeteoraDlmmLp || isRaydiumLp;
-        const lpMetadata = isPumpAmmLp
-            ? pumpAmmLpMetadata
-            : isMeteoraDlmmLp
-              ? meteoraDlmmLpMetadata
-              : raydiumLpMetadata;
-        const precedenceSource =
-            isPumpAmmLp && pumpAmmLpMetadata
-                ? 'Pump.fun AMM LP derived'
-                : isMeteoraDlmmLp && meteoraDlmmLpMetadata
-                  ? 'Meteora DLMM LP derived'
-                  : isRaydiumLp && raydiumLpMetadata
-                    ? 'Raydium AMM LP derived'
-                    : 'URI takes precedence';
-
-        // Use LP-derived values if available, otherwise use standard metadata
-        const displayName =
-            isLpToken && lpMetadata ? lpMetadata.name : finalName;
-        const displaySymbol =
-            isLpToken && lpMetadata ? lpMetadata.symbol : finalSymbol;
-
+    if (finalName || finalSymbol) {
         console.log(
-            `  ${BOLD}${CYAN}Final Values (${precedenceSource}):${RESET}`,
+            `  ${BOLD}${CYAN}Final Values (on-chain takes precedence):${RESET}`,
         );
         console.log(
-            `  ${BOLD}Name:${RESET}                  ${displayName || `${DIM}(empty)${RESET}`}`,
+            `  ${BOLD}Name:${RESET}                  ${finalName || `${DIM}(empty)${RESET}`}`,
         );
         console.log(
-            `  ${BOLD}Symbol:${RESET}                ${displaySymbol || `${DIM}(empty)${RESET}`}`,
+            `  ${BOLD}Symbol:${RESET}                ${finalSymbol || `${DIM}(empty)${RESET}`}`,
         );
-        if (uriDescription && !isLpToken) {
+        if (uriDescription) {
             console.log(
                 `  ${BOLD}Description:${RESET}           ${uriDescription.slice(0, 60)}${uriDescription.length > 60 ? '...' : ''}`,
             );
         }
-        if (uriImage && !isLpToken) {
+        if (uriImage) {
             console.log(`  ${BOLD}Image:${RESET}                 ${uriImage}`);
         }
         console.log();
@@ -588,13 +401,7 @@ export async function queryMetadata(
 
     if (!mintAccountInfo) {
         warn('Check if the mint address is correct and exists on the network');
-    } else if (
-        !metaplexFound &&
-        !token2022Found &&
-        !isPumpAmmLp &&
-        !isMeteoraDlmmLp &&
-        !isRaydiumLp
-    ) {
+    } else if (!metaplexFound && !token2022Found) {
         warn('No metadata found');
     }
 }
