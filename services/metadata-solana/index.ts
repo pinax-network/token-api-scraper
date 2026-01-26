@@ -1,6 +1,10 @@
 /**
  * Solana metadata processing service
  * Fetches token metadata from Metaplex Token Metadata or Token-2022 extensions
+ *
+ * This service performs minimal RPC calls to get on-chain metadata (name, symbol, URI).
+ * It stores the URI for later retrieval by metadata-solana-extras service.
+ * URI content fetching (image, description) is handled by metadata-solana-extras.
  */
 
 import PQueue from 'p-queue';
@@ -12,7 +16,6 @@ import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import { fetchSolanaTokenMetadata } from '../../lib/solana-rpc';
-import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
 
 const serviceName = 'metadata-solana';
@@ -30,7 +33,8 @@ export interface SolanaMint {
 }
 
 /**
- * Process a single Solana mint and fetch its metadata
+ * Process a single Solana mint and fetch its on-chain metadata
+ * URI content (image, description) will be fetched later by metadata-solana-extras
  */
 async function processSolanaMint(
     data: SolanaMint,
@@ -48,81 +52,9 @@ async function processSolanaMint(
         const queryTimeMs = Math.round(performance.now() - startTime);
 
         if (metadata.source !== '') {
-            // Fetch additional metadata from URI if available
-            let image = '';
-            let description = '';
-            let uriName = '';
-            let uriSymbol = '';
-
-            if (metadata.uri) {
-                // Check if URI is a direct image link (skip fetching JSON)
-                const imageExtensions = [
-                    '.png',
-                    '.jpg',
-                    '.jpeg',
-                    '.gif',
-                    '.webp',
-                    '.svg',
-                    '.bmp',
-                    '.ico',
-                ];
-                const uriLower = metadata.uri.toLowerCase();
-                const isDirectImageUri = imageExtensions.some((ext) =>
-                    uriLower.endsWith(ext),
-                );
-
-                if (isDirectImageUri) {
-                    // URI points directly to an image - use it as the image field
-                    image = metadata.uri;
-                    log.debug('URI is direct image link', {
-                        mint: data.contract,
-                        uri: metadata.uri,
-                    });
-                } else {
-                    const uriResult = await fetchUriMetadata(metadata.uri);
-                    if (uriResult.success && uriResult.metadata) {
-                        image = uriResult.metadata.image || '';
-                        description = uriResult.metadata.description || '';
-                        uriName = uriResult.metadata.name || '';
-                        uriSymbol = uriResult.metadata.symbol || '';
-                        log.debug('URI metadata fetched', {
-                            mint: data.contract,
-                            hasImage: !!image,
-                            hasDescription: !!description,
-                            hasName: !!uriName,
-                            hasSymbol: !!uriSymbol,
-                        });
-                    } else {
-                        log.warn(
-                            'Failed to fetch URI metadata after 3 retries',
-                            {
-                                mint: data.contract,
-                                uri: metadata.uri,
-                                error: uriResult.error,
-                            },
-                        );
-
-                        // Track URI fetch failure as warning (metadata will still be inserted)
-                        stats.incrementWarning();
-                        await insertRow(
-                            'metadata_errors',
-                            {
-                                network,
-                                contract: data.contract,
-                                error: `URI fetch failed: ${uriResult.error}`,
-                            },
-                            `Failed to insert URI error for mint ${data.contract}`,
-                            { contract: data.contract },
-                        );
-                    }
-                }
-            }
-
-            // Use on-chain name/symbol, falling back to URI metadata if empty
-            const finalName = metadata.name || uriName;
-            const finalSymbol = metadata.symbol || uriSymbol;
-
-            // Successfully found metadata
+            // Successfully found on-chain metadata
+            // Store URI for later processing by metadata-solana-extras
+            // Image and description will be empty until URI is fetched
             const success = await insertRow(
                 'metadata',
                 {
@@ -131,12 +63,12 @@ async function processSolanaMint(
                     block_num: data.block_num,
                     timestamp: data.timestamp,
                     decimals: data.decimals,
-                    name: finalName,
-                    symbol: finalSymbol,
+                    name: metadata.name,
+                    symbol: metadata.symbol,
                     uri: metadata.uri,
                     source: metadata.source,
-                    image,
-                    description,
+                    image: '',
+                    description: '',
                 },
                 `Failed to insert metadata for mint ${data.contract}`,
                 { contract: data.contract },
@@ -145,16 +77,15 @@ async function processSolanaMint(
             if (success) {
                 incrementSuccess(serviceName);
                 stats.incrementSuccess();
-                log.debug('Metadata scraped successfully', {
+                log.debug('On-chain metadata scraped successfully', {
                     mint: data.contract,
-                    name: finalName,
-                    symbol: finalSymbol,
+                    name: metadata.name,
+                    symbol: metadata.symbol,
                     decimals: data.decimals,
                     source: metadata.source,
+                    uri: metadata.uri || '(none)',
                     blockNum: data.block_num,
                     queryTimeMs,
-                    hasImage: !!image,
-                    hasDescription: !!description,
                 });
             } else {
                 incrementError(serviceName);

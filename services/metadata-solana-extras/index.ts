@@ -1,10 +1,14 @@
 /**
  * Solana metadata extras processing service
- * Handles heavier RPC calls (LP token detection using getProgramAccounts)
- * for tokens that don't have standard metadata.
+ * Handles:
+ * 1. URI content fetching for tokens with URI but missing image/description
+ * 2. LP token detection using heavier RPC calls (getProgramAccounts)
+ *    for tokens that don't have standard metadata.
  *
  * This service processes tokens that have been inserted into the metadata table
- * with empty source/name/symbol, attempting to derive LP token metadata.
+ * by metadata-solana, and performs additional processing:
+ * - For tokens with URI: Fetches image/description from the URI
+ * - For tokens without metadata: Attempts to derive LP token metadata
  */
 
 import PQueue from 'p-queue';
@@ -23,6 +27,7 @@ import {
     isPumpAmmLpToken,
     isRaydiumAmmLpToken,
 } from '../../lib/solana/index';
+import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
 
 const serviceName = 'metadata-solana-extras';
@@ -39,9 +44,23 @@ export interface SolanaMintWithoutMetadata {
 }
 
 /**
+ * Interface for Solana mint data with URI but missing image/description
+ */
+export interface SolanaMintWithUri {
+    contract: string;
+    uri: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    block_num: number;
+    timestamp: number;
+    source: string;
+}
+
+/**
  * Process a single Solana mint and attempt to derive LP metadata
  */
-async function processSolanaMint(
+async function processSolanaMintLp(
     data: SolanaMintWithoutMetadata,
     network: string,
     stats: ProcessingStats,
@@ -224,7 +243,143 @@ async function processSolanaMint(
 }
 
 /**
+ * Process a single Solana mint with URI and fetch image/description from the URI
+ */
+async function processSolanaMintUri(
+    data: SolanaMintWithUri,
+    network: string,
+    stats: ProcessingStats,
+): Promise<void> {
+    const startTime = performance.now();
+
+    try {
+        let image = '';
+        let description = '';
+        let uriName = '';
+        let uriSymbol = '';
+
+        // Check if URI is a direct image link (skip fetching JSON)
+        const imageExtensions = [
+            '.png',
+            '.jpg',
+            '.jpeg',
+            '.gif',
+            '.webp',
+            '.svg',
+            '.bmp',
+            '.ico',
+        ];
+        const uriLower = data.uri.toLowerCase();
+        const isDirectImageUri = imageExtensions.some((ext) =>
+            uriLower.endsWith(ext),
+        );
+
+        if (isDirectImageUri) {
+            // URI points directly to an image - use it as the image field
+            image = data.uri;
+            log.debug('URI is direct image link', {
+                mint: data.contract,
+                uri: data.uri,
+            });
+        } else {
+            const uriResult = await fetchUriMetadata(data.uri);
+            if (uriResult.success && uriResult.metadata) {
+                image = uriResult.metadata.image || '';
+                description = uriResult.metadata.description || '';
+                uriName = uriResult.metadata.name || '';
+                uriSymbol = uriResult.metadata.symbol || '';
+                log.debug('URI metadata fetched', {
+                    mint: data.contract,
+                    hasImage: !!image,
+                    hasDescription: !!description,
+                    hasName: !!uriName,
+                    hasSymbol: !!uriSymbol,
+                });
+            } else {
+                log.warn('Failed to fetch URI metadata after 3 retries', {
+                    mint: data.contract,
+                    uri: data.uri,
+                    error: uriResult.error,
+                });
+
+                // Track URI fetch failure as warning (increment stats but don't fail)
+                stats.incrementWarning();
+                await insertRow(
+                    'metadata_errors',
+                    {
+                        network,
+                        contract: data.contract,
+                        error: `URI fetch failed: ${uriResult.error}`,
+                    },
+                    `Failed to insert URI error for mint ${data.contract}`,
+                    { contract: data.contract },
+                );
+                return;
+            }
+        }
+
+        const queryTimeMs = Math.round(performance.now() - startTime);
+
+        // Use on-chain name/symbol, falling back to URI metadata if empty
+        const finalName = data.name || uriName;
+        const finalSymbol = data.symbol || uriSymbol;
+
+        // Update metadata with image/description from URI
+        const success = await insertRow(
+            'metadata',
+            {
+                network,
+                contract: data.contract,
+                block_num: data.block_num,
+                timestamp: data.timestamp,
+                decimals: data.decimals,
+                name: finalName,
+                symbol: finalSymbol,
+                uri: data.uri,
+                source: data.source,
+                image,
+                description,
+            },
+            `Failed to update metadata for mint ${data.contract}`,
+            { contract: data.contract },
+        );
+
+        if (success) {
+            incrementSuccess(serviceName);
+            stats.incrementSuccess();
+            log.debug('URI metadata fetched and updated', {
+                mint: data.contract,
+                name: finalName,
+                symbol: finalSymbol,
+                hasImage: !!image,
+                hasDescription: !!description,
+                blockNum: data.block_num,
+                queryTimeMs,
+            });
+        } else {
+            incrementError(serviceName);
+            stats.incrementError();
+        }
+    } catch (error) {
+        const message = (error as Error).message || String(error);
+
+        log.debug('URI metadata fetch failed', {
+            mint: data.contract,
+            uri: data.uri,
+            blockNum: data.block_num,
+            error: message,
+        });
+
+        incrementError(serviceName);
+        stats.incrementError();
+    }
+}
+
+/**
  * Main run function for the Solana metadata extras service
+ * Processes two types of tokens:
+ * 1. Tokens with URI but missing image/description - fetches metadata from URI
+ * 2. Tokens without any metadata - attempts LP token detection
  */
 export async function run(): Promise<void> {
     // Initialize service
@@ -238,11 +393,53 @@ export async function run(): Promise<void> {
 
     const queue = new PQueue({ concurrency: CONCURRENCY });
 
+    // Phase 1: Process tokens with URI but missing image/description
+    log.info('Querying database for Solana mints with URI missing metadata');
+    const uriQueryStartTime = performance.now();
+
+    const mintsWithUri = await query<SolanaMintWithUri>(
+        await Bun.file(
+            __dirname + '/get_mints_with_uri_missing_metadata.sql',
+        ).text(),
+        {
+            network,
+            db: CLICKHOUSE_DATABASE_INSERT,
+        },
+    );
+
+    const uriQueryTimeSecs = (performance.now() - uriQueryStartTime) / 1000;
+
+    if (mintsWithUri.data.length > 0) {
+        log.info('Processing Solana mints for URI metadata', {
+            mintCount: mintsWithUri.data.length,
+            queryTimeSecs: uriQueryTimeSecs,
+        });
+
+        // Start progress logging
+        stats.startProgressLogging(mintsWithUri.data.length);
+
+        // Process all mints with URI
+        for (const data of mintsWithUri.data) {
+            queue.add(async () => {
+                await processSolanaMintUri(data, network, stats);
+            });
+        }
+
+        // Wait for all tasks to complete
+        await queue.onIdle();
+
+        // Stop progress logging for this phase
+        stats.stopProgressLogging();
+    } else {
+        log.info('No Solana mints to process for URI metadata');
+    }
+
+    // Phase 2: Process tokens without metadata (LP token detection)
     log.info('Querying database for Solana mints without metadata');
-    const queryStartTime = performance.now();
+    const lpQueryStartTime = performance.now();
 
     // Query for mints without metadata (candidates for LP token detection)
-    const mints = await query<SolanaMintWithoutMetadata>(
+    const mintsWithoutMetadata = await query<SolanaMintWithoutMetadata>(
         await Bun.file(__dirname + '/get_mints_without_metadata.sql').text(),
         {
             network,
@@ -250,21 +447,21 @@ export async function run(): Promise<void> {
         },
     );
 
-    const queryTimeSecs = (performance.now() - queryStartTime) / 1000;
+    const lpQueryTimeSecs = (performance.now() - lpQueryStartTime) / 1000;
 
-    if (mints.data.length > 0) {
+    if (mintsWithoutMetadata.data.length > 0) {
         log.info('Processing Solana mints for LP metadata', {
-            mintCount: mints.data.length,
-            queryTimeSecs,
+            mintCount: mintsWithoutMetadata.data.length,
+            queryTimeSecs: lpQueryTimeSecs,
         });
 
-        // Start progress logging
-        stats.startProgressLogging(mints.data.length);
+        // Start progress logging for LP phase
+        stats.startProgressLogging(mintsWithoutMetadata.data.length);
 
         // Process all mints
-        for (const data of mints.data) {
+        for (const data of mintsWithoutMetadata.data) {
             queue.add(async () => {
-                await processSolanaMint(data, network, stats);
+                await processSolanaMintLp(data, network, stats);
             });
         }
 
