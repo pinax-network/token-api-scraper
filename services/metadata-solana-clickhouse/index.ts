@@ -17,6 +17,10 @@ import { createLogger } from '../../lib/logger';
 import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
+import {
+    type MetadataSource,
+    TOKEN_2022_PROGRAM_ID,
+} from '../../lib/solana-rpc';
 import { insertRow } from '../../src/insert';
 
 const serviceName = 'metadata-solana-clickhouse';
@@ -39,11 +43,11 @@ export interface SolanaTokenMetadata {
 /**
  * Determine the metadata source based on program_id and available fields
  */
-function determineSource(data: SolanaTokenMetadata): string {
+function determineSource(data: SolanaTokenMetadata): MetadataSource {
     // If we have name/symbol/uri, determine source from program_id
     if (data.name || data.symbol || data.uri) {
         // Token-2022 program ID
-        if (data.program_id === 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb') {
+        if (data.program_id === TOKEN_2022_PROGRAM_ID) {
             return 'token2022';
         }
         // Standard SPL Token with Metaplex metadata

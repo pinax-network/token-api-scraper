@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { TOKEN_2022_PROGRAM_ID } from '../../lib/solana-rpc';
 
 // Mock dependencies
 const mockQuery = mock(() => Promise.resolve({ data: [] }));
@@ -164,10 +165,6 @@ describe('Solana metadata ClickHouse service', () => {
     });
 
     test('should correctly identify Token-2022 program ID', () => {
-        // Token-2022 program ID constant
-        const TOKEN_2022_PROGRAM_ID =
-            'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
-
         expect(TOKEN_2022_PROGRAM_ID).toBe(
             'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
         );
