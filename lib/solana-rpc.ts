@@ -547,6 +547,7 @@ async function makeSolanaRpcRequest(
 
 /**
  * Make a Solana JSON-RPC call with retry logic
+ * Includes a delay between calls (using TIMEOUT_MS) to prevent overloading the RPC node
  */
 async function makeSolanaRpcCall(
     method: string,
@@ -573,6 +574,9 @@ async function makeSolanaRpcCall(
             const result = await queue.add(async () => {
                 return await makeSolanaRpcRequest(method, params, timeoutMs);
             });
+
+            // Add delay after successful call to prevent overloading the RPC node
+            await sleep(timeoutMs);
 
             return result;
         } catch (err: any) {
