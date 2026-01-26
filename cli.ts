@@ -367,16 +367,18 @@ Services:
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
   metadata-balances           ${SERVICES['metadata-balances'].description}
   polymarket                  ${SERVICES['polymarket'].description}
-  metadata-solana             ${SERVICES['metadata-solana'].description}
-  metadata-solana-extras      ${SERVICES['metadata-solana-extras'].description}
+  metadata-solana-rpc         ${SERVICES['metadata-solana-rpc'].description}
+  metadata-solana-extras-rpc  ${SERVICES['metadata-solana-extras-rpc'].description}
+  metadata-solana-clickhouse  ${SERVICES['metadata-solana-clickhouse'].description}
 
 Examples:
   $ npm run cli run metadata-transfers
   $ npm run cli run metadata-swaps
   $ npm run cli run metadata-balances
   $ npm run cli run polymarket
-  $ npm run cli run metadata-solana
-  $ npm run cli run metadata-solana-extras
+  $ npm run cli run metadata-solana-rpc
+  $ npm run cli run metadata-solana-extras-rpc
+  $ npm run cli run metadata-solana-clickhouse
 
   # Auto-restart delay examples
   $ npm run cli run metadata-transfers --auto-restart-delay 30
@@ -802,7 +804,7 @@ Examples:
 
             // Import and run the query service
             const { run: runQuery } = await import(
-                './services/metadata-solana/query.ts'
+                './services/metadata-solana-rpc/query.ts'
             );
             await runQuery(mint, options.programId);
         },
@@ -858,7 +860,7 @@ Examples:
 
         // Import and run the query service
         const { run: runQuery } = await import(
-            './services/metadata-solana-extras/query.ts'
+            './services/metadata-solana-extras-rpc/query.ts'
         );
         await runQuery(mint);
     });
