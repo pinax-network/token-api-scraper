@@ -332,7 +332,7 @@ export async function queryLpMetadata(mint: string): Promise<void> {
                 'This mint is not recognized as a Pump.fun, Meteora, or Raydium LP token',
         });
         info('This mint may have standard metadata instead', {
-            suggestion: 'Try running: query metadata-solana ' + mint,
+            suggestion: 'Try running: query metadata-solana-rpc ' + mint,
         });
     }
 }

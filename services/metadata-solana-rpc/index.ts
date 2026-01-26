@@ -162,7 +162,7 @@ async function processSolanaMint(
             }
         } else {
             // No standard metadata found - insert token with empty source
-            // LP token metadata will be derived by the metadata-solana-extras service
+            // LP token metadata will be derived by the metadata-solana-extras-rpc service
             const errorMessage = metadata.mintAccountExists
                 ? 'No on-chain metadata found'
                 : 'Mint account burned or closed';
