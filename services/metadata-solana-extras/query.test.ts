@@ -18,7 +18,7 @@ const mockIsRaydiumAmmLpToken = mock(() =>
 );
 const mockDeriveRaydiumLpMetadata = mock(() => Promise.resolve(null));
 
-mock.module('../../lib/solana-rpc', () => ({
+mock.module('../../lib/solana/index', () => ({
     isPumpAmmLpToken: mockIsPumpAmmLpToken,
     derivePumpAmmLpMetadata: mockDerivePumpAmmLpMetadata,
     isMeteoraDlmmLpToken: mockIsMeteoraDlmmLpToken,

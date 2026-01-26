@@ -15,7 +15,7 @@ import {
     PUMP_AMM_PROGRAM_ID,
     RAYDIUM_AMM_PROGRAM_ID,
     RAYDIUM_CPMM_PROGRAM_ID,
-} from '../../lib/solana-rpc';
+} from '../../lib/solana/index';
 
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
