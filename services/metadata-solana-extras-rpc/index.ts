@@ -1,5 +1,5 @@
 /**
- * Solana metadata extras processing service
+ * Solana metadata extras processing service (RPC-based)
  * Handles heavier RPC calls (LP token detection using getProgramAccounts)
  * for tokens that don't have standard metadata.
  *
@@ -25,7 +25,7 @@ import {
 } from '../../lib/solana/index';
 import { insertRow } from '../../src/insert';
 
-const serviceName = 'metadata-solana-extras';
+const serviceName = 'metadata-solana-extras-rpc';
 const log = createLogger(serviceName);
 
 /**

@@ -1,6 +1,6 @@
 /**
- * Solana metadata processing service
- * Fetches token metadata from Metaplex Token Metadata or Token-2022 extensions
+ * Solana metadata processing service (RPC-based)
+ * Fetches token metadata from Metaplex Token Metadata or Token-2022 extensions via RPC calls
  */
 
 import PQueue from 'p-queue';
@@ -15,7 +15,7 @@ import { fetchSolanaTokenMetadata } from '../../lib/solana-rpc';
 import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
 
-const serviceName = 'metadata-solana';
+const serviceName = 'metadata-solana-rpc';
 const log = createLogger(serviceName);
 
 /**

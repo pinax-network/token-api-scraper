@@ -39,15 +39,20 @@ const SERVICES = {
         description:
             'Fetch and store Polymarket market metadata from condition_id and token0/token1',
     },
-    'metadata-solana': {
-        path: './services/metadata-solana/index.ts',
+    'metadata-solana-rpc': {
+        path: './services/metadata-solana-rpc/index.ts',
         description:
-            'Fetch and store Solana SPL token metadata from Metaplex or Token-2022 extensions',
+            'Fetch and store Solana SPL token metadata from Metaplex or Token-2022 extensions via RPC',
     },
-    'metadata-solana-extras': {
-        path: './services/metadata-solana-extras/index.ts',
+    'metadata-solana-extras-rpc': {
+        path: './services/metadata-solana-extras-rpc/index.ts',
         description:
-            'Derive LP token metadata for Solana tokens without standard metadata (uses heavier RPC calls like getProgramAccounts)',
+            'Derive LP token metadata for Solana tokens without standard metadata via RPC (uses heavier RPC calls like getProgramAccounts)',
+    },
+    'metadata-solana-clickhouse': {
+        path: './services/metadata-solana-clickhouse/index.ts',
+        description:
+            'Fetch and store Solana SPL token metadata from ClickHouse tables (mints, metaplex, token-2022 metadata)',
     },
 };
 
