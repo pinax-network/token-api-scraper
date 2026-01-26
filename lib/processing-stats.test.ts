@@ -28,6 +28,15 @@ describe('ProcessingStats', () => {
         // but logCompletion will show it in logs
     });
 
+    it('should increment warning count', () => {
+        const stats = new ProcessingStats('test-service', 'mainnet');
+        stats.incrementWarning();
+        stats.incrementWarning();
+        stats.incrementWarning();
+        // Note: We can't directly test the private warningCount,
+        // but logCompletion will show it in logs
+    });
+
     it('should track both success and error counts', () => {
         const stats = new ProcessingStats('test-service', 'mainnet');
         stats.incrementSuccess();

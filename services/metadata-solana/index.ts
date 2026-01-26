@@ -102,7 +102,8 @@ async function processSolanaMint(
                             },
                         );
 
-                        // Track URI fetch failure as error (metadata will still be inserted)
+                        // Track URI fetch failure as warning (metadata will still be inserted)
+                        stats.incrementWarning();
                         await insertRow(
                             'metadata_errors',
                             {

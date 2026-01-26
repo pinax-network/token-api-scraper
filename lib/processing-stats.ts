@@ -13,6 +13,7 @@ export const DEFAULT_PROGRESS_INTERVAL_MS = 10000;
 export class ProcessingStats {
     private successCount = 0;
     private errorCount = 0;
+    private warningCount = 0;
     private totalItems = 0;
     private readonly log: ReturnType<typeof createLogger>;
     private readonly startTime: number;
@@ -38,6 +39,13 @@ export class ProcessingStats {
      */
     incrementError(): void {
         this.errorCount++;
+    }
+
+    /**
+     * Increment the warning counter (for partial failures like URI fetch errors)
+     */
+    incrementWarning(): void {
+        this.warningCount++;
     }
 
     /**
@@ -90,6 +98,7 @@ export class ProcessingStats {
             percentComplete,
             successCount: this.successCount,
             errorCount: this.errorCount,
+            warningCount: this.warningCount,
             elapsedSecs: Math.round(elapsedSecs),
             itemsPerSec,
         });
@@ -109,6 +118,7 @@ export class ProcessingStats {
             network: this.network,
             successCount: this.successCount,
             errorCount: this.errorCount,
+            warningCount: this.warningCount,
             totalProcessed: this.successCount + this.errorCount,
             processingTimeSecs,
         });
