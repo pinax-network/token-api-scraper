@@ -11,15 +11,7 @@ import { createLogger } from '../../lib/logger';
 import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
-import {
-    deriveMeteoraDlmmLpMetadata,
-    derivePumpAmmLpMetadata,
-    deriveRaydiumLpMetadata,
-    fetchSolanaTokenMetadata,
-    isMeteoraDlmmLpToken,
-    isPumpAmmLpToken,
-    isRaydiumAmmLpToken,
-} from '../../lib/solana-rpc';
+import { fetchSolanaTokenMetadata } from '../../lib/solana-rpc';
 import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
 
@@ -168,213 +160,58 @@ async function processSolanaMint(
                 stats.incrementError();
             }
         } else {
-            // No standard metadata found - check if this is an LP token from supported protocols
-            let lpName = '';
-            let lpSymbol = '';
-            let lpSource = '';
-            let isLpToken = false;
+            // No standard metadata found - insert token with empty source
+            // LP token metadata will be derived by the metadata-solana-extras service
+            const errorMessage = metadata.mintAccountExists
+                ? 'No on-chain metadata found'
+                : 'Mint account burned or closed';
 
-            // Check Pump.fun AMM LP token
-            try {
-                const pumpAmmCheck = await isPumpAmmLpToken(data.contract);
-                if (pumpAmmCheck.isLpToken && pumpAmmCheck.poolAddress) {
-                    const lpMetadata = await derivePumpAmmLpMetadata(
-                        pumpAmmCheck.poolAddress,
-                    );
-                    if (lpMetadata) {
-                        isLpToken = true;
-                        lpName = lpMetadata.name;
-                        lpSymbol = lpMetadata.symbol;
-                        lpSource = 'pump-amm';
-                        log.debug('Derived Pump.fun AMM LP metadata', {
-                            mint: data.contract,
-                            poolAddress: pumpAmmCheck.poolAddress,
-                            name: lpName,
-                            symbol: lpSymbol,
-                        });
-                    }
-                }
-            } catch (lpError) {
-                log.debug('Failed to check for Pump.fun AMM LP token', {
-                    mint: data.contract,
-                    error: (lpError as Error).message,
-                });
-            }
+            log.debug('Inserting token with no metadata', {
+                mint: data.contract,
+                decimals: data.decimals,
+                blockNum: data.block_num,
+                queryTimeMs,
+                mintAccountExists: metadata.mintAccountExists,
+            });
 
-            // Check Meteora DLMM LP token (if not already identified as LP)
-            if (!isLpToken) {
-                try {
-                    const meteoraCheck = await isMeteoraDlmmLpToken(
-                        data.contract,
-                    );
-                    if (meteoraCheck.isLpToken && meteoraCheck.poolAddress) {
-                        const lpMetadata = await deriveMeteoraDlmmLpMetadata(
-                            meteoraCheck.poolAddress,
-                        );
-                        if (lpMetadata) {
-                            isLpToken = true;
-                            lpName = lpMetadata.name;
-                            lpSymbol = lpMetadata.symbol;
-                            lpSource = 'meteora-dlmm';
-                            log.debug('Derived Meteora DLMM LP metadata', {
-                                mint: data.contract,
-                                poolAddress: meteoraCheck.poolAddress,
-                                name: lpName,
-                                symbol: lpSymbol,
-                            });
-                        }
-                    }
-                } catch (lpError) {
-                    log.debug('Failed to check for Meteora DLMM LP token', {
-                        mint: data.contract,
-                        error: (lpError as Error).message,
-                    });
-                }
-            }
-
-            // Check Raydium LP token - AMM V4 or CPMM (if not already identified as LP)
-            if (!isLpToken) {
-                try {
-                    const raydiumCheck = await isRaydiumAmmLpToken(
-                        data.contract,
-                    );
-                    if (raydiumCheck.isLpToken && raydiumCheck.poolType) {
-                        // If we have a pool address, try to derive full metadata
-                        if (raydiumCheck.poolAddress) {
-                            const lpMetadata = await deriveRaydiumLpMetadata(
-                                raydiumCheck.poolAddress,
-                                raydiumCheck.poolType,
-                            );
-                            if (lpMetadata) {
-                                isLpToken = true;
-                                lpName = lpMetadata.name;
-                                lpSymbol = lpMetadata.symbol;
-                                lpSource = 'raydium';
-                                log.debug('Derived Raydium LP metadata', {
-                                    mint: data.contract,
-                                    poolAddress: raydiumCheck.poolAddress,
-                                    poolType: raydiumCheck.poolType,
-                                    name: lpName,
-                                    symbol: lpSymbol,
-                                });
-                            }
-                        } else {
-                            // Pool address not found but we know it's a Raydium LP token
-                            // Mark as LP with generic metadata
-                            isLpToken = true;
-                            lpName = `Raydium ${raydiumCheck.poolType.toUpperCase()} LP`;
-                            lpSymbol = 'RAY-LP';
-                            lpSource = 'raydium';
-                            log.debug(
-                                'Detected Raydium LP token (pool address not found)',
-                                {
-                                    mint: data.contract,
-                                    poolType: raydiumCheck.poolType,
-                                    name: lpName,
-                                    symbol: lpSymbol,
-                                },
-                            );
-                        }
-                    }
-                } catch (lpError) {
-                    log.debug('Failed to check for Raydium LP token', {
-                        mint: data.contract,
-                        error: (lpError as Error).message,
-                    });
-                }
-            }
-
-            // If we derived LP metadata, insert to metadata table
-            if (isLpToken && lpName) {
-                const success = await insertRow(
-                    'metadata',
-                    {
-                        network,
-                        contract: data.contract,
-                        block_num: data.block_num,
-                        timestamp: data.timestamp,
-                        decimals: data.decimals,
-                        name: lpName,
-                        symbol: lpSymbol,
-                        uri: '',
-                        source: lpSource,
-                        image: '',
-                        description: '',
-                    },
-                    `Failed to insert metadata for mint ${data.contract}`,
-                    { contract: data.contract },
-                );
-
-                if (success) {
-                    incrementSuccess(serviceName);
-                    stats.incrementSuccess();
-                    log.debug('LP metadata derived', {
-                        mint: data.contract,
-                        name: lpName,
-                        symbol: lpSymbol,
-                        source: lpSource,
-                        decimals: data.decimals,
-                        blockNum: data.block_num,
-                        queryTimeMs,
-                    });
-                } else {
-                    incrementError(serviceName);
-                    stats.incrementError();
-                }
-            } else {
-                // No metadata found - still insert to metadata table with decimals
-                const errorMessage = metadata.mintAccountExists
-                    ? 'No on-chain metadata found'
-                    : 'Mint account burned or closed';
-
-                log.debug('Inserting token with no metadata', {
-                    mint: data.contract,
+            // Insert to metadata table (with decimals info, empty source for later LP detection)
+            const success = await insertRow(
+                'metadata',
+                {
+                    network,
+                    contract: data.contract,
+                    block_num: data.block_num,
+                    timestamp: data.timestamp,
                     decimals: data.decimals,
-                    blockNum: data.block_num,
-                    queryTimeMs,
-                    isLpToken,
-                    mintAccountExists: metadata.mintAccountExists,
-                });
+                    name: '',
+                    symbol: '',
+                    uri: '',
+                    source: '',
+                    image: '',
+                    description: '',
+                },
+                `Failed to insert metadata for mint ${data.contract}`,
+                { contract: data.contract },
+            );
 
-                // Insert to metadata table (with decimals info)
-                const success = await insertRow(
-                    'metadata',
-                    {
-                        network,
-                        contract: data.contract,
-                        block_num: data.block_num,
-                        timestamp: data.timestamp,
-                        decimals: data.decimals,
-                        name: '',
-                        symbol: '',
-                        uri: '',
-                        source: '',
-                        image: '',
-                        description: '',
-                    },
-                    `Failed to insert metadata for mint ${data.contract}`,
-                    { contract: data.contract },
-                );
+            // Also insert to metadata_errors for tracking
+            await insertRow(
+                'metadata_errors',
+                {
+                    network,
+                    contract: data.contract,
+                    error: errorMessage,
+                },
+                `Failed to insert error for mint ${data.contract}`,
+                { contract: data.contract },
+            );
 
-                // Also insert to metadata_errors for tracking
-                await insertRow(
-                    'metadata_errors',
-                    {
-                        network,
-                        contract: data.contract,
-                        error: errorMessage,
-                    },
-                    `Failed to insert error for mint ${data.contract}`,
-                    { contract: data.contract },
-                );
-
-                if (success) {
-                    incrementSuccess(serviceName);
-                    stats.incrementSuccess();
-                } else {
-                    incrementError(serviceName);
-                    stats.incrementError();
-                }
+            if (success) {
+                incrementSuccess(serviceName);
+                stats.incrementSuccess();
+            } else {
+                incrementError(serviceName);
+                stats.incrementError();
             }
         }
     } catch (error) {
