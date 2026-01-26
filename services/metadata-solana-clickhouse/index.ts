@@ -1,12 +1,12 @@
 /**
  * Solana metadata processing service (ClickHouse-based)
- * Fetches token metadata from ClickHouse tables (mints_view, metadata_view)
+ * Fetches token metadata from ClickHouse tables (initialize_mint, metadata_view)
  * that are populated by the substreams-solana Substreams.
  *
  * This service is purely ClickHouse query-based and does not make any RPC calls.
  * It combines data from:
- * - mints_view: mint address, program_id, decimals, block_num, timestamp
- * - metadata_view: name, symbol, uri (from Metaplex or Token-2022 metadata)
+ * - initialize_mint: mint address, decimals, block_num, timestamp
+ * - metadata_view: name, symbol, uri (from Metaplex Token Metadata)
  */
 
 import PQueue from 'p-queue';
@@ -17,10 +17,7 @@ import { createLogger } from '../../lib/logger';
 import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
-import {
-    type MetadataSource,
-    TOKEN_2022_PROGRAM_ID,
-} from '../../lib/solana-rpc';
+import type { MetadataSource } from '../../lib/solana-rpc';
 import { insertRow } from '../../src/insert';
 
 const serviceName = 'metadata-solana-clickhouse';
@@ -31,7 +28,6 @@ const log = createLogger(serviceName);
  */
 export interface SolanaTokenMetadata {
     contract: string;
-    program_id: string;
     block_num: number;
     timestamp: number;
     decimals: number;
@@ -41,16 +37,12 @@ export interface SolanaTokenMetadata {
 }
 
 /**
- * Determine the metadata source based on program_id and available fields
+ * Determine the metadata source based on available fields
+ * Note: metadata_view only contains Metaplex Token Metadata program data
  */
 function determineSource(data: SolanaTokenMetadata): MetadataSource {
-    // If we have name/symbol/uri, determine source from program_id
+    // If we have name/symbol/uri, it's from Metaplex metadata
     if (data.name || data.symbol || data.uri) {
-        // Token-2022 program ID
-        if (data.program_id === TOKEN_2022_PROGRAM_ID) {
-            return 'token2022';
-        }
-        // Standard SPL Token with Metaplex metadata
         return 'metaplex';
     }
     // No metadata found
@@ -199,7 +191,8 @@ export async function run(): Promise<void> {
         await Bun.file(__dirname + '/get_unprocessed_metadata.sql').text(),
         {
             network,
-            db: CLICKHOUSE_DATABASE_INSERT,
+            db: process.env.CLICKHOUSE_DATABASE, // Source data (svm-tokens)
+            db_insert: CLICKHOUSE_DATABASE_INSERT, // Metadata tables
         },
     );
 
