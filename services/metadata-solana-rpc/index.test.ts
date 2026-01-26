@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { MetadataSource } from '../../lib/solana-rpc';
 
 /**
- * Tests for Solana metadata processing service
- * This service only fetches on-chain metadata, URI content is handled by metadata-solana-extras
+ * Tests for Solana metadata processing service (RPC-based)
+ * This service only fetches on-chain metadata, URI content is handled by metadata-solana-extras-rpc
  */
 
 // Mock dependencies
@@ -226,8 +226,8 @@ describe('Solana metadata service', () => {
     });
 
     test('insert should store URI without fetching its content (image/description are empty)', async () => {
-        // metadata-solana should store on-chain data only, with empty image/description
-        // URI content fetching is handled by metadata-solana-extras
+        // metadata-solana-rpc should store on-chain data only, with empty image/description
+        // URI content fetching is handled by metadata-solana-extras-rpc
         const metadata = {
             network: 'solana',
             contract: 'test-mint',
@@ -238,8 +238,8 @@ describe('Solana metadata service', () => {
             symbol: 'TEST',
             uri: 'https://example.com/metadata.json',
             source: 'metaplex',
-            image: '', // Empty - to be filled by metadata-solana-extras
-            description: '', // Empty - to be filled by metadata-solana-extras
+            image: '', // Empty - to be filled by metadata-solana-extras-rpc
+            description: '', // Empty - to be filled by metadata-solana-extras-rpc
         };
 
         await mockInsertRow('metadata', metadata, 'test context', {

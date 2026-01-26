@@ -1,10 +1,10 @@
 /**
- * Solana metadata processing service
- * Fetches token metadata from Metaplex Token Metadata or Token-2022 extensions
+ * Solana metadata processing service (RPC-based)
+ * Fetches token metadata from Metaplex Token Metadata or Token-2022 extensions via RPC calls
  *
  * This service performs minimal RPC calls to get on-chain metadata (name, symbol, URI).
- * It stores the URI for later retrieval by metadata-solana-extras service.
- * URI content fetching (image, description) is handled by metadata-solana-extras.
+ * It stores the URI for later retrieval by metadata-solana-extras-rpc service.
+ * URI content fetching (image, description) is handled by metadata-solana-extras-rpc.
  */
 
 import PQueue from 'p-queue';
@@ -18,7 +18,7 @@ import { initService } from '../../lib/service-init';
 import { fetchSolanaTokenMetadata } from '../../lib/solana-rpc';
 import { insertRow } from '../../src/insert';
 
-const serviceName = 'metadata-solana';
+const serviceName = 'metadata-solana-rpc';
 const log = createLogger(serviceName);
 
 /**
@@ -34,7 +34,7 @@ export interface SolanaMint {
 
 /**
  * Process a single Solana mint and fetch its on-chain metadata
- * URI content (image, description) will be fetched later by metadata-solana-extras
+ * URI content (image, description) will be fetched later by metadata-solana-extras-rpc
  */
 async function processSolanaMint(
     data: SolanaMint,
@@ -53,7 +53,7 @@ async function processSolanaMint(
 
         if (metadata.source !== '') {
             // Successfully found on-chain metadata
-            // Store URI for later processing by metadata-solana-extras
+            // Store URI for later processing by metadata-solana-extras-rpc
             // Image and description will be empty until URI is fetched
             const success = await insertRow(
                 'metadata',
@@ -93,7 +93,7 @@ async function processSolanaMint(
             }
         } else {
             // No standard metadata found - insert token with empty source
-            // LP token metadata will be derived by the metadata-solana-extras service
+            // LP token metadata will be derived by the metadata-solana-extras-rpc service
             const errorMessage = metadata.mintAccountExists
                 ? 'No on-chain metadata found'
                 : 'Mint account burned or closed';

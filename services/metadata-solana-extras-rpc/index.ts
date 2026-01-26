@@ -1,12 +1,12 @@
 /**
- * Solana metadata extras processing service
+ * Solana metadata extras processing service (RPC-based)
  * Handles:
  * 1. URI content fetching for tokens with URI but missing image/description
  * 2. LP token detection using heavier RPC calls (getProgramAccounts)
  *    for tokens that don't have standard metadata.
  *
  * This service processes tokens that have been inserted into the metadata table
- * by metadata-solana, and performs additional processing:
+ * by metadata-solana-rpc, and performs additional processing:
  * - For tokens with URI: Fetches image/description from the URI
  * - For tokens without metadata: Attempts to derive LP token metadata
  */
@@ -30,7 +30,7 @@ import {
 import { fetchUriMetadata } from '../../lib/uri-fetch';
 import { insertRow } from '../../src/insert';
 
-const serviceName = 'metadata-solana-extras';
+const serviceName = 'metadata-solana-extras-rpc';
 const log = createLogger(serviceName);
 
 /**
