@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG = {
     JITTER_MIN: 0.7,
     JITTER_MAX: 1.3,
     MAX_DELAY_MS: 30000,
-    TIMEOUT_MS: 10000,
+    TIMEOUT_MS: 100,
 
     // Prometheus Monitoring
     PROMETHEUS_PORT: 9090,
