@@ -47,7 +47,7 @@ const SERVICES = {
     'metadata-solana-extras': {
         path: './services/metadata-solana-extras/index.ts',
         description:
-            'Derive LP token metadata for Solana tokens without standard metadata (uses heavier RPC calls like getProgramAccounts)',
+            'Fetch URI content (image, description) and derive LP token metadata for Solana tokens (uses heavier RPC calls like getProgramAccounts)',
     },
 };
 

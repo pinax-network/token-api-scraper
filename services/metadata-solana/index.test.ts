@@ -3,6 +3,7 @@ import type { MetadataSource } from '../../lib/solana-rpc';
 
 /**
  * Tests for Solana metadata processing service
+ * This service only fetches on-chain metadata, URI content is handled by metadata-solana-extras
  */
 
 // Mock dependencies
@@ -30,20 +31,6 @@ const mockIncrementSuccess = mock(() => {});
 const mockIncrementError = mock(() => {});
 const mockInitService = mock(() => {});
 const mockShutdownBatchInsertQueue = mock(() => Promise.resolve());
-const mockFetchUriMetadata = mock((_uri: string) =>
-    Promise.resolve({
-        success: true as boolean,
-        metadata: {
-            name: 'URI Token Name',
-            description: 'Test description',
-            image: 'https://example.com/image.png',
-        } as { name: string; description: string; image: string } | undefined,
-        raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}' as
-            | string
-            | undefined,
-        error: undefined as string | undefined,
-    }),
-);
 
 mock.module('../../lib/clickhouse', () => ({
     query: mockQuery,
@@ -51,10 +38,6 @@ mock.module('../../lib/clickhouse', () => ({
 
 mock.module('../../lib/solana-rpc', () => ({
     fetchSolanaTokenMetadata: mockFetchSolanaTokenMetadata,
-}));
-
-mock.module('../../lib/uri-fetch', () => ({
-    fetchUriMetadata: mockFetchUriMetadata,
 }));
 
 mock.module('../../src/insert', () => ({
@@ -83,7 +66,6 @@ describe('Solana metadata service', () => {
         mockIncrementError.mockClear();
         mockInitService.mockClear();
         mockShutdownBatchInsertQueue.mockClear();
-        mockFetchUriMetadata.mockClear();
 
         // Reset to default implementations
         mockQuery.mockReturnValue(Promise.resolve({ data: [] }));
@@ -98,22 +80,6 @@ describe('Solana metadata service', () => {
             }),
         );
         mockInsertRow.mockReturnValue(Promise.resolve(true));
-        mockFetchUriMetadata.mockReturnValue(
-            Promise.resolve({
-                success: true as boolean,
-                metadata: {
-                    name: 'URI Token Name',
-                    description: 'Test description',
-                    image: 'https://example.com/image.png',
-                } as
-                    | { name: string; description: string; image: string }
-                    | undefined,
-                raw: '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}' as
-                    | string
-                    | undefined,
-                error: undefined as string | undefined,
-            }),
-        );
     });
 
     test('should handle successful metadata fetch from Metaplex', async () => {
@@ -259,7 +225,9 @@ describe('Solana metadata service', () => {
         );
     });
 
-    test('insert should be called with correct metadata structure including image and description', async () => {
+    test('insert should store URI without fetching its content (image/description are empty)', async () => {
+        // metadata-solana should store on-chain data only, with empty image/description
+        // URI content fetching is handled by metadata-solana-extras
         const metadata = {
             network: 'solana',
             contract: 'test-mint',
@@ -270,8 +238,8 @@ describe('Solana metadata service', () => {
             symbol: 'TEST',
             uri: 'https://example.com/metadata.json',
             source: 'metaplex',
-            image: 'https://example.com/image.png',
-            description: 'Test description',
+            image: '', // Empty - to be filled by metadata-solana-extras
+            description: '', // Empty - to be filled by metadata-solana-extras
         };
 
         await mockInsertRow('metadata', metadata, 'test context', {
@@ -284,55 +252,5 @@ describe('Solana metadata service', () => {
             'test context',
             { contract: 'test-mint' },
         );
-    });
-
-    test('fetchUriMetadata should extract image and description from URI', async () => {
-        const result = await mockFetchUriMetadata(
-            'https://example.com/metadata.json',
-        );
-
-        expect(result.success).toBe(true);
-        expect(result.metadata?.description).toBe('Test description');
-        expect(result.metadata?.image).toBe('https://example.com/image.png');
-        expect(result.raw).toBe(
-            '{"name":"URI Token Name","description":"Test description","image":"https://example.com/image.png"}',
-        );
-    });
-
-    test('fetchUriMetadata should handle failed fetch', async () => {
-        mockFetchUriMetadata.mockReturnValue(
-            Promise.resolve({
-                success: false as boolean,
-                metadata: undefined,
-                raw: undefined,
-                error: 'HTTP 404' as string | undefined,
-            }),
-        );
-
-        const result = await mockFetchUriMetadata(
-            'https://example.com/missing.json',
-        );
-
-        expect(result.success).toBe(false);
-        expect(result.error).toBe('HTTP 404');
-    });
-
-    test('fetchUriMetadata should return raw even on parse failure', async () => {
-        mockFetchUriMetadata.mockReturnValue(
-            Promise.resolve({
-                success: false as boolean,
-                metadata: undefined,
-                raw: 'invalid json content' as string | undefined,
-                error: 'Failed to parse JSON' as string | undefined,
-            }),
-        );
-
-        const result = await mockFetchUriMetadata(
-            'https://example.com/invalid.json',
-        );
-
-        expect(result.success).toBe(false);
-        expect(result.error).toBe('Failed to parse JSON');
-        expect(result.raw).toBe('invalid json content');
     });
 });
