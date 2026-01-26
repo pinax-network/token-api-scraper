@@ -803,6 +803,61 @@ Examples:
         },
     );
 
+// ---- query metadata-solana-extras <mint> ----
+queryCommand
+    .command('metadata-solana-extras <mint>')
+    .description(
+        'Query LP metadata for a single Solana mint address with verbose debug logging',
+    )
+    .option(
+        '--node-url <url>',
+        'Solana RPC node URL for querying blockchain data',
+        process.env.NODE_URL || process.env.SOLANA_NODE_URL,
+    )
+    .addHelpText(
+        'after',
+        `
+This command queries LP token metadata for a single Solana mint address with verbose debug logging.
+It's useful for troubleshooting to understand why a particular token may not be identified as an LP token.
+
+The command will:
+  1. Validate the mint address format
+  2. Check if the mint is a Pump.fun AMM LP token
+  3. Check if the mint is a Meteora DLMM LP token
+  4. Check if the mint is a Raydium LP token (AMM V4 or CPMM)
+  5. Derive LP metadata if the mint is identified as an LP token
+
+Note: This command uses heavier RPC calls like getProgramAccounts for Raydium LP detection.
+
+Examples:
+  $ bun run cli.ts query metadata-solana-extras <mint>
+  $ bun run cli.ts query metadata-solana-extras <mint> --node-url https://api.mainnet-beta.solana.com
+`,
+    )
+    .action(async (mint: string, options: { nodeUrl?: string }) => {
+        // Set NODE_URL environment variable if provided via CLI
+        if (options.nodeUrl) {
+            process.env.NODE_URL = options.nodeUrl;
+        }
+
+        // Validate NODE_URL is set
+        if (!process.env.NODE_URL && !process.env.SOLANA_NODE_URL) {
+            log.error(
+                'NODE_URL or SOLANA_NODE_URL environment variable is required',
+            );
+            log.info(
+                'Set it via environment variable or use --node-url option',
+            );
+            process.exit(1);
+        }
+
+        // Import and run the query service
+        const { run: runQuery } = await import(
+            './services/metadata-solana-extras/query.ts'
+        );
+        await runQuery(mint);
+    });
+
 // ============================================================================
 // Parse CLI arguments
 // ============================================================================
