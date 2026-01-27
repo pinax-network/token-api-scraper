@@ -1,11 +1,20 @@
 import { abi, decodeUint256 } from './rpc';
 
 /**
+ * Sanitize a string by removing NULL bytes and trimming whitespace
+ * @param str - The string to sanitize
+ * @returns The sanitized string
+ */
+export function sanitizeString(str: string): string {
+    return str.replace(/\0/g, '').trim();
+}
+
+/**
  * Decode an ABI-encoded hex string to a string value
  * Used for decoding token name and symbol from RPC calls
  *
  * @param hexValue - The hex-encoded string (with or without 0x prefix)
- * @returns The decoded string, or empty string if decoding fails
+ * @returns The decoded string, sanitized (NULL bytes removed, trimmed), or empty string if decoding fails
  */
 export function decodeHexString(hexValue: string | null | undefined): string {
     if (!hexValue) return '';
@@ -19,7 +28,8 @@ export function decodeHexString(hexValue: string | null | undefined): string {
         // Decode using ethers ABI decoder
         const [decoded] = abi.decode(['string'], normalized);
 
-        return decoded || '';
+        // Sanitize: remove NULL bytes and trim whitespace
+        return decoded ? sanitizeString(decoded) : '';
     } catch (_error) {
         // If decoding fails, return empty string
         return '';
