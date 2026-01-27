@@ -42,6 +42,22 @@ npm run cli run metadata-solana
 
 See [CLI Reference](docs/CLI.md) for all available commands and options.
 
+### Troubleshooting Token Metadata
+
+Use the `query` commands to debug individual token metadata fetching without storing results in ClickHouse:
+
+```bash
+# Query EVM token metadata (TRON/Ethereum)
+npm run cli query metadata-evm TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t  # USDT on TRON
+npm run cli query metadata-evm 0xdAC17F958D2ee523a2206206994597C13D831ec7  # EVM hex format
+
+# Query Solana token metadata
+npm run cli query metadata-solana So11111111111111111111111111111111111111112
+
+# Query Solana LP token metadata
+npm run cli query metadata-solana-extras <mint>
+```
+
 ### 3. Configuration
 
 Set configuration via environment variables or command-line flags:
