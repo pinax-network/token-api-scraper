@@ -4,6 +4,7 @@ import {
     decodeNameHex,
     decodeNumberHex,
     decodeSymbolHex,
+    sanitizeString,
 } from './hex-decode';
 import { abi, decodeUint256 } from './rpc';
 
@@ -467,5 +468,98 @@ describe('Hex decoding - decodeNumberHex function', () => {
 
         // But checking for null/undefined is correct
         expect(decoded !== null && decoded !== undefined).toBe(true);
+    });
+});
+
+describe('sanitizeString function', () => {
+    test('should trim leading whitespace', () => {
+        expect(sanitizeString('   USDT')).toBe('USDT');
+    });
+
+    test('should trim trailing whitespace', () => {
+        expect(sanitizeString('USDT   ')).toBe('USDT');
+    });
+
+    test('should trim both leading and trailing whitespace', () => {
+        expect(sanitizeString('   USDT   ')).toBe('USDT');
+    });
+
+    test('should remove NULL bytes', () => {
+        expect(sanitizeString('US\0DT')).toBe('USDT');
+    });
+
+    test('should remove multiple NULL bytes', () => {
+        expect(sanitizeString('\0US\0D\0T\0')).toBe('USDT');
+    });
+
+    test('should handle both NULL bytes and whitespace', () => {
+        expect(sanitizeString('  \0 USDT \0  ')).toBe('USDT');
+    });
+
+    test('should return empty string for only whitespace', () => {
+        expect(sanitizeString('   \t\n  ')).toBe('');
+    });
+
+    test('should return empty string for only NULL bytes', () => {
+        expect(sanitizeString('\0\0\0')).toBe('');
+    });
+
+    test('should return empty string for whitespace and NULL bytes only', () => {
+        expect(sanitizeString('  \0\t\0\n  ')).toBe('');
+    });
+
+    test('should preserve internal spaces', () => {
+        expect(sanitizeString('  Tether USD  ')).toBe('Tether USD');
+    });
+
+    test('should preserve internal tabs', () => {
+        // Note: trim() only removes leading/trailing whitespace, not internal
+        expect(sanitizeString('  Assure\t\tfree gas  ')).toBe(
+            'Assure\t\tfree gas',
+        );
+    });
+
+    test('should preserve internal newlines', () => {
+        // Note: trim() removes leading/trailing whitespace including newlines
+        expect(sanitizeString('\nFive\nEnergy\n')).toBe('Five\nEnergy');
+    });
+});
+
+describe('decodeHexString sanitization', () => {
+    test('should sanitize decoded string with leading spaces', () => {
+        // Hex encoded "   孙悟空" - has leading spaces (3 spaces)
+        const hex =
+            '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c202020e5ad99e6829fe7a9ba0000000000000000000000000000000000000000';
+        // decodeHexString now sanitizes the output
+        expect(decodeHexString(hex)).toBe('孙悟空');
+    });
+
+    test('should sanitize decoded string with trailing whitespace', () => {
+        // Hex encoded "USDT   " - has trailing spaces (3 spaces)
+        const hex =
+            '0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000075553445420202000000000000000000000000000000000000000000000000000';
+        expect(decodeHexString(hex)).toBe('USDT');
+    });
+
+    test('should sanitize decoded string with leading newlines', () => {
+        // Hex encoded "\n\nAllbridge LP" - has leading newlines
+        const hex =
+            '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000e0a0a416c6c627269646765204c50000000000000000000000000000000000000';
+        expect(decodeHexString(hex)).toBe('Allbridge LP');
+    });
+
+    test('should return empty string for whitespace-only decoded string', () => {
+        // Hex encoded "   \n\t  " - only whitespace
+        const hex =
+            '0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000072020200a09202000000000000000000000000000000000000000000000000000';
+        expect(decodeHexString(hex)).toBe('');
+    });
+
+    test('should preserve internal whitespace', () => {
+        // Hex encoded "Assure\t\tfree gas" - has internal tabs
+        const hex =
+            '0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000104173737572650909667265652067617300000000000000000000000000000000';
+        // Internal whitespace is preserved, only leading/trailing is trimmed
+        expect(decodeHexString(hex)).toBe('Assure\t\tfree gas');
     });
 });

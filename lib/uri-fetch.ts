@@ -5,6 +5,7 @@
 
 import { sleep } from 'bun';
 import { DEFAULT_CONFIG } from './config';
+import { sanitizeString } from './hex-decode';
 import { createLogger } from './logger';
 
 const log = createLogger('uri-fetch');
@@ -220,14 +221,19 @@ export async function fetchUriMetadata(
                 };
             }
 
-            // Extract metadata fields
+            // Extract and sanitize metadata fields (remove NULL bytes and trim)
             const metadata: UriMetadata = {
-                name: typeof json.name === 'string' ? json.name : undefined,
+                name:
+                    typeof json.name === 'string'
+                        ? sanitizeString(json.name)
+                        : undefined,
                 symbol:
-                    typeof json.symbol === 'string' ? json.symbol : undefined,
+                    typeof json.symbol === 'string'
+                        ? sanitizeString(json.symbol)
+                        : undefined,
                 description:
                     typeof json.description === 'string'
-                        ? json.description
+                        ? sanitizeString(json.description)
                         : undefined,
                 image: typeof json.image === 'string' ? json.image : undefined,
             };
