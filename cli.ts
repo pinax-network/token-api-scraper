@@ -748,6 +748,56 @@ const queryCommand = program
     .command('query')
     .description('Query single contracts for troubleshooting');
 
+// ---- query metadata-evm <contract> ----
+queryCommand
+    .command('metadata-evm <contract>')
+    .description(
+        'Query metadata for a single EVM contract address with verbose debug logging',
+    )
+    .option(
+        '--node-url <url>',
+        'EVM RPC node URL for querying blockchain data',
+        process.env.NODE_URL,
+    )
+    .addHelpText(
+        'after',
+        `
+This command queries metadata for a single EVM contract address with verbose debug logging.
+It's useful for troubleshooting to understand why a particular token may not be returning metadata.
+
+The command will:
+  1. Validate the contract address format (EVM hex or TRON base58)
+  2. Check if the contract has code (detect self-destructed contracts)
+  3. Fetch decimals() - required for ERC-20 tokens
+  4. Fetch symbol() - optional, some tokens don't implement this
+  5. Fetch name() - optional, some tokens don't implement this
+
+Examples:
+  $ bun run cli.ts query metadata-evm 0xdAC17F958D2ee523a2206206994597C13D831ec7
+  $ bun run cli.ts query metadata-evm TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+  $ bun run cli.ts query metadata-evm <contract> --node-url https://api.trongrid.io/jsonrpc
+`,
+    )
+    .action(async (contract: string, options: { nodeUrl?: string }) => {
+        // Set NODE_URL environment variable if provided via CLI
+        if (options.nodeUrl) {
+            process.env.NODE_URL = options.nodeUrl;
+        }
+
+        // Validate NODE_URL is set
+        if (!process.env.NODE_URL) {
+            log.error('NODE_URL environment variable is required');
+            log.info(
+                'Set it via environment variable or use --node-url option',
+            );
+            process.exit(1);
+        }
+
+        // Import and run the query service
+        const { run: runQuery } = await import('./services/metadata/query.ts');
+        await runQuery(contract);
+    });
+
 // ---- query metadata-solana <mint> ----
 queryCommand
     .command('metadata-solana <mint>')

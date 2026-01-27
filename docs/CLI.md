@@ -199,6 +199,56 @@ npm run cli run polymarket
 npm run cli run polymarket --concurrency 15 --enable-prometheus
 ```
 
+### query
+
+Query single contracts for troubleshooting. These commands help debug individual token metadata fetching without storing results in ClickHouse.
+
+#### query metadata-evm
+
+Query metadata for a single EVM contract address with verbose debug logging.
+
+```bash
+# Query USDT on TRON (base58 format)
+npm run cli query metadata-evm TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+
+# Query with hex address format
+npm run cli query metadata-evm 0xdAC17F958D2ee523a2206206994597C13D831ec7
+
+# With custom RPC endpoint
+npm run cli query metadata-evm <contract> --node-url https://api.trongrid.io/jsonrpc
+```
+
+This command:
+1. Validates the contract address format (EVM hex or TRON base58)
+2. Checks if the contract has code (detects self-destructed contracts)
+3. Fetches decimals() - required for ERC-20 tokens
+4. Fetches symbol() - optional
+5. Fetches name() - optional
+
+#### query metadata-solana
+
+Query metadata for a single Solana mint address with verbose debug logging.
+
+```bash
+# Query wrapped SOL
+npm run cli query metadata-solana So11111111111111111111111111111111111111112
+
+# Query pump.fun token
+npm run cli query metadata-solana C8y5X4NfcXexq5WvauuWCSj9CfWJVNMnBnUfeoo4pump
+
+# With custom RPC endpoint
+npm run cli query metadata-solana <mint> --node-url https://api.mainnet-beta.solana.com
+```
+
+#### query metadata-solana-extras
+
+Query LP token metadata for a single Solana mint address with verbose debug logging.
+
+```bash
+npm run cli query metadata-solana-extras <mint>
+npm run cli query metadata-solana-extras <mint> --node-url https://api.mainnet-beta.solana.com
+```
+
 ## Command-Line Flags
 
 All flags override environment variables. Available for `setup` and `run` commands:
