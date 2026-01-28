@@ -1,21 +1,12 @@
-WITH processed_conditions AS (
-    SELECT condition_id
-    FROM polymarket_markets
-),
-error_conditions AS (
-    SELECT condition_id
-    FROM polymarket_markets_errors
-)
 SELECT
     condition_id,
-    toString(token0) as token0,
-    toString(token1) as token1,
-    block_num,
-    block_hash,
-    timestamp
-FROM ctfexchange_token_registered
-WHERE
-    condition_id NOT IN processed_conditions AND
-    condition_id NOT IN error_conditions
-ORDER BY timestamp DESC
+    toString(t.token0) AS token0,
+    toString(t.token1) AS token1,
+    t.block_num AS block_num,
+    t.block_hash AS block_hash,
+    t.timestamp AS timestamp
+FROM ctfexchange_token_registered t
+ANTI LEFT JOIN {db:Identifier}.polymarket_markets_errors USING (condition_id)
+ANTI LEFT JOIN {db:Identifier}.polymarket_markets USING (condition_id)
+ORDER BY t.timestamp DESC
 LIMIT 10000;

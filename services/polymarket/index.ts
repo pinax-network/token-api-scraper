@@ -2,7 +2,7 @@ import { sleep } from 'bun';
 import PQueue from 'p-queue';
 import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
-import { CONCURRENCY } from '../../lib/config';
+import { CLICKHOUSE_DATABASE_INSERT, CONCURRENCY } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
 import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
@@ -610,6 +610,9 @@ export async function run(): Promise<void> {
     log.info('Querying database for unprocessed condition_ids');
     const tokens = await query<RegisteredToken>(
         await Bun.file(__dirname + '/get_unprocessed_condition_ids.sql').text(),
+        {
+            db: CLICKHOUSE_DATABASE_INSERT,
+        },
     );
 
     if (tokens.data.length > 0) {
