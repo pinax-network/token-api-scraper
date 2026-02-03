@@ -45,7 +45,7 @@ const rpcRequests = new promClient.Histogram({
     name: 'scraper_rpc_requests',
     help: 'Duration of RPC requests in seconds',
     labelNames: ['method', 'status'],
-    buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30],
+    buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
     registers: [register],
 });
 

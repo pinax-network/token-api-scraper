@@ -115,7 +115,7 @@ The scraper exposes Prometheus metrics on port `9090` (configurable via `PROMETH
 
 **ClickHouse Operations**
 - `scraper_clickhouse_operations` (histogram) - Duration of ClickHouse operations in seconds
-  - Labels: `operation_type` (`read`, `write`)
+  - Labels: `operation_type` (`read`, `write`), `status` (`success`, `error`)
   - Automatically tracked in `lib/clickhouse.ts` and `lib/batch-insert.ts`
 
 **RPC Requests**
