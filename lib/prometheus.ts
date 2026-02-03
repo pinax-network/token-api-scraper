@@ -159,7 +159,8 @@ export function incrementError(serviceName: string): void {
 /**
  * Track a ClickHouse operation
  * @param operationType - Type of operation ('read' or 'write')
- * @param durationSeconds - Duration of the operation in seconds
+ * @param status - Operation status ('success' or 'error')
+ * @param startTime - Operation start time from performance.now()
  */
 export function trackClickHouseOperation(
     operationType: 'read' | 'write',
