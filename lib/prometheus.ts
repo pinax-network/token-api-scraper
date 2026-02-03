@@ -133,16 +133,17 @@ export function startPrometheusServer(
         server.once('error', errorHandler);
 
         server.listen(port, hostname, () => {
-            // Remove the startup error handler
+            // Remove the startup error handler and add handler for post-startup errors
             server.removeListener('error', errorHandler);
-            
-            // Add handler for post-startup errors
             server.on('error', (err) => {
                 log.error('Prometheus server error after startup', {
                     port,
                     error: err.message,
                 });
-                prometheusServers.delete(port);
+                // Try to close the server and remove from tracking
+                server.close(() => {
+                    prometheusServers.delete(port);
+                });
             });
 
             prometheusServers.set(port, server);
