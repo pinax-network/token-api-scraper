@@ -62,7 +62,7 @@ let configMetricsInitialized = false;
 let prometheusServer: http.Server | undefined;
 
 /**
- * Sanitize a URL to extract only the hostname, removing credentials and port
+ * Sanitize a URL to extract only the hostname, removing credentials, port, and path
  * @param url - The URL to sanitize
  * @returns The sanitized hostname or 'not_set' if invalid
  */
@@ -93,13 +93,13 @@ export function startPrometheusServer(
         if (!configMetricsInitialized) {
             // Read from process.env at runtime to get CLI overrides
             const clickhouseUrl = process.env.CLICKHOUSE_URL || CLICKHOUSE_URL;
-            const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE || CLICKHOUSE_DATABASE || 'not_set';
+            const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE || CLICKHOUSE_DATABASE;
             const nodeUrl = process.env.NODE_URL || NODE_URL;
             
             configInfoGauge
                 .labels(
                     sanitizeUrl(clickhouseUrl),
-                    clickhouseDatabase,
+                    clickhouseDatabase || 'not_set',
                     nodeUrl ? 'true' : 'false',
                 )
                 .set(1);
