@@ -7,6 +7,7 @@ import {
     trackClickHouseOperation,
     trackRpcRequest,
 } from './prometheus';
+import { sleep } from 'bun';
 
 describe('Prometheus Server', () => {
     test('should start and stop server', async () => {
@@ -14,8 +15,7 @@ describe('Prometheus Server', () => {
 
         await startPrometheusServer(port);
 
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Verify the Prometheus metrics endpoint is accessible
         const response = await fetch(`http://localhost:${port}/metrics`);
@@ -28,7 +28,7 @@ describe('Prometheus Server', () => {
         await stopPrometheusServer();
 
         // Wait for server to close
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Verify server is closed
         try {
@@ -52,8 +52,7 @@ describe('Prometheus Server', () => {
 
         await startPrometheusServer(port);
 
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Fetch metrics
         const response = await fetch(`http://localhost:${port}/metrics`);
@@ -80,8 +79,7 @@ describe('Prometheus Server', () => {
 
         await startPrometheusServer(port);
 
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Set metrics
         incrementSuccess(serviceName);
@@ -97,7 +95,7 @@ describe('Prometheus Server', () => {
         await stopPrometheusServer();
 
         // Wait for server to fully close
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
     });
 
     test('should handle starting server on already used port', async () => {
@@ -115,7 +113,7 @@ describe('Prometheus Server', () => {
         await stopPrometheusServer();
 
         // Wait for server to fully close
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
     });
 
     test('should reject when port is already used by external process', async () => {
@@ -145,8 +143,7 @@ describe('Prometheus Histogram Helpers', () => {
 
         await startPrometheusServer(port);
 
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Track some ClickHouse operations
         const startTime = performance.now();
@@ -160,7 +157,7 @@ describe('Prometheus Histogram Helpers', () => {
 
         // Verify histogram metric is present with correct name
         expect(metricsText).toContain('scraper_clickhouse_operations_seconds');
-        
+
         // Verify labels are present
         expect(metricsText).toContain('operation_type="read"');
         expect(metricsText).toContain('operation_type="write"');
@@ -170,7 +167,7 @@ describe('Prometheus Histogram Helpers', () => {
         await stopPrometheusServer();
 
         // Wait for server to fully close
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
     });
 
     test('should track RPC requests with correct labels', async () => {
@@ -178,8 +175,7 @@ describe('Prometheus Histogram Helpers', () => {
 
         await startPrometheusServer(port);
 
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Track some RPC requests
         const startTime = performance.now();
@@ -193,7 +189,7 @@ describe('Prometheus Histogram Helpers', () => {
 
         // Verify histogram metric is present with correct name
         expect(metricsText).toContain('scraper_rpc_requests_seconds');
-        
+
         // Verify labels are present
         expect(metricsText).toContain('method="eth_call"');
         expect(metricsText).toContain('method="eth_getBalance"');
@@ -203,6 +199,6 @@ describe('Prometheus Histogram Helpers', () => {
         await stopPrometheusServer();
 
         // Wait for server to fully close
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
     });
 });
