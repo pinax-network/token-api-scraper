@@ -4,10 +4,10 @@ SELECT
     max(timestamp) as timestamp
 FROM swaps
 WHERE NOT EXISTS (
-    SELECT 1 FROM {db:Identifier}.metadata_errors WHERE network = {network: String} AND contract = log_address
+    SELECT 1 FROM {db:Identifier}.metadata_errors WHERE network = {network: String} AND contract = swaps.log_address
 )
 AND NOT EXISTS (
-    SELECT 1 FROM {db:Identifier}.metadata WHERE network = {network: String} AND contract = log_address
+    SELECT 1 FROM {db:Identifier}.metadata WHERE network = {network: String} AND contract = swaps.log_address
 )
 GROUP BY log_address
 ORDER BY timestamp DESC
