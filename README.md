@@ -114,12 +114,12 @@ The scraper exposes Prometheus metrics on port `9090` (configurable via `PROMETH
 ### Available Metrics
 
 **ClickHouse Operations**
-- `scraper_clickhouse_operations` (histogram) - Duration of ClickHouse operations in seconds
+- `scraper_clickhouse_operations_seconds` (histogram) - Duration of ClickHouse operations in seconds
   - Labels: `operation_type` (`read`, `write`), `status` (`success`, `error`)
   - Automatically tracked in `lib/clickhouse.ts` and `lib/batch-insert.ts`
 
 **RPC Requests**
-- `scraper_rpc_requests` (histogram) - Duration of RPC requests in seconds
+- `scraper_rpc_requests_seconds` (histogram) - Duration of RPC requests in seconds
   - Labels: `method` (e.g., `eth_call`, `eth_getBalance`), `status` (`success`, `error`)
   - Automatically tracked in `lib/rpc.ts`
 
@@ -131,7 +131,7 @@ The scraper exposes Prometheus metrics on port `9090` (configurable via `PROMETH
 
 **Configuration Info**
 - `scraper_config_info` (gauge) - Configuration metadata
-  - Labels: `clickhouse_url`, `clickhouse_database`, `node_url`
+  - Labels: `clickhouse_host` (sanitized hostname only), `clickhouse_database`, `node_url_configured` (`true`/`false`)
 
 ### Accessing Metrics
 
@@ -140,9 +140,9 @@ The scraper exposes Prometheus metrics on port `9090` (configurable via `PROMETH
 curl http://localhost:9090/metrics
 
 # Example Prometheus queries
-scraper_clickhouse_operations_bucket{operation_type="write"}
-rate(scraper_rpc_requests_count{status="success"}[5m])
-histogram_quantile(0.95, sum(rate(scraper_clickhouse_operations_bucket{operation_type="read",status="success"}[5m])) by (le))
+scraper_clickhouse_operations_seconds_bucket{operation_type="write"}
+rate(scraper_rpc_requests_seconds_count{status="success"}[5m])
+histogram_quantile(0.95, sum(rate(scraper_clickhouse_operations_seconds_bucket{operation_type="read",status="success"}[5m])) by (le))
 ```
 
 ## Testing
