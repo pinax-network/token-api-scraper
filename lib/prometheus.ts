@@ -128,7 +128,13 @@ export function startPrometheusServer(
         const errorHandler = (err: Error) => {
             log.error('Prometheus server error during startup', { port, error: err.message });
             // Clean up the server instance before rejecting
-            server.close(() => {
+            server.close((closeErr) => {
+                if (closeErr) {
+                    log.error('Error closing server after startup failure', {
+                        port,
+                        error: closeErr.message,
+                    });
+                }
                 reject(err);
             });
         };
@@ -219,12 +225,23 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                     }),
             );
 
-            Promise.all(closePromises)
-                .then(() => {
+            Promise.allSettled(closePromises)
+                .then((results) => {
                     prometheusServers.clear();
-                    resolve();
-                })
-                .catch(reject);
+                    // Check if any servers failed to close
+                    const failures = results.filter(
+                        (r) => r.status === 'rejected',
+                    );
+                    if (failures.length > 0) {
+                        reject(
+                            new Error(
+                                `Failed to close ${failures.length} server(s)`,
+                            ),
+                        );
+                    } else {
+                        resolve();
+                    }
+                });
         }
     });
 }
