@@ -8,9 +8,12 @@ import {
     trackRpcRequest,
 } from './prometheus';
 
-describe('Prometheus Server', () => {
+// Use a fixed port and run tests sequentially to avoid conflicts
+const TEST_PORT = 19001;
+
+describe.serial('Prometheus Server', () => {
     test('should start and stop server', async () => {
-        const port = 19001;
+        const port = TEST_PORT;
 
         await startPrometheusServer(port);
 
@@ -48,7 +51,7 @@ describe('Prometheus Server', () => {
     });
 
     test('should expose key metrics', async () => {
-        const port = 19002;
+        const port = TEST_PORT;
 
         await startPrometheusServer(port);
 
@@ -75,7 +78,7 @@ describe('Prometheus Server', () => {
     });
 
     test('should update metrics correctly', async () => {
-        const port = 19003;
+        const port = TEST_PORT;
         const serviceName = 'Test Service';
 
         await startPrometheusServer(port);
@@ -98,7 +101,7 @@ describe('Prometheus Server', () => {
     });
 
     test('should handle starting server on already used port', async () => {
-        const port = 19004;
+        const port = TEST_PORT;
 
         await startPrometheusServer(port);
 
@@ -113,7 +116,7 @@ describe('Prometheus Server', () => {
     });
 
     test('should reject when port is already used by external process', async () => {
-        const port = 19005;
+        const port = 19005; // Use a different port for this test to avoid conflicts
 
         // Start an external HTTP server on the port
         const externalServer = Bun.serve({
@@ -133,9 +136,9 @@ describe('Prometheus Server', () => {
     });
 });
 
-describe('Prometheus Histogram Helpers', () => {
+describe.serial('Prometheus Histogram Helpers', () => {
     test('should track ClickHouse operations with correct labels', async () => {
-        const port = 19006;
+        const port = TEST_PORT;
 
         await startPrometheusServer(port);
 
@@ -165,7 +168,7 @@ describe('Prometheus Histogram Helpers', () => {
     });
 
     test('should track RPC requests with correct labels', async () => {
-        const port = 19007;
+        const port = TEST_PORT;
 
         await startPrometheusServer(port);
 

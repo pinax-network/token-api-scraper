@@ -59,8 +59,7 @@ const configInfoGauge = new promClient.Gauge({
 
 // Track whether config metrics have been initialized
 let configMetricsInitialized = false;
-// Track multiple servers by port (for test environments)
-const prometheusServers = new Map<number, http.Server>();
+let prometheusServer: http.Server | undefined;
 
 /**
  * Sanitize a URL to extract only the hostname, removing credentials, port, and path
@@ -107,13 +106,13 @@ export function startPrometheusServer(
             configMetricsInitialized = true;
         }
 
-        if (prometheusServers.has(port)) {
-            log.warn('Prometheus server already running on this port', { port });
+        if (prometheusServer) {
+            log.warn('Prometheus server already running', { port });
             resolve();
             return;
         }
 
-        const server = http.createServer(async (req, res) => {
+        prometheusServer = http.createServer(async (req, res) => {
             if (req.url === '/metrics' || req.url === '/') {
                 res.setHeader('Content-Type', register.contentType);
                 const metrics = await register.metrics();
@@ -124,145 +123,43 @@ export function startPrometheusServer(
             }
         });
 
-        // Handle errors during startup
-        const errorHandler = (err: Error) => {
-            log.error('Prometheus server error during startup', { port, error: err.message });
-            // Clean up the server instance before rejecting
-            server.close((closeErr) => {
-                if (closeErr) {
-                    log.error('Error closing server after startup failure', {
-                        port,
-                        error: closeErr.message,
-                    });
-                }
-                reject(err);
-            });
-        };
-
-        server.once('error', errorHandler);
-
-        server.listen(port, hostname, () => {
-            // Remove the startup error handler and add handler for post-startup errors
-            server.removeListener('error', errorHandler);
-            server.on('error', (err) => {
-                log.error('Prometheus server error after startup', {
-                    port,
-                    error: err.message,
-                });
-                // Try to close the server and remove from tracking
-                server.close((closeErr) => {
-                    if (closeErr) {
-                        log.error('Error closing Prometheus server', {
-                            port,
-                            error: closeErr.message,
-                        });
-                    }
-                    // Only delete if still tracked (avoid race with stopPrometheusServer)
-                    if (prometheusServers.get(port) === server) {
-                        prometheusServers.delete(port);
-                    }
-                });
-            });
-
-            prometheusServers.set(port, server);
+        prometheusServer.listen(port, hostname, () => {
             log.info('Prometheus server started', {
                 port,
                 url: `http://${hostname}:${port}/metrics`,
             });
             resolve();
         });
+
+        prometheusServer.on('error', (err) => {
+            log.error('Prometheus server error', { error: err.message });
+            reject(err);
+        });
     });
 }
 
 /**
  * Stop the Prometheus server
- * @param port - Optional port number. If provided, stops only the server on that port. Otherwise stops all servers.
  */
-export function stopPrometheusServer(port?: number): Promise<void> {
+export function stopPrometheusServer(): Promise<void> {
     return new Promise((resolve, reject) => {
-        if (port !== undefined) {
-            // Stop a specific server
-            const server = prometheusServers.get(port);
-            if (!server) {
-                resolve();
-                return;
-            }
-
-            server.close((err) => {
-                if (err) {
-                    log.error('Failed to close Prometheus server', {
-                        port,
-                        error: err.message,
-                    });
-                    reject(err);
-                } else {
-                    prometheusServers.delete(port);
-                    log.info('Prometheus server stopped', { port });
-                    resolve();
-                }
-            });
-        } else {
-            // Stop all servers
-            if (prometheusServers.size === 0) {
-                resolve();
-                return;
-            }
-
-            const closePromises = Array.from(prometheusServers.entries()).map(
-                ([serverPort, server]) =>
-                    new Promise<void>((resolveClose, rejectClose) => {
-                        server.close((err) => {
-                            if (err) {
-                                log.error('Failed to close Prometheus server', {
-                                    port: serverPort,
-                                    error: err.message,
-                                });
-                                rejectClose(err);
-                            } else {
-                                // Only delete if still tracked (avoid race with error handler)
-                                if (prometheusServers.get(serverPort) === server) {
-                                    prometheusServers.delete(serverPort);
-                                }
-                                log.info('Prometheus server stopped', {
-                                    port: serverPort,
-                                });
-                                resolveClose();
-                            }
-                        });
-                    }),
-            );
-
-            Promise.allSettled(closePromises)
-                .then((results) => {
-                    // Check if any servers failed to close
-                    const failures = results.filter(
-                        (r) => r.status === 'rejected',
-                    );
-                    if (failures.length > 0) {
-                        // Log details of all failures
-                        failures.forEach((failure, index) => {
-                            log.error('Server close failure detail', {
-                                index,
-                                reason: (failure as PromiseRejectedResult).reason,
-                            });
-                        });
-                        reject(
-                            new Error(
-                                `Failed to close ${failures.length} server(s)`,
-                            ),
-                        );
-                    } else {
-                        resolve();
-                    }
-                })
-                .catch((err) => {
-                    // Handle errors that occur within the then() callback itself
-                    log.error('Error processing server shutdown results', {
-                        error: err.message,
-                    });
-                    reject(err);
-                });
+        if (!prometheusServer) {
+            resolve();
+            return;
         }
+
+        prometheusServer.close((err) => {
+            if (err) {
+                log.error('Failed to close Prometheus server', {
+                    error: err.message,
+                });
+                reject(err);
+            } else {
+                prometheusServer = undefined;
+                log.info('Prometheus server stopped');
+                resolve();
+            }
+        });
     });
 }
 
