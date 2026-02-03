@@ -142,7 +142,7 @@ curl http://localhost:9090/metrics
 # Example Prometheus queries
 scraper_clickhouse_operations_bucket{operation_type="write"}
 rate(scraper_rpc_requests_count{status="success"}[5m])
-histogram_quantile(0.95, scraper_clickhouse_operations_bucket{operation_type="read"})
+histogram_quantile(0.95, sum(rate(scraper_clickhouse_operations_bucket{operation_type="read",status="success"}[5m])) by (le))
 ```
 
 ## Testing
