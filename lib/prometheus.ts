@@ -127,8 +127,10 @@ export function startPrometheusServer(
         // Handle errors during startup
         const errorHandler = (err: Error) => {
             log.error('Prometheus server error during startup', { port, error: err.message });
-            server.close(); // Clean up the server instance
-            reject(err);
+            // Clean up the server instance before rejecting
+            server.close(() => {
+                reject(err);
+            });
         };
 
         server.once('error', errorHandler);
