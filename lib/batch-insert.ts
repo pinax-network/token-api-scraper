@@ -1,6 +1,7 @@
 import { insertClient } from './clickhouse';
 import { NODE_URL } from './config';
 import { createLogger } from './logger';
+import { trackClickHouseOperation } from './prometheus';
 
 const log = createLogger('batch-insert');
 
@@ -60,11 +61,14 @@ export class BatchInsertQueue {
 
         // Get all items and clear the queue
         const items = queue.splice(0);
+        const startTime = performance.now();
 
         try {
             await this.insertImmediate(table, items);
+            trackClickHouseOperation('write', 'success', startTime);
         } catch (error) {
             this.handleInsertError(error, table, items.length);
+            trackClickHouseOperation('write', 'error', startTime);
         }
     }
 

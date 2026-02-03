@@ -6,6 +6,7 @@ import PQueue from 'p-queue';
 import { TronWeb } from 'tronweb';
 import { DEFAULT_CONFIG } from './config';
 import { createLogger } from './logger';
+import { trackRpcRequest } from './prometheus';
 
 const log = createLogger('rpc');
 
@@ -293,15 +294,18 @@ async function makeJsonRpcCall(
     const queue = new PQueue({ concurrency: 1 });
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
+        const startTime = performance.now();
         try {
             // Use p-queue to manage the request
             const result = await queue.add(async () => {
                 return await makeJsonRpcRequest(method, params, timeoutMs);
             });
 
+            trackRpcRequest(method, 'success', startTime);
             return result as string;
         } catch (err: any) {
             lastError = err;
+            trackRpcRequest(method, 'error', startTime);
 
             const retryable = err instanceof RetryableError || isRetryable(err);
             if (!retryable || attempt === attempts) {

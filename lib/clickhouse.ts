@@ -1,5 +1,6 @@
 import { type ClickHouseClient, createClient } from '@clickhouse/client';
 import { createLogger } from './logger';
+import { trackClickHouseOperation } from './prometheus';
 
 const log = createLogger('clickhouse');
 
@@ -156,6 +157,7 @@ export async function query<T = any>(
             query_params,
             format: 'JSONEachRow',
         });
+        trackClickHouseOperation('read', 'success', startTime);
         const queryEndTime = performance.now();
 
         // Track data parsing time
@@ -189,6 +191,7 @@ export async function query<T = any>(
             },
         };
     } catch (error: unknown) {
+        trackClickHouseOperation('read', 'error', startTime);
         const url = process.env.CLICKHOUSE_URL || 'http://localhost:8123';
         const urlObj = new URL(url);
         const host = urlObj.hostname;

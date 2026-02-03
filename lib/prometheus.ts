@@ -31,6 +31,24 @@ const errorTasksCounter = new promClient.Counter({
     registers: [register],
 });
 
+// ClickHouse operation metrics
+const clickhouseOperations = new promClient.Histogram({
+    name: 'scraper_clickhouse_operations',
+    help: 'Duration of ClickHouse operations in seconds',
+    labelNames: ['operation_type', 'status'],
+    buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
+    registers: [register],
+});
+
+// RPC request metrics
+const rpcRequests = new promClient.Histogram({
+    name: 'scraper_rpc_requests',
+    help: 'Duration of RPC requests in seconds',
+    labelNames: ['method', 'status'],
+    buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30],
+    registers: [register],
+});
+
 // Configuration info metrics
 const configInfoGauge = new promClient.Gauge({
     name: 'scraper_config_info',
@@ -57,7 +75,11 @@ export function startPrometheusServer(
         // Set configuration info metrics once (only on first initialization)
         if (!configMetricsInitialized) {
             configInfoGauge
-                .labels(CLICKHOUSE_URL, CLICKHOUSE_DATABASE, NODE_URL)
+                .labels(
+                    CLICKHOUSE_URL,
+                    CLICKHOUSE_DATABASE || 'not_set',
+                    NODE_URL || 'not_set',
+                )
                 .set(1);
             configMetricsInitialized = true;
         }
@@ -132,4 +154,33 @@ export function incrementSuccess(serviceName: string): void {
 export function incrementError(serviceName: string): void {
     completedTasksCounter.labels(serviceName, 'error').inc();
     errorTasksCounter.labels(serviceName).inc();
+}
+
+/**
+ * Track a ClickHouse operation
+ * @param operationType - Type of operation ('read' or 'write')
+ * @param durationSeconds - Duration of the operation in seconds
+ */
+export function trackClickHouseOperation(
+    operationType: 'read' | 'write',
+    status: 'success' | 'error',
+    startTime: number,
+): void {
+    const durationSeconds = (performance.now() - startTime) / 1000;
+    clickhouseOperations.labels(operationType, status).observe(durationSeconds);
+}
+
+/**
+ * Track an RPC request
+ * @param method - RPC method name (e.g., 'eth_getBlockByNumber')
+ * @param status - Request status ('success' or 'error')
+ * @param durationSeconds - Duration of the request in seconds
+ */
+export function trackRpcRequest(
+    method: string,
+    status: 'success' | 'error',
+    startTime: number,
+): void {
+    const durationSeconds = (performance.now() - startTime) / 1000;
+    rpcRequests.labels(method, status).observe(durationSeconds);
 }

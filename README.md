@@ -7,7 +7,7 @@ A specialized tool for scraping and indexing ERC-20 token data on the TRON block
 - **ERC-20 Focus**: Designed specifically for TRON ERC-20 tokens
 - **Continuous Query Mechanism**: Tracks block numbers to enable incremental balance updates
 - **Efficient Processing**: Only queries new or updated transfers, avoiding redundant RPC calls
-- **Prometheus Metrics**: Real-time monitoring with Prometheus metrics support
+- **Prometheus Metrics**: Real-time monitoring with comprehensive metrics (see [Monitoring](#monitoring))
 - **Concurrent Processing**: Configurable concurrency for optimal RPC throughput
 - **RPC Batch Requests**: Optional batching of multiple RPC calls for improved performance
 
@@ -106,6 +106,44 @@ docker run --env-file .env -p 9090:9090 token-api-scraper \
 ```
 
 See [Docker Guide](docs/DOCKER.md) for Docker Compose examples and production deployment.
+
+## Monitoring
+
+The scraper exposes Prometheus metrics on port `9090` (configurable via `PROMETHEUS_PORT`).
+
+### Available Metrics
+
+**ClickHouse Operations**
+- `scraper_clickhouse_operations` (histogram) - Duration of ClickHouse operations in seconds
+  - Labels: `operation_type` (`read`, `write`)
+  - Automatically tracked in `lib/clickhouse.ts` and `lib/batch-insert.ts`
+
+**RPC Requests**
+- `scraper_rpc_requests` (histogram) - Duration of RPC requests in seconds
+  - Labels: `method` (e.g., `eth_call`, `eth_getBalance`), `status` (`success`, `error`)
+  - Automatically tracked in `lib/rpc.ts`
+
+**Task Completion**
+- `scraper_completed_tasks_total` (counter) - Total completed tasks
+  - Labels: `service`, `status` (`success`, `error`)
+- `scraper_error_tasks_total` (counter) - Total failed tasks
+  - Labels: `service`
+
+**Configuration Info**
+- `scraper_config_info` (gauge) - Configuration metadata
+  - Labels: `clickhouse_url`, `clickhouse_database`, `node_url`
+
+### Accessing Metrics
+
+```bash
+# View metrics endpoint
+curl http://localhost:9090/metrics
+
+# Example Prometheus queries
+scraper_clickhouse_operations_bucket{operation_type="write"}
+rate(scraper_rpc_requests_count{status="success"}[5m])
+histogram_quantile(0.95, scraper_clickhouse_operations_bucket{operation_type="read"})
+```
 
 ## Testing
 
