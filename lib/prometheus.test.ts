@@ -69,7 +69,7 @@ describe('Prometheus Server', () => {
         // Verify config info has labels
         expect(metricsText).toContain('clickhouse_host');
         expect(metricsText).toContain('clickhouse_database');
-        expect(metricsText).toContain('node_url_configured');
+        expect(metricsText).toContain('node_host');
 
         await stopPrometheusServer();
     });

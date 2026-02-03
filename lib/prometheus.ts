@@ -53,7 +53,7 @@ const rpcRequests = new promClient.Histogram({
 const configInfoGauge = new promClient.Gauge({
     name: 'scraper_config_info',
     help: 'Configuration information for the scraper',
-    labelNames: ['clickhouse_host', 'clickhouse_database', 'node_url_configured'],
+    labelNames: ['clickhouse_host', 'clickhouse_database', 'node_host'],
     registers: [register],
 });
 
@@ -100,7 +100,7 @@ export function startPrometheusServer(
                 .labels(
                     sanitizeUrl(clickhouseUrl),
                     clickhouseDatabase || 'not_set',
-                    nodeUrl ? 'true' : 'false',
+                    sanitizeUrl(nodeUrl),
                 )
                 .set(1);
             configMetricsInitialized = true;

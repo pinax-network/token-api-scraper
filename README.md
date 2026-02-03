@@ -131,7 +131,7 @@ The scraper exposes Prometheus metrics on port `9090` (configurable via `PROMETH
 
 **Configuration Info**
 - `scraper_config_info` (gauge) - Configuration metadata
-  - Labels: `clickhouse_host` (sanitized hostname only), `clickhouse_database`, `node_url_configured` (`true`/`false`)
+  - Labels: `clickhouse_host` (sanitized hostname only), `clickhouse_database`, `node_host` (sanitized hostname only)
 
 ### Accessing Metrics
 
