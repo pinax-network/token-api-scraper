@@ -254,6 +254,13 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                     } else {
                         resolve();
                     }
+                })
+                .catch((err) => {
+                    // Handle errors that occur within the then() callback itself
+                    log.error('Error processing server shutdown results', {
+                        error: err.message,
+                    });
+                    reject(err);
                 });
         }
     });
