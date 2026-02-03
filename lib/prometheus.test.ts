@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'bun:test';
+import { sleep } from 'bun';
 import {
     incrementError,
     incrementSuccess,
     startPrometheusServer,
     stopPrometheusServer,
+    trackClickHouseOperation,
+    trackRpcRequest,
 } from './prometheus';
 
 describe('Prometheus Server', () => {
@@ -12,8 +15,7 @@ describe('Prometheus Server', () => {
 
         await startPrometheusServer(port);
 
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Verify the Prometheus metrics endpoint is accessible
         const response = await fetch(`http://localhost:${port}/metrics`);
@@ -26,7 +28,7 @@ describe('Prometheus Server', () => {
         await stopPrometheusServer();
 
         // Wait for server to close
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Verify server is closed
         try {
@@ -50,8 +52,7 @@ describe('Prometheus Server', () => {
 
         await startPrometheusServer(port);
 
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Fetch metrics
         const response = await fetch(`http://localhost:${port}/metrics`);
@@ -65,9 +66,9 @@ describe('Prometheus Server', () => {
         expect(metricsText).toContain('scraper_config_info');
 
         // Verify config info has labels
-        expect(metricsText).toContain('clickhouse_url');
+        expect(metricsText).toContain('clickhouse_host');
         expect(metricsText).toContain('clickhouse_database');
-        expect(metricsText).toContain('node_url');
+        expect(metricsText).toContain('node_host');
 
         await stopPrometheusServer();
     });
@@ -78,8 +79,7 @@ describe('Prometheus Server', () => {
 
         await startPrometheusServer(port);
 
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
 
         // Set metrics
         incrementSuccess(serviceName);
@@ -93,6 +93,9 @@ describe('Prometheus Server', () => {
         expect(metricsText).toContain(serviceName);
 
         await stopPrometheusServer();
+
+        // Wait for server to fully close
+        await sleep(100);
     });
 
     test('should handle starting server on already used port', async () => {
@@ -108,6 +111,9 @@ describe('Prometheus Server', () => {
         expect(response.ok).toBe(true);
 
         await stopPrometheusServer();
+
+        // Wait for server to fully close
+        await sleep(100);
     });
 
     test('should reject when port is already used by external process', async () => {
@@ -128,5 +134,71 @@ describe('Prometheus Server', () => {
             // Cleanup external server
             externalServer.stop();
         }
+    });
+});
+
+describe('Prometheus Histogram Helpers', () => {
+    test('should track ClickHouse operations with correct labels', async () => {
+        const port = 19006;
+
+        await startPrometheusServer(port);
+
+        await sleep(100);
+
+        // Track some ClickHouse operations
+        const startTime = performance.now();
+        trackClickHouseOperation('read', 'success', startTime);
+        trackClickHouseOperation('write', 'success', startTime);
+        trackClickHouseOperation('read', 'error', startTime);
+
+        // Fetch metrics
+        const response = await fetch(`http://localhost:${port}/metrics`);
+        const metricsText = await response.text();
+
+        // Verify histogram metric is present with correct name
+        expect(metricsText).toContain('scraper_clickhouse_operations_seconds');
+
+        // Verify labels are present
+        expect(metricsText).toContain('operation_type="read"');
+        expect(metricsText).toContain('operation_type="write"');
+        expect(metricsText).toContain('status="success"');
+        expect(metricsText).toContain('status="error"');
+
+        await stopPrometheusServer();
+
+        // Wait for server to fully close
+        await sleep(100);
+    });
+
+    test('should track RPC requests with correct labels', async () => {
+        const port = 19007;
+
+        await startPrometheusServer(port);
+
+        await sleep(100);
+
+        // Track some RPC requests
+        const startTime = performance.now();
+        trackRpcRequest('eth_call', 'success', startTime);
+        trackRpcRequest('eth_getBalance', 'success', startTime);
+        trackRpcRequest('eth_call', 'error', startTime);
+
+        // Fetch metrics
+        const response = await fetch(`http://localhost:${port}/metrics`);
+        const metricsText = await response.text();
+
+        // Verify histogram metric is present with correct name
+        expect(metricsText).toContain('scraper_rpc_requests_seconds');
+
+        // Verify labels are present
+        expect(metricsText).toContain('method="eth_call"');
+        expect(metricsText).toContain('method="eth_getBalance"');
+        expect(metricsText).toContain('status="success"');
+        expect(metricsText).toContain('status="error"');
+
+        await stopPrometheusServer();
+
+        // Wait for server to fully close
+        await sleep(100);
     });
 });
