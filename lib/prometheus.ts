@@ -216,6 +216,7 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                                 });
                                 rejectClose(err);
                             } else {
+                                prometheusServers.delete(serverPort);
                                 log.info('Prometheus server stopped', {
                                     port: serverPort,
                                 });
@@ -227,7 +228,6 @@ export function stopPrometheusServer(port?: number): Promise<void> {
 
             Promise.allSettled(closePromises)
                 .then((results) => {
-                    prometheusServers.clear();
                     // Check if any servers failed to close
                     const failures = results.filter(
                         (r) => r.status === 'rejected',
@@ -247,7 +247,6 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                     log.error('Unexpected error in server shutdown', {
                         error: err.message,
                     });
-                    prometheusServers.clear();
                     reject(err);
                 });
         }
