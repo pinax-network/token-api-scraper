@@ -123,6 +123,34 @@ export const client = {
     },
 };
 
+/**
+ * Close all ClickHouse client connections and reset references
+ * This allows the event loop to be idle and enables clean service restarts
+ */
+export async function closeAllClients(): Promise<void> {
+    const clients: ClickHouseClient[] = [];
+
+    if (_client) {
+        clients.push(_client);
+        _client = null;
+    }
+    if (_insertClient) {
+        clients.push(_insertClient);
+        _insertClient = null;
+    }
+    if (_setupClient) {
+        clients.push(_setupClient);
+        _setupClient = null;
+    }
+
+    if (clients.length > 0) {
+        await Promise.all(clients.map((c) => c.close()));
+        log.debug('Closed all ClickHouse client connections', {
+            count: clients.length,
+        });
+    }
+}
+
 export interface TokenData {
     token: string;
     token_symbol: string;
