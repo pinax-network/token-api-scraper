@@ -241,12 +241,10 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                     if (failures.length > 0) {
                         // Log details of all failures
                         failures.forEach((failure, index) => {
-                            if (failure.status === 'rejected') {
-                                log.error('Server close failure detail', {
-                                    index,
-                                    reason: failure.reason,
-                                });
-                            }
+                            log.error('Server close failure detail', {
+                                index,
+                                reason: (failure as PromiseRejectedResult).reason,
+                            });
                         });
                         reject(
                             new Error(
@@ -256,14 +254,6 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                     } else {
                         resolve();
                     }
-                })
-                .catch((err) => {
-                    // Note: This should never happen because Promise.allSettled never rejects.
-                    // This is defensive programming to handle unexpected runtime behavior.
-                    log.error('Unexpected error in server shutdown', {
-                        error: err.message,
-                    });
-                    reject(err);
                 });
         }
     });
