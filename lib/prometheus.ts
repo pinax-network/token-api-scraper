@@ -157,7 +157,10 @@ export function startPrometheusServer(
                             error: closeErr.message,
                         });
                     }
-                    prometheusServers.delete(port);
+                    // Only delete if still tracked (avoid race with stopPrometheusServer)
+                    if (prometheusServers.get(port) === server) {
+                        prometheusServers.delete(port);
+                    }
                 });
             });
 
@@ -216,7 +219,10 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                                 });
                                 rejectClose(err);
                             } else {
-                                prometheusServers.delete(serverPort);
+                                // Only delete if still tracked (avoid race with error handler)
+                                if (prometheusServers.get(serverPort) === server) {
+                                    prometheusServers.delete(serverPort);
+                                }
                                 log.info('Prometheus server stopped', {
                                     port: serverPort,
                                 });
@@ -233,6 +239,15 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                         (r) => r.status === 'rejected',
                     );
                     if (failures.length > 0) {
+                        // Log details of all failures
+                        failures.forEach((failure, index) => {
+                            if (failure.status === 'rejected') {
+                                log.error('Server close failure detail', {
+                                    index,
+                                    reason: failure.reason,
+                                });
+                            }
+                        });
                         reject(
                             new Error(
                                 `Failed to close ${failures.length} server(s)`,
