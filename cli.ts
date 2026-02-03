@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { closeAllClients } from './lib/clickhouse';
+import { client } from './lib/clickhouse';
 import { DEFAULT_CONFIG } from './lib/config';
 import { createLogger } from './lib/logger';
 import { startPrometheusServer, stopPrometheusServer } from './lib/prometheus';
@@ -338,7 +338,7 @@ async function runService(serviceName: string, options: ServiceOptions) {
             }
 
             // Close ClickHouse connections to allow event loop to be idle
-            await closeAllClients();
+            await client.close();
 
             // Wait before restarting
             log.info(
