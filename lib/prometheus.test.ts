@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { sleep } from 'bun';
 import {
     incrementError,
     incrementSuccess,
@@ -7,7 +8,6 @@ import {
     trackClickHouseOperation,
     trackRpcRequest,
 } from './prometheus';
-import { sleep } from 'bun';
 
 describe('Prometheus Server', () => {
     test('should start and stop server', async () => {
