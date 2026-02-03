@@ -258,7 +258,8 @@ export function stopPrometheusServer(port?: number): Promise<void> {
                     }
                 })
                 .catch((err) => {
-                    // This should never happen with allSettled, but handle it defensively
+                    // Note: This should never happen because Promise.allSettled never rejects.
+                    // This is defensive programming to handle unexpected runtime behavior.
                     log.error('Unexpected error in server shutdown', {
                         error: err.message,
                     });
