@@ -127,6 +127,7 @@ export function startPrometheusServer(
         // Handle errors during startup
         const errorHandler = (err: Error) => {
             log.error('Prometheus server error during startup', { port, error: err.message });
+            server.close(); // Clean up the server instance
             reject(err);
         };
 
@@ -141,7 +142,13 @@ export function startPrometheusServer(
                     error: err.message,
                 });
                 // Try to close the server and remove from tracking
-                server.close(() => {
+                server.close((closeErr) => {
+                    if (closeErr) {
+                        log.error('Error closing Prometheus server', {
+                            port,
+                            error: closeErr.message,
+                        });
+                    }
                     prometheusServers.delete(port);
                 });
             });
