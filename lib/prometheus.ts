@@ -59,7 +59,8 @@ const configInfoGauge = new promClient.Gauge({
 
 // Track whether config metrics have been initialized
 let configMetricsInitialized = false;
-let prometheusServer: http.Server | undefined;
+// Track multiple servers by port (for test environments)
+const prometheusServers = new Map<number, http.Server>();
 
 /**
  * Sanitize a URL to extract only the hostname, removing credentials, port, and path
@@ -106,13 +107,13 @@ export function startPrometheusServer(
             configMetricsInitialized = true;
         }
 
-        if (prometheusServer) {
-            log.warn('Prometheus server already running', { port });
+        if (prometheusServers.has(port)) {
+            log.warn('Prometheus server already running on this port', { port });
             resolve();
             return;
         }
 
-        prometheusServer = http.createServer(async (req, res) => {
+        const server = http.createServer(async (req, res) => {
             if (req.url === '/metrics' || req.url === '/') {
                 res.setHeader('Content-Type', register.contentType);
                 const metrics = await register.metrics();
@@ -123,15 +124,16 @@ export function startPrometheusServer(
             }
         });
 
-        prometheusServer.listen(port, hostname, () => {
+        server.listen(port, hostname, () => {
             log.info('Prometheus server started', {
                 port,
                 url: `http://${hostname}:${port}/metrics`,
             });
+            prometheusServers.set(port, server);
             resolve();
         });
 
-        prometheusServer.on('error', (err) => {
+        server.on('error', (err) => {
             log.error('Prometheus server error', { error: err.message });
             reject(err);
         });
@@ -140,26 +142,65 @@ export function startPrometheusServer(
 
 /**
  * Stop the Prometheus server
+ * @param port - Optional port number. If provided, stops only the server on that port. Otherwise stops all servers.
  */
-export function stopPrometheusServer(): Promise<void> {
+export function stopPrometheusServer(port?: number): Promise<void> {
     return new Promise((resolve, reject) => {
-        if (!prometheusServer) {
-            resolve();
-            return;
-        }
-
-        prometheusServer.close((err) => {
-            if (err) {
-                log.error('Failed to close Prometheus server', {
-                    error: err.message,
-                });
-                reject(err);
-            } else {
-                prometheusServer = undefined;
-                log.info('Prometheus server stopped');
+        if (port !== undefined) {
+            // Stop a specific server
+            const server = prometheusServers.get(port);
+            if (!server) {
                 resolve();
+                return;
             }
-        });
+
+            server.close((err) => {
+                if (err) {
+                    log.error('Failed to close Prometheus server', {
+                        port,
+                        error: err.message,
+                    });
+                    reject(err);
+                } else {
+                    prometheusServers.delete(port);
+                    log.info('Prometheus server stopped', { port });
+                    resolve();
+                }
+            });
+        } else {
+            // Stop all servers
+            if (prometheusServers.size === 0) {
+                resolve();
+                return;
+            }
+
+            const closePromises = Array.from(prometheusServers.entries()).map(
+                ([serverPort, server]) =>
+                    new Promise<void>((resolveClose, rejectClose) => {
+                        server.close((err) => {
+                            if (err) {
+                                log.error('Failed to close Prometheus server', {
+                                    port: serverPort,
+                                    error: err.message,
+                                });
+                                rejectClose(err);
+                            } else {
+                                log.info('Prometheus server stopped', {
+                                    port: serverPort,
+                                });
+                                resolveClose();
+                            }
+                        });
+                    }),
+            );
+
+            Promise.all(closePromises)
+                .then(() => {
+                    prometheusServers.clear();
+                    resolve();
+                })
+                .catch(reject);
+        }
     });
 }
 
