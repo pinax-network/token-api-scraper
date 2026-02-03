@@ -95,6 +95,9 @@ describe('Prometheus Server', () => {
         expect(metricsText).toContain(serviceName);
 
         await stopPrometheusServer();
+
+        // Wait for server to fully close
+        await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
     test('should handle starting server on already used port', async () => {
@@ -110,6 +113,9 @@ describe('Prometheus Server', () => {
         expect(response.ok).toBe(true);
 
         await stopPrometheusServer();
+
+        // Wait for server to fully close
+        await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
     test('should reject when port is already used by external process', async () => {
@@ -162,6 +168,9 @@ describe('Prometheus Histogram Helpers', () => {
         expect(metricsText).toContain('status="error"');
 
         await stopPrometheusServer();
+
+        // Wait for server to fully close
+        await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
     test('should track RPC requests with correct labels', async () => {
@@ -192,5 +201,8 @@ describe('Prometheus Histogram Helpers', () => {
         expect(metricsText).toContain('status="error"');
 
         await stopPrometheusServer();
+
+        // Wait for server to fully close
+        await new Promise((resolve) => setTimeout(resolve, 100));
     });
 });

@@ -133,6 +133,7 @@ export function startPrometheusServer(
 
         prometheusServer.on('error', (err) => {
             log.error('Prometheus server error', { error: err.message });
+            prometheusServer = undefined;
             reject(err);
         });
     });
