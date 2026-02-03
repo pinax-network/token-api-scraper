@@ -93,9 +93,10 @@ export function startPrometheusServer(
         if (!configMetricsInitialized) {
             // Read from process.env at runtime to get CLI overrides
             const clickhouseUrl = process.env.CLICKHOUSE_URL || CLICKHOUSE_URL;
-            const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE || CLICKHOUSE_DATABASE;
+            const clickhouseDatabase =
+                process.env.CLICKHOUSE_DATABASE || CLICKHOUSE_DATABASE;
             const nodeUrl = process.env.NODE_URL || NODE_URL;
-            
+
             configInfoGauge
                 .labels(
                     sanitizeUrl(clickhouseUrl),
@@ -133,6 +134,7 @@ export function startPrometheusServer(
 
         prometheusServer.on('error', (err) => {
             log.error('Prometheus server error', { error: err.message });
+            prometheusServer = undefined;
             reject(err);
         });
     });
