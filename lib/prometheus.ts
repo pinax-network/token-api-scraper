@@ -33,7 +33,7 @@ const errorTasksCounter = new promClient.Counter({
 
 // ClickHouse operation metrics
 const clickhouseOperations = new promClient.Histogram({
-    name: 'scraper_clickhouse_operations',
+    name: 'scraper_clickhouse_operations_seconds',
     help: 'Duration of ClickHouse operations in seconds',
     labelNames: ['operation_type', 'status'],
     buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
@@ -42,7 +42,7 @@ const clickhouseOperations = new promClient.Histogram({
 
 // RPC request metrics
 const rpcRequests = new promClient.Histogram({
-    name: 'scraper_rpc_requests',
+    name: 'scraper_rpc_requests_seconds',
     help: 'Duration of RPC requests in seconds',
     labelNames: ['method', 'status'],
     buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
@@ -53,13 +53,30 @@ const rpcRequests = new promClient.Histogram({
 const configInfoGauge = new promClient.Gauge({
     name: 'scraper_config_info',
     help: 'Configuration information for the scraper',
-    labelNames: ['clickhouse_url', 'clickhouse_database', 'node_url'],
+    labelNames: ['clickhouse_host', 'clickhouse_database', 'node_host'],
     registers: [register],
 });
 
 // Track whether config metrics have been initialized
 let configMetricsInitialized = false;
 let prometheusServer: http.Server | undefined;
+
+/**
+ * Sanitize a URL to extract only the hostname, removing credentials, port, and path
+ * @param url - The URL to sanitize
+ * @returns The sanitized hostname or 'not_set' if invalid
+ */
+function sanitizeUrl(url: string | undefined): string {
+    if (!url || url === 'not_set') {
+        return 'not_set';
+    }
+    try {
+        const parsed = new URL(url);
+        return parsed.hostname;
+    } catch {
+        return 'redacted';
+    }
+}
 
 /**
  * Initialize Prometheus server
@@ -74,11 +91,16 @@ export function startPrometheusServer(
     return new Promise((resolve, reject) => {
         // Set configuration info metrics once (only on first initialization)
         if (!configMetricsInitialized) {
+            // Read from process.env at runtime to get CLI overrides
+            const clickhouseUrl = process.env.CLICKHOUSE_URL || CLICKHOUSE_URL;
+            const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE || CLICKHOUSE_DATABASE;
+            const nodeUrl = process.env.NODE_URL || NODE_URL;
+            
             configInfoGauge
                 .labels(
-                    CLICKHOUSE_URL,
-                    CLICKHOUSE_DATABASE || 'not_set',
-                    NODE_URL || 'not_set',
+                    sanitizeUrl(clickhouseUrl),
+                    clickhouseDatabase || 'not_set',
+                    sanitizeUrl(nodeUrl),
                 )
                 .set(1);
             configMetricsInitialized = true;
@@ -159,7 +181,8 @@ export function incrementError(serviceName: string): void {
 /**
  * Track a ClickHouse operation
  * @param operationType - Type of operation ('read' or 'write')
- * @param durationSeconds - Duration of the operation in seconds
+ * @param status - Operation status ('success' or 'error')
+ * @param startTime - Start time in milliseconds (from performance.now())
  */
 export function trackClickHouseOperation(
     operationType: 'read' | 'write',
@@ -174,7 +197,7 @@ export function trackClickHouseOperation(
  * Track an RPC request
  * @param method - RPC method name (e.g., 'eth_getBlockByNumber')
  * @param status - Request status ('success' or 'error')
- * @param durationSeconds - Duration of the request in seconds
+ * @param startTime - Start time in milliseconds (from performance.now())
  */
 export function trackRpcRequest(
     method: string,
