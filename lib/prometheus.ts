@@ -124,18 +124,34 @@ export function startPrometheusServer(
             }
         });
 
+        // Handle errors during startup
+        const errorHandler = (err: Error) => {
+            log.error('Prometheus server error', { port, error: err.message });
+            prometheusServers.delete(port); // Clean up on error
+            reject(err);
+        };
+
+        server.once('error', errorHandler);
+
         server.listen(port, hostname, () => {
+            // Remove the startup error handler
+            server.removeListener('error', errorHandler);
+            
+            // Add handler for post-startup errors
+            server.on('error', (err) => {
+                log.error('Prometheus server error after startup', {
+                    port,
+                    error: err.message,
+                });
+                prometheusServers.delete(port);
+            });
+
+            prometheusServers.set(port, server);
             log.info('Prometheus server started', {
                 port,
                 url: `http://${hostname}:${port}/metrics`,
             });
-            prometheusServers.set(port, server);
             resolve();
-        });
-
-        server.on('error', (err) => {
-            log.error('Prometheus server error', { error: err.message });
-            reject(err);
         });
     });
 }
