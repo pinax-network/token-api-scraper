@@ -3,11 +3,11 @@ SELECT
     max(block_num) as block_num,
     max(timestamp) as timestamp
 FROM transfers
-WHERE log_address NOT IN (
-    SELECT contract FROM {db:Identifier}.metadata_errors WHERE network = {network: String}
+WHERE NOT EXISTS (
+    SELECT 1 FROM {db:Identifier}.metadata_errors WHERE network = {network: String} AND contract = log_address
 )
-AND log_address NOT IN (
-    SELECT contract FROM {db:Identifier}.metadata WHERE network = {network: String}
+AND NOT EXISTS (
+    SELECT 1 FROM {db:Identifier}.metadata WHERE network = {network: String} AND contract = log_address
 )
 GROUP BY log_address
 ORDER BY timestamp DESC
