@@ -40,6 +40,37 @@ describe('ClickHouse client exports', () => {
         mockCreateClient.mockClear();
     });
 
+    test('should configure the ClickHouse clients with the default request timeout', () => {
+        expect(mockCreateClient).toHaveBeenCalledTimes(0);
+
+        expect(typeof client.query).toBe('function');
+        expect(mockCreateClient).toHaveBeenCalledTimes(1);
+        expect(mockCreateClient).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                request_timeout: 300000,
+            }),
+        );
+
+        expect(typeof insertClient.insert).toBe('function');
+        expect(mockCreateClient).toHaveBeenCalledTimes(2);
+        expect(mockCreateClient).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                request_timeout: 300000,
+            }),
+        );
+
+        expect(typeof setupClient.query).toBe('function');
+        expect(mockCreateClient).toHaveBeenCalledTimes(3);
+        expect(mockCreateClient).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({
+                request_timeout: 300000,
+            }),
+        );
+    });
+
     test('insertClient should export insert and close methods', () => {
         expect(typeof insertClient.insert).toBe('function');
         expect(typeof insertClient.close).toBe('function');
@@ -70,14 +101,21 @@ describe('ClickHouse client exports', () => {
         expect(parseClickHouseRequestTimeoutMs('invalid')).toBe(300000);
     });
 
-    test('query should pass the configured request timeout to ClickHouse query calls', async () => {
+    test('query should pass the SQL and query params through to ClickHouse', async () => {
         await query('SELECT 1');
 
         expect(mockQuery).toHaveBeenCalledWith({
             query: 'SELECT 1',
             query_params: {},
             format: 'JSONEachRow',
-            request_timeout: 300000,
         });
+    });
+
+    test('query should wrap timeout failures with the ClickHouse URL context', async () => {
+        mockQuery.mockRejectedValueOnce(new Error('timeout exceeded'));
+
+        await expect(query('SELECT 1')).rejects.toThrow(
+            'Failed to connect to ClickHouse at http://localhost:8123: timeout exceeded',
+        );
     });
 });

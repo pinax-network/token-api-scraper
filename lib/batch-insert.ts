@@ -1,4 +1,4 @@
-import { getClickHouseRequestTimeoutMs, insertClient } from './clickhouse';
+import { insertClient } from './clickhouse';
 import { NODE_URL } from './config';
 import { createLogger } from './logger';
 import { trackClickHouseOperation } from './prometheus';
@@ -95,7 +95,6 @@ export class BatchInsertQueue {
             table,
             format: 'JSONEachRow',
             values,
-            request_timeout: getClickHouseRequestTimeoutMs(),
         });
 
         log.debug('Batch insert completed', {

@@ -23,7 +23,8 @@ function getInsertDatabase(): string | undefined {
 
 /**
  * Parse the ClickHouse request timeout in milliseconds.
- * Falls back to 5 minutes to prevent long-running queries from hanging forever.
+ * Falls back to 5 minutes when the provided value is missing, non-numeric,
+ * non-finite, or non-positive to prevent long-running queries from hanging forever.
  */
 export function parseClickHouseRequestTimeoutMs(timeout?: string): number {
     const parsedTimeoutMs = Number.parseInt(
@@ -184,7 +185,6 @@ export async function query<T = any>(
             query,
             query_params,
             format: 'JSONEachRow',
-            request_timeout: getClickHouseRequestTimeoutMs(),
         });
         trackClickHouseOperation('read', 'success', startTime);
         const queryEndTime = performance.now();
