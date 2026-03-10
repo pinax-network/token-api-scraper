@@ -1,74 +1,44 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const mockJson = mock(() => Promise.resolve([]));
-const mockQuery = mock(() =>
-    Promise.resolve({
-        json: mockJson,
-    }),
-);
-const mockCommand = mock(() => Promise.resolve());
-const mockInsert = mock(() => Promise.resolve());
-const mockClose = mock(() => Promise.resolve());
-const mockCreateClient = mock(() => ({
-    query: mockQuery,
-    command: mockCommand,
-    insert: mockInsert,
-    close: mockClose,
-}));
+const createdClients: Array<{
+    query: ReturnType<typeof mock>;
+    command: ReturnType<typeof mock>;
+    insert: ReturnType<typeof mock>;
+    close: ReturnType<typeof mock>;
+}> = [];
+const mockCreateClient = mock(() => {
+    const clickhouseClient = {
+        query: mock(() =>
+            Promise.resolve({
+                json: mockJson,
+            }),
+        ),
+        command: mock(() => Promise.resolve()),
+        insert: mock(() => Promise.resolve()),
+        close: mock(() => Promise.resolve()),
+    };
+
+    createdClients.push(clickhouseClient);
+    return clickhouseClient;
+});
 
 mock.module('@clickhouse/client', () => ({
     createClient: mockCreateClient,
 }));
 
-const {
-    client,
-    getClickHouseRequestTimeoutMs,
-    insertClient,
-    parseClickHouseRequestTimeoutMs,
-    query,
-    setupClient,
-} = await import('./clickhouse');
+const { client, insertClient, setupClient } = await import('./clickhouse');
 
 describe('ClickHouse client exports', () => {
-    beforeEach(() => {
-        delete process.env.CLICKHOUSE_REQUEST_TIMEOUT_MS;
+    beforeEach(async () => {
+        await client.close();
+        createdClients.length = 0;
         mockJson.mockClear();
-        mockQuery.mockClear();
-        mockCommand.mockClear();
-        mockInsert.mockClear();
-        mockClose.mockClear();
         mockCreateClient.mockClear();
     });
 
-    test('should configure the ClickHouse clients with the default request timeout', () => {
-        expect(mockCreateClient).toHaveBeenCalledTimes(0);
-
-        expect(typeof client.query).toBe('function');
-        expect(mockCreateClient).toHaveBeenCalledTimes(1);
-        expect(mockCreateClient).toHaveBeenNthCalledWith(
-            1,
-            expect.objectContaining({
-                request_timeout: 300000,
-            }),
-        );
-
-        expect(typeof insertClient.insert).toBe('function');
-        expect(mockCreateClient).toHaveBeenCalledTimes(2);
-        expect(mockCreateClient).toHaveBeenNthCalledWith(
-            2,
-            expect.objectContaining({
-                request_timeout: 300000,
-            }),
-        );
-
-        expect(typeof setupClient.query).toBe('function');
-        expect(mockCreateClient).toHaveBeenCalledTimes(3);
-        expect(mockCreateClient).toHaveBeenNthCalledWith(
-            3,
-            expect.objectContaining({
-                request_timeout: 300000,
-            }),
-        );
+    afterEach(async () => {
+        await client.close();
     });
 
     test('insertClient should export insert and close methods', () => {
@@ -89,33 +59,30 @@ describe('ClickHouse client exports', () => {
         expect(typeof setupClient.close).toBe('function');
     });
 
-    test('should use a 5 minute ClickHouse request timeout by default', () => {
-        expect(getClickHouseRequestTimeoutMs()).toBe(300000);
+    test('client.close should not initialize unused clients', async () => {
+        await client.close();
+
+        expect(mockCreateClient).not.toHaveBeenCalled();
     });
 
-    test('should parse an explicit ClickHouse request timeout', () => {
-        expect(parseClickHouseRequestTimeoutMs('45000')).toBe(45000);
-    });
+    test('client.close should reset initialized clients so the next iteration creates fresh ones', async () => {
+        const firstQuery = client.query;
+        const firstInsert = insertClient.insert;
 
-    test('should fall back to the default timeout when an explicit timeout is invalid', () => {
-        expect(parseClickHouseRequestTimeoutMs('invalid')).toBe(300000);
-    });
+        expect(mockCreateClient).toHaveBeenCalledTimes(2);
+        expect(createdClients).toHaveLength(2);
+        const [firstReadClient, firstInsertClient] = createdClients;
 
-    test('query should pass the SQL and query params through to ClickHouse', async () => {
-        await query('SELECT 1');
+        await client.close();
 
-        expect(mockQuery).toHaveBeenCalledWith({
-            query: 'SELECT 1',
-            query_params: {},
-            format: 'JSONEachRow',
-        });
-    });
+        expect(firstReadClient.close).toHaveBeenCalledTimes(1);
+        expect(firstInsertClient.close).toHaveBeenCalledTimes(1);
 
-    test('query should wrap timeout failures with the ClickHouse URL context', async () => {
-        mockQuery.mockRejectedValueOnce(new Error('timeout exceeded'));
+        const secondQuery = client.query;
+        const secondInsert = insertClient.insert;
 
-        await expect(query('SELECT 1')).rejects.toThrow(
-            'Failed to connect to ClickHouse at http://localhost:8123: timeout exceeded',
-        );
+        expect(mockCreateClient).toHaveBeenCalledTimes(4);
+        expect(secondQuery).not.toBe(firstQuery);
+        expect(secondInsert).not.toBe(firstInsert);
     });
 });

@@ -25,10 +25,6 @@ cp .env.example .env
 - **`CLICKHOUSE_DATABASE`** - ClickHouse database name
   - Default: `default`
 
-- **`CLICKHOUSE_REQUEST_TIMEOUT_MS`** - Timeout in milliseconds for ClickHouse HTTP requests
-  - Default: `300000` (5 minutes)
-  - Prevents long-running ClickHouse reads or writes from hanging indefinitely
-
 ### RPC Configuration
 
 - **`NODE_URL`** - EVM RPC node URL (required)
