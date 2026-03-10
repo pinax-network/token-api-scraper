@@ -5,6 +5,7 @@ import { BatchInsertQueue } from './batch-insert';
 const mockInsert = mock(() => Promise.resolve());
 const mockClose = mock(() => Promise.resolve());
 mock.module('./clickhouse', () => ({
+    getClickHouseRequestTimeoutMs: () => 300000,
     insertClient: {
         insert: mockInsert,
         close: mockClose,
@@ -60,6 +61,7 @@ describe('BatchInsertQueue', () => {
                 table: 'test_table',
                 format: 'JSONEachRow',
                 values: [{ id: 1 }, { id: 2 }, { id: 3 }],
+                request_timeout: 300000,
             });
 
             await smallQueue.shutdown();
@@ -76,6 +78,7 @@ describe('BatchInsertQueue', () => {
                 table: 'test_table',
                 format: 'JSONEachRow',
                 values: [{ id: 1 }, { id: 2 }],
+                request_timeout: 300000,
             });
             expect(queue.getQueueSize('test_table')).toBe(0);
         });

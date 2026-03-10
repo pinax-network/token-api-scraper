@@ -3,6 +3,7 @@ import { createLogger } from './logger';
 import { trackClickHouseOperation } from './prometheus';
 
 const log = createLogger('clickhouse');
+const DEFAULT_CLICKHOUSE_REQUEST_TIMEOUT_MS = 300000;
 
 // Lazy initialization of ClickHouse clients to allow CLI to set env vars first
 let _client: ClickHouseClient | null = null;
@@ -21,6 +22,22 @@ function getInsertDatabase(): string | undefined {
 }
 
 /**
+ * Get the ClickHouse request timeout in milliseconds.
+ * Falls back to 5 minutes to prevent long-running queries from hanging forever.
+ */
+export function getClickHouseRequestTimeoutMs(): number {
+    const timeoutMs = Number.parseInt(
+        process.env.CLICKHOUSE_REQUEST_TIMEOUT_MS ||
+            String(DEFAULT_CLICKHOUSE_REQUEST_TIMEOUT_MS),
+        10,
+    );
+
+    return Number.isFinite(timeoutMs) && timeoutMs > 0
+        ? timeoutMs
+        : DEFAULT_CLICKHOUSE_REQUEST_TIMEOUT_MS;
+}
+
+/**
  * Get the ClickHouse client for read operations (SELECT queries)
  * Uses CLICKHOUSE_DATABASE
  */
@@ -31,6 +48,7 @@ function getClient(): ClickHouseClient {
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
             database: process.env.CLICKHOUSE_DATABASE,
+            request_timeout: getClickHouseRequestTimeoutMs(),
         });
     }
     return _client;
@@ -47,6 +65,7 @@ function getInsertClient(): ClickHouseClient {
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
             database: getInsertDatabase(),
+            request_timeout: getClickHouseRequestTimeoutMs(),
         });
     }
     return _insertClient;
@@ -64,6 +83,7 @@ function getSetupClient(): ClickHouseClient {
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
             database: getInsertDatabase(),
+            request_timeout: getClickHouseRequestTimeoutMs(),
         });
     }
     return _setupClient;
@@ -156,6 +176,7 @@ export async function query<T = any>(
             query,
             query_params,
             format: 'JSONEachRow',
+            request_timeout: getClickHouseRequestTimeoutMs(),
         });
         trackClickHouseOperation('read', 'success', startTime);
         const queryEndTime = performance.now();
@@ -207,6 +228,7 @@ export async function query<T = any>(
             message: err.message,
             cause: err.cause,
             isTimeout: err.message?.includes('timeout'),
+            requestTimeoutMs: getClickHouseRequestTimeoutMs(),
             address: `${host}:${urlObj.port || (urlObj.protocol === 'https:' ? 443 : 8123)}`,
         });
 
