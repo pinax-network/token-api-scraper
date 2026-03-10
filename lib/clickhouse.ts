@@ -117,17 +117,14 @@ export const client = {
         // Close all clients concurrently
         return async () => {
             const clients = [_client, _insertClient, _setupClient].filter(
-                (clickhouseClient): clickhouseClient is ClickHouseClient =>
-                    clickhouseClient !== null,
+                (client): client is ClickHouseClient => client !== null,
             );
 
             _client = null;
             _insertClient = null;
             _setupClient = null;
 
-            await Promise.all(
-                clients.map((clickhouseClient) => clickhouseClient.close()),
-            );
+            await Promise.all(clients.map((client) => client.close()));
         };
     },
 };

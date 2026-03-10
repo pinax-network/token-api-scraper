@@ -8,7 +8,7 @@ const createdClients: Array<{
     close: ReturnType<typeof mock>;
 }> = [];
 const mockCreateClient = mock(() => {
-    const clickhouseClient = {
+    const client = {
         query: mock(() =>
             Promise.resolve({
                 json: mockJson,
@@ -19,8 +19,8 @@ const mockCreateClient = mock(() => {
         close: mock(() => Promise.resolve()),
     };
 
-    createdClients.push(clickhouseClient);
-    return clickhouseClient;
+    createdClients.push(client);
+    return client;
 });
 
 mock.module('@clickhouse/client', () => ({
