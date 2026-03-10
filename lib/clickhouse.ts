@@ -22,19 +22,27 @@ function getInsertDatabase(): string | undefined {
 }
 
 /**
- * Get the ClickHouse request timeout in milliseconds.
+ * Parse the ClickHouse request timeout in milliseconds.
  * Falls back to 5 minutes to prevent long-running queries from hanging forever.
  */
-export function getClickHouseRequestTimeoutMs(): number {
-    const timeoutMs = Number.parseInt(
-        process.env.CLICKHOUSE_REQUEST_TIMEOUT_MS ||
-            String(DEFAULT_CLICKHOUSE_REQUEST_TIMEOUT_MS),
+export function parseClickHouseRequestTimeoutMs(timeout?: string): number {
+    const parsedTimeoutMs = Number.parseInt(
+        timeout || String(DEFAULT_CLICKHOUSE_REQUEST_TIMEOUT_MS),
         10,
     );
 
-    return Number.isFinite(timeoutMs) && timeoutMs > 0
-        ? timeoutMs
+    return Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0
+        ? parsedTimeoutMs
         : DEFAULT_CLICKHOUSE_REQUEST_TIMEOUT_MS;
+}
+
+/**
+ * Get the ClickHouse request timeout in milliseconds from environment variables.
+ */
+export function getClickHouseRequestTimeoutMs(): number {
+    return parseClickHouseRequestTimeoutMs(
+        process.env.CLICKHOUSE_REQUEST_TIMEOUT_MS,
+    );
 }
 
 /**

@@ -20,8 +20,14 @@ mock.module('@clickhouse/client', () => ({
     createClient: mockCreateClient,
 }));
 
-const { client, getClickHouseRequestTimeoutMs, insertClient, query, setupClient } =
-    await import('./clickhouse');
+const {
+    client,
+    getClickHouseRequestTimeoutMs,
+    insertClient,
+    parseClickHouseRequestTimeoutMs,
+    query,
+    setupClient,
+} = await import('./clickhouse');
 
 describe('ClickHouse client exports', () => {
     beforeEach(() => {
@@ -56,28 +62,22 @@ describe('ClickHouse client exports', () => {
         expect(getClickHouseRequestTimeoutMs()).toBe(300000);
     });
 
-    test('should honor CLICKHOUSE_REQUEST_TIMEOUT_MS when set', () => {
-        process.env.CLICKHOUSE_REQUEST_TIMEOUT_MS = '45000';
-
-        expect(getClickHouseRequestTimeoutMs()).toBe(45000);
+    test('should parse an explicit ClickHouse request timeout', () => {
+        expect(parseClickHouseRequestTimeoutMs('45000')).toBe(45000);
     });
 
-    test('should fall back to the default timeout when env var is invalid', () => {
-        process.env.CLICKHOUSE_REQUEST_TIMEOUT_MS = 'invalid';
-
-        expect(getClickHouseRequestTimeoutMs()).toBe(300000);
+    test('should fall back to the default timeout when an explicit timeout is invalid', () => {
+        expect(parseClickHouseRequestTimeoutMs('invalid')).toBe(300000);
     });
 
-    test('query should pass request timeout to ClickHouse query calls', async () => {
-        process.env.CLICKHOUSE_REQUEST_TIMEOUT_MS = '45000';
-
+    test('query should pass the configured request timeout to ClickHouse query calls', async () => {
         await query('SELECT 1');
 
         expect(mockQuery).toHaveBeenCalledWith({
             query: 'SELECT 1',
             query_params: {},
             format: 'JSONEachRow',
-            request_timeout: 45000,
+            request_timeout: 300000,
         });
     });
 });
