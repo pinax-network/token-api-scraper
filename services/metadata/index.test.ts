@@ -14,8 +14,13 @@ const mockDecodeNumberHex = mock(() => 18);
 const mockInsertRow = mock(() => Promise.resolve(true));
 const mockIncrementSuccess = mock(() => {});
 const mockIncrementError = mock(() => {});
+const mockGetOverride = mock(() => null);
 
 // Mock modules BEFORE importing the module under test
+mock.module('../../lib/token-overrides', () => ({
+    getOverride: mockGetOverride,
+}));
+
 mock.module('../../lib/rpc', () => ({
     callContract: mockCallContract,
     getContractCode: mockGetContractCode,
@@ -49,8 +54,10 @@ describe('Metadata processing with optional name() and symbol()', () => {
         mockInsertRow.mockClear();
         mockIncrementSuccess.mockClear();
         mockIncrementError.mockClear();
+        mockGetOverride.mockClear();
 
         // Set default mock implementations
+        mockGetOverride.mockReturnValue(null);
         mockGetContractCode.mockReturnValue(
             Promise.resolve(
                 '0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe',
@@ -91,6 +98,72 @@ describe('Metadata processing with optional name() and symbol()', () => {
             expect.objectContaining({ contract: '0xabc123' }),
         );
         expect(mockIncrementSuccess).toHaveBeenCalled();
+    });
+
+    test('should apply token override over on-chain values', async () => {
+        mockCallContract.mockImplementation((_contract, signature) => {
+            if (signature === 'decimals()') return Promise.resolve('0x12');
+            if (signature === 'symbol()') return Promise.resolve('0xSYM');
+            if (signature === 'name()') return Promise.resolve('0xNAME');
+            return Promise.resolve('0x');
+        });
+        mockDecodeNumberHex.mockReturnValue(18);
+        mockDecodeSymbolHex.mockReturnValue('onchain-sym');
+        mockDecodeNameHex.mockReturnValue('Onchain Name');
+        mockGetOverride.mockReturnValue({
+            name: 'CoinGecko Name',
+            symbol: 'CGK',
+        });
+
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
+
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata',
+            expect.objectContaining({
+                name: 'CoinGecko Name',
+                symbol: 'CGK',
+                decimals: 18,
+            }),
+            expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
+        );
+    });
+
+    test('should apply partial override (symbol only)', async () => {
+        mockCallContract.mockImplementation((_contract, signature) => {
+            if (signature === 'decimals()') return Promise.resolve('0x12');
+            if (signature === 'symbol()') return Promise.resolve('0xSYM');
+            if (signature === 'name()') return Promise.resolve('0xNAME');
+            return Promise.resolve('0x');
+        });
+        mockDecodeNumberHex.mockReturnValue(18);
+        mockDecodeSymbolHex.mockReturnValue('onchain-sym');
+        mockDecodeNameHex.mockReturnValue('Onchain Name');
+        mockGetOverride.mockReturnValue({ name: '', symbol: 'CGK' });
+
+        await processMetadata(
+            'mainnet',
+            '0xabc123',
+            12345,
+            1609459200,
+            'test-service',
+        );
+
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata',
+            expect.objectContaining({
+                name: 'Onchain Name', // kept on-chain
+                symbol: 'CGK', // overridden
+            }),
+            expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
+        );
     });
 
     test('should handle token without symbol() but with name()', async () => {
@@ -316,6 +389,8 @@ describe('Self-destruct contract detection', () => {
         mockInsertRow.mockClear();
         mockIncrementSuccess.mockClear();
         mockIncrementError.mockClear();
+        mockGetOverride.mockClear();
+        mockGetOverride.mockReturnValue(null);
     });
 
     test('should detect self-destructed contract when decimals() returns null', async () => {

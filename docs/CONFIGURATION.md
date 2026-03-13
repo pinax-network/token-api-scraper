@@ -36,7 +36,7 @@ The scraper can override on-chain `name` and `symbol` values with curated values
 
 - **`TOKEN_OVERRIDES_URL`** - URL of a `tokens.json` file to fetch overrides from
   - Default: (not set — overrides disabled)
-  - The file must be a JSON array of `{network, contract, name, symbol}` objects
+  - The file must be a JSON array of objects with `network`, `contract`, and at least one of `name` or `symbol`
   - If the URL is unreachable at startup, the scraper falls back to on-chain values and logs a warning
   - If a scheduled refresh fails, the last successfully loaded overrides are kept
 
