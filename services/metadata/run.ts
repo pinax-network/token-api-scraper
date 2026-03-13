@@ -9,6 +9,7 @@ import {
 import { createLogger } from '../../lib/logger';
 import { ProcessingStats } from '../../lib/processing-stats';
 import { initService } from '../../lib/service-init';
+import { initTokenOverrides } from '../../lib/token-overrides';
 import { processMetadata } from '.';
 
 /**
@@ -26,6 +27,7 @@ export async function run(source: MetadataSource) {
 
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName });
+    await initTokenOverrides();
 
     // Validate network is set
     const network = getNetwork();
