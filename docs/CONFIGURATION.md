@@ -30,6 +30,20 @@ cp .env.example .env
 - **`NODE_URL`** - EVM RPC node URL (required)
   - Example: `https://your-rpc-node.example.com`
 
+### Token Metadata Overrides
+
+The scraper can override on-chain `name` and `symbol` values with curated values from an external `tokens.json` file (e.g. CoinGecko-sourced). When an override exists for a contract, it takes precedence over whatever the RPC call returned.
+
+- **`TOKEN_OVERRIDES_URL`** - URL of a `tokens.json` file to fetch overrides from
+  - Default: (not set — overrides disabled)
+  - The file must be a JSON array of objects with `network`, `contract`, and at least one of `name` or `symbol`
+  - If the URL is unreachable at startup, the scraper falls back to on-chain values and logs a warning
+  - If a scheduled refresh fails, the last successfully loaded overrides are kept
+
+- **`TOKEN_OVERRIDES_REFRESH_MS`** - How often to re-fetch the overrides file, in milliseconds
+  - Default: `86400000` (24 hours)
+  - The cache is refreshed on a background timer; a failed refresh keeps the previous cache
+
 ### Performance Settings
 
 #### Concurrency
