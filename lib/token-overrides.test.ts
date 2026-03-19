@@ -15,6 +15,7 @@ const mockFetch = mock(() =>
         }),
     ),
 );
+const TEST_DATABASE = 'mainnet:metadata';
 
 mock.module('./clickhouse', () => ({
     query: mockQuery,
@@ -28,9 +29,6 @@ const originalFetch = globalThis.fetch;
 const originalClickhouseDatabase = process.env.CLICKHOUSE_DATABASE;
 const originalClickhouseDatabaseInsert = process.env.CLICKHOUSE_DATABASE_INSERT;
 
-process.env.CLICKHOUSE_DATABASE = 'mainnet:metadata';
-process.env.CLICKHOUSE_DATABASE_INSERT = 'mainnet:metadata';
-
 const { initTokenOverrides, resetTokenOverridesForTests } = await import(
     './token-overrides'
 );
@@ -40,8 +38,8 @@ describe('token overrides startup application', () => {
         resetTokenOverridesForTests();
         globalThis.fetch = mockFetch as typeof fetch;
         process.env.TOKEN_OVERRIDES_URL = 'https://example.com/tokens.json';
-        process.env.CLICKHOUSE_DATABASE = 'mainnet:metadata';
-        process.env.CLICKHOUSE_DATABASE_INSERT = 'mainnet:metadata';
+        process.env.CLICKHOUSE_DATABASE = TEST_DATABASE;
+        process.env.CLICKHOUSE_DATABASE_INSERT = TEST_DATABASE;
 
         mockQuery.mockClear();
         mockInsertRow.mockClear();
@@ -157,7 +155,7 @@ describe('token overrides startup application', () => {
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining('FROM {db:Identifier}.metadata'),
             {
-                db: 'mainnet:metadata',
+                db: TEST_DATABASE,
                 network: 'mainnet',
                 contracts: ['0xabc123', '0xdef456', '0x987654'],
             },
