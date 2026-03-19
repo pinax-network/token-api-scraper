@@ -211,8 +211,8 @@ export async function initTokenOverrides(): Promise<void> {
                     contract: override.contract,
                     block_num: 0,
                     timestamp,
-                    // Default to the standard token precision when an override token
-                    // is not in metadata yet and no explicit decimals value is provided.
+                    // Default to 18 decimals when an override token is not in
+                    // metadata yet and no explicit decimals value is provided.
                     decimals: override.decimals ?? DEFAULT_OVERRIDE_DECIMALS,
                     name: override.name,
                     symbol: override.symbol,
