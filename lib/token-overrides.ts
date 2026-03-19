@@ -217,7 +217,7 @@ export async function initTokenOverrides(): Promise<void> {
                     name: override.name,
                     symbol: override.symbol,
                 },
-                `Failed to insert metadata for override token ${override.contract}`,
+                `Failed to insert startup metadata for override token ${override.contract}`,
                 { contract: override.contract },
             );
 

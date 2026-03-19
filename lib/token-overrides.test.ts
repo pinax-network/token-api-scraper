@@ -68,7 +68,7 @@ describe('token overrides startup application', () => {
         delete process.env.CLICKHOUSE_DATABASE;
     });
 
-    test('should apply full, partial, and decimals overrides to startup metadata rows', async () => {
+    test('should apply overrides and insert missing tokens at startup', async () => {
         mockFetch.mockReturnValue(
             Promise.resolve(
                 new Response(
