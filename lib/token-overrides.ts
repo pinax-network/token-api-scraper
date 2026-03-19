@@ -46,7 +46,7 @@ function getTokenOverridesUrl(): string | undefined {
  * Validates an override decimals value from tokens.json.
  * Returns a UInt8-compatible value (0-255) or null when the entry is invalid.
  */
-function normalizeOverrideDecimals(value: unknown): number | null {
+function validateOverrideDecimals(value: unknown): number | null {
     if (
         typeof value !== 'number' ||
         !Number.isInteger(value) ||
@@ -71,7 +71,7 @@ async function fetchOverrides(): Promise<Map<string, TokenOverride> | null> {
         const map = new Map<string, TokenOverride>();
 
         for (const entry of entries) {
-            const decimals = normalizeOverrideDecimals(entry.decimals);
+            const decimals = validateOverrideDecimals(entry.decimals);
             if (
                 entry.network &&
                 entry.contract &&
@@ -103,9 +103,9 @@ async function fetchOverrides(): Promise<Map<string, TokenOverride> | null> {
 
 async function loadExistingMetadata(
     network: string,
-    contracts: string[],
+    normalizedContracts: string[],
 ): Promise<ExistingMetadataRow[]> {
-    if (contracts.length === 0) {
+    if (normalizedContracts.length === 0) {
         return [];
     }
 
@@ -124,7 +124,7 @@ async function loadExistingMetadata(
               AND lower(contract) IN {contracts:Array(String)}
             GROUP BY network, normalized_contract
         `,
-        { network, contracts },
+        { network, contracts: normalizedContracts },
     );
 
     return result.data;
