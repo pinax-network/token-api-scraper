@@ -7,7 +7,6 @@ import { createLogger } from '../../lib/logger';
 import type { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { callContract, getContractCode } from '../../lib/rpc';
-import { getOverride } from '../../lib/token-overrides';
 import { insertRow } from '../../src/insert';
 
 const log = createLogger('metadata');
@@ -57,13 +56,6 @@ export async function processMetadata(
             }
 
             const queryTimeMs = Math.round(performance.now() - startTime);
-
-            const override = getOverride(network, contract);
-            if (override) {
-                if (override.name) name = override.name;
-                if (override.symbol) symbol = override.symbol;
-                log.debug('Applied token override', { contract, name, symbol });
-            }
 
             await insert_metadata(
                 {

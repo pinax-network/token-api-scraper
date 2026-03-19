@@ -17,6 +17,7 @@ const mockGetNetwork = mock(() => 'mainnet');
 const mockShutdownBatchInsertQueue = mock(() => Promise.resolve());
 const mockStartProgressLogging = mock(() => {});
 const mockLogCompletion = mock(() => {});
+const mockInitTokenOverrides = mock(() => Promise.resolve());
 
 // Mock processMetadata dependencies to prevent real RPC calls
 const mockCallContract = mock(() => Promise.resolve('0x'));
@@ -44,6 +45,10 @@ mock.module('../../lib/config', () => ({
 
 mock.module('../../lib/batch-insert', () => ({
     shutdownBatchInsertQueue: mockShutdownBatchInsertQueue,
+}));
+
+mock.module('../../lib/token-overrides', () => ({
+    initTokenOverrides: mockInitTokenOverrides,
 }));
 
 mock.module('../../lib/processing-stats', () => ({
@@ -86,6 +91,7 @@ describe('Metadata service run function', () => {
         mockShutdownBatchInsertQueue.mockClear();
         mockStartProgressLogging.mockClear();
         mockLogCompletion.mockClear();
+        mockInitTokenOverrides.mockClear();
         mockCallContract.mockClear();
         mockGetContractCode.mockClear();
         mockDecodeSymbolHex.mockClear();
@@ -154,6 +160,12 @@ describe('Metadata service run function', () => {
         expect(mockInitService).toHaveBeenCalledWith({
             serviceName: 'metadata-transfers',
         });
+    });
+
+    test('should apply token overrides during startup', async () => {
+        await run('transfers');
+
+        expect(mockInitTokenOverrides).toHaveBeenCalledTimes(1);
     });
 
     test('should shutdown batch insert queue after completion', async () => {
