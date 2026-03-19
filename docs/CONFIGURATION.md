@@ -36,8 +36,10 @@ The scraper can apply curated `name` and `symbol` values from an external `token
 
 - **`TOKEN_OVERRIDES_URL`** - URL of a `tokens.json` file to fetch overrides from
   - Default: (not set — overrides disabled)
-  - The file must be a JSON array of objects with `network`, `contract`, and at least one of `name` or `symbol`
-  - For each matching `(network, contract)` already present in `metadata`, the scraper inserts a new replacement row with the curated `name`/`symbol` while preserving the stored `decimals`
+  - The file must be a JSON array of objects with `network`, `contract`, and at least one of `name`, `symbol`, or `decimals`
+  - `decimals` is optional; when present and different from the stored value, the startup override row updates it too
+  - For each matching `(network, contract)` already present in `metadata`, the scraper inserts a new replacement row with the curated override values
+  - If an override token is not in `metadata` yet, the scraper inserts a startup row for it using the override values and defaults `decimals` to `18` when the override entry does not provide one
   - If the URL is unreachable at startup, the scraper leaves existing metadata unchanged and logs a warning
 
 ### Performance Settings

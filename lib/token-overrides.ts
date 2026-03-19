@@ -5,17 +5,21 @@ import { createLogger } from './logger';
 
 const log = createLogger('token-overrides');
 const MAX_UINT32 = 0xffffffff;
+const DEFAULT_OVERRIDE_DECIMALS = 18;
 
 interface TokenOverride {
+    contract: string;
     name: string;
     symbol: string;
+    decimals: number | null;
 }
 
 interface TokensJsonEntry {
     network: string;
     contract: string;
-    name: string;
-    symbol: string;
+    name?: string;
+    symbol?: string;
+    decimals?: number;
 }
 
 interface ExistingMetadataRow {
@@ -38,6 +42,19 @@ function getTokenOverridesUrl(): string | undefined {
     return process.env.TOKEN_OVERRIDES_URL;
 }
 
+function normalizeOverrideDecimals(value: unknown): number | null {
+    if (
+        typeof value !== 'number' ||
+        !Number.isInteger(value) ||
+        value < 0 ||
+        value > 255
+    ) {
+        return null;
+    }
+
+    return value;
+}
+
 async function fetchOverrides(): Promise<Map<string, TokenOverride> | null> {
     const tokenOverridesUrl = getTokenOverridesUrl();
     if (!tokenOverridesUrl) return null;
@@ -50,14 +67,17 @@ async function fetchOverrides(): Promise<Map<string, TokenOverride> | null> {
         const map = new Map<string, TokenOverride>();
 
         for (const entry of entries) {
+            const decimals = normalizeOverrideDecimals(entry.decimals);
             if (
                 entry.network &&
                 entry.contract &&
-                (entry.name || entry.symbol)
+                (entry.name || entry.symbol || decimals !== null)
             ) {
                 map.set(buildKey(entry.network, entry.contract), {
+                    contract: entry.contract,
                     name: entry.name ?? '',
                     symbol: entry.symbol ?? '',
+                    decimals,
                 });
             }
         }
@@ -79,15 +99,8 @@ async function fetchOverrides(): Promise<Map<string, TokenOverride> | null> {
 
 async function loadExistingMetadata(
     network: string,
-    overrides: Map<string, TokenOverride>,
+    contracts: string[],
 ): Promise<ExistingMetadataRow[]> {
-    const contracts: string[] = [];
-    for (const key of overrides.keys()) {
-        if (key.startsWith(`${network}:`)) {
-            contracts.push(key.slice(network.length + 1));
-        }
-    }
-
     if (contracts.length === 0) {
         return [];
     }
@@ -113,6 +126,27 @@ async function loadExistingMetadata(
     return result.data;
 }
 
+function getNetworkOverrides(
+    network: string,
+    overrides: Map<string, TokenOverride>,
+): Array<{ normalizedContract: string; override: TokenOverride }> {
+    const networkOverrides: Array<{
+        normalizedContract: string;
+        override: TokenOverride;
+    }> = [];
+
+    for (const [key, override] of overrides.entries()) {
+        if (key.startsWith(`${network}:`)) {
+            networkOverrides.push({
+                normalizedContract: key.slice(network.length + 1),
+                override,
+            });
+        }
+    }
+
+    return networkOverrides;
+}
+
 function tryIncrementBlockNum(blockNum: number): number | null {
     if (blockNum === MAX_UINT32) {
         return null;
@@ -134,10 +168,9 @@ export async function initTokenOverrides(): Promise<void> {
     if (!overrides || overrides.size === 0) return;
 
     const network = getNetwork();
-    const rows = await loadExistingMetadata(network, overrides);
-
-    if (rows.length === 0) {
-        log.info('No existing metadata rows matched token overrides', {
+    const networkOverrides = getNetworkOverrides(network, overrides);
+    if (networkOverrides.length === 0) {
+        log.info('No token overrides matched the current network', {
             network,
             overrideCount: overrides.size,
             url: tokenOverridesUrl,
@@ -145,20 +178,57 @@ export async function initTokenOverrides(): Promise<void> {
         return;
     }
 
+    const rows = await loadExistingMetadata(
+        network,
+        networkOverrides.map(({ normalizedContract }) => normalizedContract),
+    );
+    const rowsByContract = new Map(
+        rows.map((row) => [row.normalized_contract, row] as const),
+    );
+
     const timestamp = Math.floor(Date.now() / 1000);
     let appliedCount = 0;
     let skippedCount = 0;
     let unchangedCount = 0;
+    let insertedMissingCount = 0;
 
-    for (const row of rows) {
-        const override =
-            overrides.get(buildKey(network, row.normalized_contract)) ?? null;
-        if (!override) continue;
+    for (const { normalizedContract, override } of networkOverrides) {
+        const row = rowsByContract.get(normalizedContract);
+
+        if (!row) {
+            const success = await insertRow(
+                'metadata',
+                {
+                    network,
+                    contract: override.contract,
+                    block_num: 0,
+                    timestamp,
+                    decimals: override.decimals ?? DEFAULT_OVERRIDE_DECIMALS,
+                    name: override.name,
+                    symbol: override.symbol,
+                },
+                `Failed to insert startup token override for contract ${override.contract}`,
+                { contract: override.contract },
+            );
+
+            if (success) {
+                appliedCount++;
+                insertedMissingCount++;
+            } else {
+                skippedCount++;
+            }
+            continue;
+        }
 
         const name = override.name || row.name;
         const symbol = override.symbol || row.symbol;
+        const decimals = override.decimals ?? row.decimals;
 
-        if (name === row.name && symbol === row.symbol) {
+        if (
+            name === row.name &&
+            symbol === row.symbol &&
+            decimals === row.decimals
+        ) {
             unchangedCount++;
             continue;
         }
@@ -183,7 +253,7 @@ export async function initTokenOverrides(): Promise<void> {
                 contract: row.contract,
                 block_num,
                 timestamp,
-                decimals: row.decimals,
+                decimals,
                 name,
                 symbol,
             },
@@ -205,6 +275,7 @@ export async function initTokenOverrides(): Promise<void> {
         appliedCount,
         skippedCount,
         unchangedCount,
+        insertedMissingCount,
         url: tokenOverridesUrl,
     });
 }

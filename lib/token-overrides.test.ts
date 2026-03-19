@@ -68,7 +68,7 @@ describe('token overrides startup application', () => {
         delete process.env.CLICKHOUSE_DATABASE;
     });
 
-    test('should apply full and partial overrides to existing metadata rows', async () => {
+    test('should apply full, partial, and decimals overrides to startup metadata rows', async () => {
         mockFetch.mockReturnValue(
             Promise.resolve(
                 new Response(
@@ -84,12 +84,18 @@ describe('token overrides startup application', () => {
                             contract: '0xdef456',
                             name: '',
                             symbol: 'CGK',
+                            decimals: 8,
                         },
                         {
                             network: 'polygon',
                             contract: '0x999999',
                             name: 'Polygon Token',
                             symbol: 'POLY',
+                        },
+                        {
+                            network: 'mainnet',
+                            contract: '0x987654',
+                            name: 'Override Only Token',
                         },
                     ]),
                     {
@@ -136,10 +142,10 @@ describe('token overrides startup application', () => {
             expect.stringContaining('FROM metadata'),
             {
                 network: 'mainnet',
-                contracts: ['0xabc123', '0xdef456'],
+                contracts: ['0xabc123', '0xdef456', '0x987654'],
             },
         );
-        expect(mockInsertRow).toHaveBeenCalledTimes(2);
+        expect(mockInsertRow).toHaveBeenCalledTimes(3);
         expect(mockInsertRow).toHaveBeenCalledWith(
             'metadata',
             expect.objectContaining({
@@ -159,12 +165,25 @@ describe('token overrides startup application', () => {
                 network: 'mainnet',
                 contract: '0xdef456',
                 block_num: 78,
-                decimals: 6,
+                decimals: 8,
                 name: 'Stablecoin',
                 symbol: 'CGK',
             }),
             expect.any(String),
             expect.objectContaining({ contract: '0xdef456' }),
+        );
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata',
+            expect.objectContaining({
+                network: 'mainnet',
+                contract: '0x987654',
+                block_num: 0,
+                decimals: 18,
+                name: 'Override Only Token',
+                symbol: '',
+            }),
+            expect.any(String),
+            expect.objectContaining({ contract: '0x987654' }),
         );
     });
 
@@ -310,6 +329,45 @@ describe('token overrides startup application', () => {
             expect.objectContaining({
                 contract: '0xabc123',
                 block_num: 124,
+                name: 'CoinGecko Name',
+                symbol: 'CGK',
+            }),
+            expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
+        );
+    });
+
+    test('should insert missing override tokens with provided decimals', async () => {
+        mockFetch.mockReturnValue(
+            Promise.resolve(
+                new Response(
+                    JSON.stringify([
+                        {
+                            network: 'mainnet',
+                            contract: '0xabc123',
+                            name: 'CoinGecko Name',
+                            symbol: 'CGK',
+                            decimals: 6,
+                        },
+                    ]),
+                    {
+                        status: 200,
+                        headers: { 'content-type': 'application/json' },
+                    },
+                ),
+            ),
+        );
+
+        await initTokenOverrides();
+
+        expect(mockInsertRow).toHaveBeenCalledTimes(1);
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata',
+            expect.objectContaining({
+                network: 'mainnet',
+                contract: '0xabc123',
+                block_num: 0,
+                decimals: 6,
                 name: 'CoinGecko Name',
                 symbol: 'CGK',
             }),
