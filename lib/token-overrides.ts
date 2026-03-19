@@ -1,79 +1,310 @@
-import { TOKEN_OVERRIDES_REFRESH_MS, TOKEN_OVERRIDES_URL } from './config';
+import { insertRow } from '../src/insert';
+import { query } from './clickhouse';
+import { getNetwork } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('token-overrides');
+const MAX_UINT32 = 0xffffffff;
+const DEFAULT_OVERRIDE_DECIMALS = 18;
 
 interface TokenOverride {
+    contract: string;
     name: string;
     symbol: string;
+    decimals: number | null;
 }
 
 interface TokensJsonEntry {
     network: string;
     contract: string;
-    name: string;
-    symbol: string;
+    name?: string;
+    symbol?: string;
+    decimals?: number;
 }
 
-/** Keyed by `${network}:${contract.toLowerCase()}` */
-let cache: Map<string, TokenOverride> | null = null;
+interface ExistingMetadataRow {
+    network: string;
+    normalized_contract: string;
+    contract: string;
+    decimals: number;
+    name: string;
+    symbol: string;
+    block_num: number;
+}
+
 let initialized = false;
 
 function buildKey(network: string, contract: string): string {
     return `${network}:${contract.toLowerCase()}`;
 }
 
-async function fetchOverrides(): Promise<void> {
-    if (!TOKEN_OVERRIDES_URL) return;
+function getTokenOverridesUrl(): string | undefined {
+    return process.env.TOKEN_OVERRIDES_URL;
+}
+
+function getInsertDatabase(): string | undefined {
+    return (
+        process.env.CLICKHOUSE_DATABASE_INSERT ||
+        process.env.CLICKHOUSE_DATABASE
+    );
+}
+
+/**
+ * Validates an override decimals value from tokens.json.
+ * Returns a UInt8-compatible value (0-255) or null when the entry is invalid.
+ */
+function validateOverrideDecimals(value: unknown): number | null {
+    if (
+        typeof value !== 'number' ||
+        !Number.isInteger(value) ||
+        value < 0 ||
+        value > 255
+    ) {
+        return null;
+    }
+
+    return value;
+}
+
+async function fetchOverrides(): Promise<Map<string, TokenOverride> | null> {
+    const tokenOverridesUrl = getTokenOverridesUrl();
+    if (!tokenOverridesUrl) return null;
 
     try {
-        const res = await fetch(TOKEN_OVERRIDES_URL);
+        const res = await fetch(tokenOverridesUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const entries = (await res.json()) as TokensJsonEntry[];
         const map = new Map<string, TokenOverride>();
 
         for (const entry of entries) {
-            if (entry.network && entry.contract && (entry.name || entry.symbol)) {
+            const decimals = validateOverrideDecimals(entry.decimals);
+            if (
+                entry.network &&
+                entry.contract &&
+                (entry.name || entry.symbol || decimals !== null)
+            ) {
                 map.set(buildKey(entry.network, entry.contract), {
+                    contract: entry.contract,
                     name: entry.name ?? '',
                     symbol: entry.symbol ?? '',
+                    decimals,
                 });
             }
         }
 
-        cache = map;
-        log.info('Token overrides loaded', { count: map.size, url: TOKEN_OVERRIDES_URL });
+        log.info('Token overrides loaded', {
+            count: map.size,
+            url: tokenOverridesUrl,
+        });
+        return map;
     } catch (err) {
         const msg = (err as Error).message;
-        if (cache) {
-            log.warn('Failed to refresh token overrides, keeping last cache', { error: msg });
-        } else {
-            log.warn('Failed to load token overrides, falling back to on-chain values', { error: msg });
-        }
+        log.warn(
+            'Failed to load token overrides, skipping startup override application',
+            { error: msg },
+        );
+        return null;
     }
 }
 
-/**
- * Returns CoinGecko-sourced name/symbol overrides for a contract, or null if
- * no override exists or the override list could not be loaded.
- */
-export function getOverride(network: string, contract: string): TokenOverride | null {
-    if (!cache) return null;
-    return cache.get(buildKey(network, contract)) ?? null;
+async function loadExistingMetadata(
+    network: string,
+    normalizedContracts: string[],
+    database: string,
+): Promise<ExistingMetadataRow[]> {
+    if (normalizedContracts.length === 0) {
+        return [];
+    }
+
+    const result = await query<ExistingMetadataRow>(
+        `
+            SELECT
+                metadata.network,
+                lower(metadata.contract) AS normalized_contract,
+                argMax(metadata.contract, metadata.block_num) AS contract,
+                argMax(metadata.decimals, metadata.block_num) AS decimals,
+                argMax(metadata.name, metadata.block_num) AS name,
+                argMax(metadata.symbol, metadata.block_num) AS symbol,
+                max(metadata.block_num) AS block_num
+            FROM {db:Identifier}.metadata
+            WHERE metadata.network = {network:String}
+              AND lower(metadata.contract) IN {contracts:Array(String)}
+            GROUP BY metadata.network, lower(metadata.contract)
+        `,
+        { network, contracts: normalizedContracts, db: database },
+    );
+
+    return result.data;
 }
 
 /**
- * Initializes the override cache and schedules periodic refreshes.
- * No-op if TOKEN_OVERRIDES_URL is not set or already initialized.
+ * Filters override entries down to the current network and returns them with
+ * the normalized contract portion of the cache key for metadata lookups.
+ */
+function getNetworkOverrides(
+    network: string,
+    overrides: Map<string, TokenOverride>,
+): Array<{ normalizedContract: string; override: TokenOverride }> {
+    const networkOverrides: Array<{
+        normalizedContract: string;
+        override: TokenOverride;
+    }> = [];
+
+    for (const [key, override] of overrides.entries()) {
+        if (key.startsWith(`${network}:`)) {
+            networkOverrides.push({
+                normalizedContract: key.slice(network.length + 1),
+                override,
+            });
+        }
+    }
+
+    return networkOverrides;
+}
+
+function tryIncrementBlockNum(blockNum: number): number | null {
+    if (blockNum === MAX_UINT32) {
+        return null;
+    }
+
+    return blockNum + 1;
+}
+
+/**
+ * Applies metadata overrides to existing metadata rows once at service startup.
+ * No-op if TOKEN_OVERRIDES_URL is not set or startup overrides already ran.
  */
 export async function initTokenOverrides(): Promise<void> {
-    if (!TOKEN_OVERRIDES_URL || initialized) return;
+    const tokenOverridesUrl = getTokenOverridesUrl();
+    if (!tokenOverridesUrl || initialized) return;
     initialized = true;
 
-    await fetchOverrides();
+    const overrides = await fetchOverrides();
+    if (!overrides || overrides.size === 0) return;
 
-    const interval = setInterval(fetchOverrides, TOKEN_OVERRIDES_REFRESH_MS);
-    // Don't keep the process alive solely for the refresh timer
-    interval.unref();
+    const network = getNetwork();
+    const networkOverrides = getNetworkOverrides(network, overrides);
+    if (networkOverrides.length === 0) {
+        log.info('No token overrides matched the current network', {
+            network,
+            overrideCount: overrides.size,
+            url: tokenOverridesUrl,
+        });
+        return;
+    }
+
+    const insertDatabase = getInsertDatabase();
+    if (!insertDatabase) {
+        log.error('CLICKHOUSE_DATABASE_INSERT is not configured');
+        return;
+    }
+
+    const rows = await loadExistingMetadata(
+        network,
+        networkOverrides.map(({ normalizedContract }) => normalizedContract),
+        insertDatabase,
+    );
+    const rowsByContract = new Map(
+        rows.map((row) => [row.normalized_contract, row] as const),
+    );
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    let appliedCount = 0;
+    let skippedCount = 0;
+    let unchangedCount = 0;
+    let insertedMissingCount = 0;
+
+    for (const { normalizedContract, override } of networkOverrides) {
+        const row = rowsByContract.get(normalizedContract);
+
+        if (!row) {
+            const success = await insertRow(
+                'metadata',
+                {
+                    network,
+                    contract: override.contract,
+                    block_num: 0,
+                    timestamp,
+                    // Default to 18 decimals when an override token is not in
+                    // metadata yet and no explicit decimals value is provided.
+                    decimals: override.decimals ?? DEFAULT_OVERRIDE_DECIMALS,
+                    name: override.name,
+                    symbol: override.symbol,
+                },
+                `Failed to insert startup metadata for override token ${override.contract}`,
+                { contract: override.contract },
+            );
+
+            if (success) {
+                appliedCount++;
+                insertedMissingCount++;
+            } else {
+                skippedCount++;
+            }
+            continue;
+        }
+
+        const name = override.name || row.name;
+        const symbol = override.symbol || row.symbol;
+        const decimals = override.decimals ?? row.decimals;
+
+        if (
+            name === row.name &&
+            symbol === row.symbol &&
+            decimals === row.decimals
+        ) {
+            unchangedCount++;
+            continue;
+        }
+
+        const block_num = tryIncrementBlockNum(row.block_num);
+        if (block_num === null) {
+            skippedCount++;
+            log.warn(
+                'Skipped token override because block number reached UInt32 max',
+                {
+                    contract: row.contract,
+                    blockNum: row.block_num,
+                },
+            );
+            continue;
+        }
+
+        const success = await insertRow(
+            'metadata',
+            {
+                network: row.network,
+                contract: row.contract,
+                block_num,
+                timestamp,
+                decimals,
+                name,
+                symbol,
+            },
+            `Failed to apply token override for contract ${row.contract}`,
+            { contract: row.contract },
+        );
+
+        if (success) {
+            appliedCount++;
+        } else {
+            skippedCount++;
+        }
+    }
+
+    log.info('Token overrides applied at startup', {
+        network,
+        overrideCount: overrides.size,
+        matchedCount: rows.length,
+        appliedCount,
+        skippedCount,
+        unchangedCount,
+        insertedMissingCount,
+        url: tokenOverridesUrl,
+    });
+}
+
+export function resetTokenOverridesForTests(): void {
+    initialized = false;
 }

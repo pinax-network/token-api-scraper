@@ -32,17 +32,15 @@ cp .env.example .env
 
 ### Token Metadata Overrides
 
-The scraper can override on-chain `name` and `symbol` values with curated values from an external `tokens.json` file (e.g. CoinGecko-sourced). When an override exists for a contract, it takes precedence over whatever the RPC call returned.
+The scraper can apply curated `name` and `symbol` values from an external `tokens.json` file (e.g. CoinGecko-sourced) to matching rows already stored in the `metadata` table. Overrides are applied once at service startup, before the normal metadata scrape loop begins.
 
 - **`TOKEN_OVERRIDES_URL`** - URL of a `tokens.json` file to fetch overrides from
   - Default: (not set — overrides disabled)
-  - The file must be a JSON array of objects with `network`, `contract`, and at least one of `name` or `symbol`
-  - If the URL is unreachable at startup, the scraper falls back to on-chain values and logs a warning
-  - If a scheduled refresh fails, the last successfully loaded overrides are kept
-
-- **`TOKEN_OVERRIDES_REFRESH_MS`** - How often to re-fetch the overrides file, in milliseconds
-  - Default: `86400000` (24 hours)
-  - The cache is refreshed on a background timer; a failed refresh keeps the previous cache
+  - The file must be a JSON array of objects with `network`, `contract`, and at least one of `name`, `symbol`, or `decimals`
+  - `decimals` is optional; when present and different from the stored value, the startup override row updates it too
+  - For each matching `(network, contract)` already present in `metadata`, the scraper inserts a new replacement row with the curated override values
+  - If an override token is not in `metadata` yet, the scraper inserts a startup row for it using the override values and defaults `decimals` to `18` when the override entry does not provide one
+  - If the URL is unreachable at startup, the scraper leaves existing metadata unchanged and logs a warning
 
 ### Performance Settings
 

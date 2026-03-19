@@ -123,20 +123,11 @@ export const NODE_URL = process.env.NODE_URL;
 
 /**
  * URL of tokens.json to use as name/symbol overrides (e.g. GitHub raw URL).
- * When set, CoinGecko-sourced name/symbol values take precedence over on-chain values
- * for matching contracts. Refreshed every TOKEN_OVERRIDES_REFRESH_MS.
+ * When set, startup logic applies curated name/symbol values to matching rows
+ * already stored in the metadata table.
  * Optional — overrides are disabled if not set.
  */
 export const TOKEN_OVERRIDES_URL = process.env.TOKEN_OVERRIDES_URL;
-
-/**
- * How often to refresh the token overrides cache, in milliseconds.
- * Default: 86400000 (24 hours)
- */
-export const TOKEN_OVERRIDES_REFRESH_MS = parseInt(
-    process.env.TOKEN_OVERRIDES_REFRESH_MS || String(24 * 60 * 60 * 1000),
-    10,
-);
 
 /**
  * Get the network name with validation
