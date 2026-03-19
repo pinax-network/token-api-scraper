@@ -38,10 +38,6 @@ function getTokenOverridesUrl(): string | undefined {
     return process.env.TOKEN_OVERRIDES_URL;
 }
 
-function escapeSqlString(value: string): string {
-    return value.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
-}
-
 async function fetchOverrides(): Promise<Map<string, TokenOverride> | null> {
     const tokenOverridesUrl = getTokenOverridesUrl();
     if (!tokenOverridesUrl) return null;
@@ -85,17 +81,16 @@ async function loadExistingMetadata(
     network: string,
     overrides: Map<string, TokenOverride>,
 ): Promise<ExistingMetadataRow[]> {
-    const contracts = Array.from(overrides.keys())
-        .filter((key) => key.startsWith(`${network}:`))
-        .map((key) => key.slice(network.length + 1));
+    const contracts: string[] = [];
+    for (const key of overrides.keys()) {
+        if (key.startsWith(`${network}:`)) {
+            contracts.push(key.slice(network.length + 1));
+        }
+    }
 
     if (contracts.length === 0) {
         return [];
     }
-
-    const contractList = contracts
-        .map((contract) => `'${escapeSqlString(contract)}'`)
-        .join(', ');
 
     const result = await query<ExistingMetadataRow>(
         `
@@ -109,17 +104,17 @@ async function loadExistingMetadata(
                 max(block_num) AS block_num
             FROM metadata
             WHERE network = {network:String}
-              AND lower(contract) IN (${contractList})
+              AND lower(contract) IN {contracts:Array(String)}
             GROUP BY network, normalized_contract
         `,
-        { network },
+        { network, contracts },
     );
 
     return result.data;
 }
 
-function getNextBlockNum(blockNum: number): number | null {
-    if (blockNum >= MAX_UINT32) {
+function tryIncrementBlockNum(blockNum: number): number | null {
+    if (blockNum === MAX_UINT32) {
         return null;
     }
 
@@ -168,7 +163,7 @@ export async function initTokenOverrides(): Promise<void> {
             continue;
         }
 
-        const block_num = getNextBlockNum(row.block_num);
+        const block_num = tryIncrementBlockNum(row.block_num);
         if (block_num === null) {
             skippedCount++;
             log.warn(

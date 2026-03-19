@@ -162,7 +162,7 @@ describe('Metadata service run function', () => {
         });
     });
 
-    test('should apply token overrides during startup', async () => {
+    test('should call initTokenOverrides during startup', async () => {
         await run('transfers');
 
         expect(mockInitTokenOverrides).toHaveBeenCalledTimes(1);

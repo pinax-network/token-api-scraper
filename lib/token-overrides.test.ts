@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 const mockQuery = mock(() =>
     Promise.resolve({
@@ -25,7 +25,6 @@ mock.module('../src/insert', () => ({
 }));
 
 const originalFetch = globalThis.fetch;
-globalThis.fetch = mockFetch as typeof fetch;
 
 const { initTokenOverrides, resetTokenOverridesForTests } = await import(
     './token-overrides'
@@ -34,6 +33,7 @@ const { initTokenOverrides, resetTokenOverridesForTests } = await import(
 describe('token overrides startup application', () => {
     beforeEach(() => {
         resetTokenOverridesForTests();
+        globalThis.fetch = mockFetch as typeof fetch;
         process.env.TOKEN_OVERRIDES_URL = 'https://example.com/tokens.json';
         process.env.CLICKHOUSE_DATABASE = 'mainnet:metadata';
 
@@ -62,7 +62,7 @@ describe('token overrides startup application', () => {
         );
     });
 
-    afterAll(() => {
+    afterEach(() => {
         globalThis.fetch = originalFetch;
         delete process.env.TOKEN_OVERRIDES_URL;
         delete process.env.CLICKHOUSE_DATABASE;
@@ -134,7 +134,10 @@ describe('token overrides startup application', () => {
 
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining('FROM metadata'),
-            { network: 'mainnet' },
+            {
+                network: 'mainnet',
+                contracts: ['0xabc123', '0xdef456'],
+            },
         );
         expect(mockInsertRow).toHaveBeenCalledTimes(2);
         expect(mockInsertRow).toHaveBeenCalledWith(
@@ -209,6 +212,110 @@ describe('token overrides startup application', () => {
         await initTokenOverrides();
 
         expect(mockInsertRow).not.toHaveBeenCalled();
+    });
+
+    test('should skip insert when block_num is already at UInt32 max', async () => {
+        mockFetch.mockReturnValue(
+            Promise.resolve(
+                new Response(
+                    JSON.stringify([
+                        {
+                            network: 'mainnet',
+                            contract: '0xabc123',
+                            name: 'CoinGecko Name',
+                            symbol: 'CGK',
+                        },
+                    ]),
+                    {
+                        status: 200,
+                        headers: { 'content-type': 'application/json' },
+                    },
+                ),
+            ),
+        );
+
+        mockQuery.mockReturnValue(
+            Promise.resolve({
+                data: [
+                    {
+                        network: 'mainnet',
+                        normalized_contract: '0xabc123',
+                        contract: '0xabc123',
+                        decimals: 18,
+                        name: 'Onchain Name',
+                        symbol: 'ONC',
+                        block_num: 0xffffffff,
+                    },
+                ],
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
+            }),
+        );
+
+        await initTokenOverrides();
+
+        expect(mockInsertRow).not.toHaveBeenCalled();
+    });
+
+    test('should continue when inserting an override row fails', async () => {
+        mockFetch.mockReturnValue(
+            Promise.resolve(
+                new Response(
+                    JSON.stringify([
+                        {
+                            network: 'mainnet',
+                            contract: '0xabc123',
+                            name: 'CoinGecko Name',
+                            symbol: 'CGK',
+                        },
+                    ]),
+                    {
+                        status: 200,
+                        headers: { 'content-type': 'application/json' },
+                    },
+                ),
+            ),
+        );
+
+        mockQuery.mockReturnValue(
+            Promise.resolve({
+                data: [
+                    {
+                        network: 'mainnet',
+                        normalized_contract: '0xabc123',
+                        contract: '0xabc123',
+                        decimals: 18,
+                        name: 'Onchain Name',
+                        symbol: 'ONC',
+                        block_num: 123,
+                    },
+                ],
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
+            }),
+        );
+        mockInsertRow.mockReturnValue(Promise.resolve(false));
+
+        await initTokenOverrides();
+
+        expect(mockInsertRow).toHaveBeenCalledTimes(1);
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'metadata',
+            expect.objectContaining({
+                contract: '0xabc123',
+                block_num: 124,
+                name: 'CoinGecko Name',
+                symbol: 'CGK',
+            }),
+            expect.any(String),
+            expect.objectContaining({ contract: '0xabc123' }),
+        );
     });
 
     test('should only apply overrides once per process startup', async () => {
