@@ -211,13 +211,13 @@ export async function initTokenOverrides(): Promise<void> {
                     contract: override.contract,
                     block_num: 0,
                     timestamp,
-                    // Default to the standard ERC-20 precision when a startup-only
-                    // override token has no stored row and no explicit decimals value.
+                    // Default to the standard ERC-20 precision when an override token
+                    // is not in metadata yet and no explicit decimals value is provided.
                     decimals: override.decimals ?? DEFAULT_OVERRIDE_DECIMALS,
                     name: override.name,
                     symbol: override.symbol,
                 },
-                `Failed to insert startup token override for contract ${override.contract}`,
+                `Failed to insert metadata for override token ${override.contract}`,
                 { contract: override.contract },
             );
 
