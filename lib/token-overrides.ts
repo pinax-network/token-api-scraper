@@ -42,6 +42,10 @@ function getTokenOverridesUrl(): string | undefined {
     return process.env.TOKEN_OVERRIDES_URL;
 }
 
+/**
+ * Validates an override decimals value from tokens.json.
+ * Returns a UInt8-compatible value (0-255) or null when the entry is invalid.
+ */
 function normalizeOverrideDecimals(value: unknown): number | null {
     if (
         typeof value !== 'number' ||
@@ -126,6 +130,10 @@ async function loadExistingMetadata(
     return result.data;
 }
 
+/**
+ * Filters override entries down to the current network and returns them with
+ * the normalized contract portion of the cache key for metadata lookups.
+ */
 function getNetworkOverrides(
     network: string,
     overrides: Map<string, TokenOverride>,
@@ -203,6 +211,8 @@ export async function initTokenOverrides(): Promise<void> {
                     contract: override.contract,
                     block_num: 0,
                     timestamp,
+                    // Default to the standard ERC-20 precision when a startup-only
+                    // override token has no stored row and no explicit decimals value.
                     decimals: override.decimals ?? DEFAULT_OVERRIDE_DECIMALS,
                     name: override.name,
                     symbol: override.symbol,
