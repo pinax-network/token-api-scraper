@@ -1,6 +1,6 @@
 import { insertRow } from '../src/insert';
 import { query } from './clickhouse';
-import { getNetwork } from './config';
+import { CLICKHOUSE_DATABASE_INSERT, getNetwork } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('token-overrides');
@@ -104,6 +104,7 @@ async function fetchOverrides(): Promise<Map<string, TokenOverride> | null> {
 async function loadExistingMetadata(
     network: string,
     normalizedContracts: string[],
+    database: string,
 ): Promise<ExistingMetadataRow[]> {
     if (normalizedContracts.length === 0) {
         return [];
@@ -112,19 +113,19 @@ async function loadExistingMetadata(
     const result = await query<ExistingMetadataRow>(
         `
             SELECT
-                network,
-                lower(contract) AS normalized_contract,
-                argMax(contract, block_num) AS contract,
-                argMax(decimals, block_num) AS decimals,
-                argMax(name, block_num) AS name,
-                argMax(symbol, block_num) AS symbol,
-                max(block_num) AS block_num
-            FROM metadata
-            WHERE network = {network:String}
-              AND lower(contract) IN {contracts:Array(String)}
-            GROUP BY network, normalized_contract
+                metadata.network,
+                lower(metadata.contract) AS normalized_contract,
+                argMax(metadata.contract, metadata.block_num) AS contract,
+                argMax(metadata.decimals, metadata.block_num) AS decimals,
+                argMax(metadata.name, metadata.block_num) AS name,
+                argMax(metadata.symbol, metadata.block_num) AS symbol,
+                max(metadata.block_num) AS block_num
+            FROM {db:Identifier}.metadata
+            WHERE metadata.network = {network:String}
+              AND lower(metadata.contract) IN {contracts:Array(String)}
+            GROUP BY metadata.network, lower(metadata.contract)
         `,
-        { network, contracts: normalizedContracts },
+        { network, contracts: normalizedContracts, db: database },
     );
 
     return result.data;
@@ -186,9 +187,15 @@ export async function initTokenOverrides(): Promise<void> {
         return;
     }
 
+    if (!CLICKHOUSE_DATABASE_INSERT) {
+        log.error('CLICKHOUSE_DATABASE_INSERT is not configured');
+        return;
+    }
+
     const rows = await loadExistingMetadata(
         network,
         networkOverrides.map(({ normalizedContract }) => normalizedContract),
+        CLICKHOUSE_DATABASE_INSERT,
     );
     const rowsByContract = new Map(
         rows.map((row) => [row.normalized_contract, row] as const),
