@@ -1,6 +1,6 @@
 import { insertRow } from '../src/insert';
 import { query } from './clickhouse';
-import { CLICKHOUSE_DATABASE_INSERT, getNetwork } from './config';
+import { getNetwork } from './config';
 import { createLogger } from './logger';
 
 const log = createLogger('token-overrides');
@@ -40,6 +40,13 @@ function buildKey(network: string, contract: string): string {
 
 function getTokenOverridesUrl(): string | undefined {
     return process.env.TOKEN_OVERRIDES_URL;
+}
+
+function getInsertDatabase(): string | undefined {
+    return (
+        process.env.CLICKHOUSE_DATABASE_INSERT ||
+        process.env.CLICKHOUSE_DATABASE
+    );
 }
 
 /**
@@ -187,7 +194,8 @@ export async function initTokenOverrides(): Promise<void> {
         return;
     }
 
-    if (!CLICKHOUSE_DATABASE_INSERT) {
+    const insertDatabase = getInsertDatabase();
+    if (!insertDatabase) {
         log.error('CLICKHOUSE_DATABASE_INSERT is not configured');
         return;
     }
@@ -195,7 +203,7 @@ export async function initTokenOverrides(): Promise<void> {
     const rows = await loadExistingMetadata(
         network,
         networkOverrides.map(({ normalizedContract }) => normalizedContract),
-        CLICKHOUSE_DATABASE_INSERT,
+        insertDatabase,
     );
     const rowsByContract = new Map(
         rows.map((row) => [row.normalized_contract, row] as const),

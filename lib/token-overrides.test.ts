@@ -25,6 +25,11 @@ mock.module('../src/insert', () => ({
 }));
 
 const originalFetch = globalThis.fetch;
+const originalClickhouseDatabase = process.env.CLICKHOUSE_DATABASE;
+const originalClickhouseDatabaseInsert = process.env.CLICKHOUSE_DATABASE_INSERT;
+
+process.env.CLICKHOUSE_DATABASE = 'mainnet:metadata';
+process.env.CLICKHOUSE_DATABASE_INSERT = 'mainnet:metadata';
 
 const { initTokenOverrides, resetTokenOverridesForTests } = await import(
     './token-overrides'
@@ -36,6 +41,7 @@ describe('token overrides startup application', () => {
         globalThis.fetch = mockFetch as typeof fetch;
         process.env.TOKEN_OVERRIDES_URL = 'https://example.com/tokens.json';
         process.env.CLICKHOUSE_DATABASE = 'mainnet:metadata';
+        process.env.CLICKHOUSE_DATABASE_INSERT = 'mainnet:metadata';
 
         mockQuery.mockClear();
         mockInsertRow.mockClear();
@@ -65,7 +71,17 @@ describe('token overrides startup application', () => {
     afterEach(() => {
         globalThis.fetch = originalFetch;
         delete process.env.TOKEN_OVERRIDES_URL;
-        delete process.env.CLICKHOUSE_DATABASE;
+        if (originalClickhouseDatabase === undefined) {
+            delete process.env.CLICKHOUSE_DATABASE;
+        } else {
+            process.env.CLICKHOUSE_DATABASE = originalClickhouseDatabase;
+        }
+        if (originalClickhouseDatabaseInsert === undefined) {
+            delete process.env.CLICKHOUSE_DATABASE_INSERT;
+        } else {
+            process.env.CLICKHOUSE_DATABASE_INSERT =
+                originalClickhouseDatabaseInsert;
+        }
     });
 
     test('should apply overrides and insert missing tokens at startup', async () => {
@@ -139,8 +155,9 @@ describe('token overrides startup application', () => {
         await initTokenOverrides();
 
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining('FROM metadata'),
+            expect.stringContaining('FROM {db:Identifier}.metadata'),
             {
+                db: 'mainnet:metadata',
                 network: 'mainnet',
                 contracts: ['0xabc123', '0xdef456', '0x987654'],
             },
