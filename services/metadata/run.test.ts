@@ -91,6 +91,7 @@ describe('Metadata service run function', () => {
         mockInitService.mockClear();
         mockGetNetwork.mockClear();
         mockShutdownBatchInsertQueue.mockClear();
+        mockFlushAll.mockClear();
         mockStartProgressLogging.mockClear();
         mockLogCompletion.mockClear();
         mockInitTokenOverrides.mockClear();
@@ -164,10 +165,22 @@ describe('Metadata service run function', () => {
         });
     });
 
-    test('should call initTokenOverrides during startup', async () => {
+    test('should flush batch queue before applying overrides', async () => {
+        const callOrder: string[] = [];
+        mockFlushAll.mockImplementation(() => {
+            callOrder.push('flushAll');
+            return Promise.resolve();
+        });
+        mockInitTokenOverrides.mockImplementation(() => {
+            callOrder.push('initTokenOverrides');
+            return Promise.resolve();
+        });
+
         await run('transfers');
 
+        expect(mockFlushAll).toHaveBeenCalledTimes(1);
         expect(mockInitTokenOverrides).toHaveBeenCalledTimes(1);
+        expect(callOrder).toEqual(['flushAll', 'initTokenOverrides']);
     });
 
     test('should shutdown batch insert queue after completion', async () => {
