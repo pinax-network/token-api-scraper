@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS metadata (
     name                        String,
     symbol                      String,
 
+    -- display overrides (populated by token overrides, empty = use name/symbol) --
+    display_name                String DEFAULT '',
+    display_symbol              String DEFAULT '',
+
     -- inserter details --
     created_at                  DateTime('UTC') DEFAULT now()
 )

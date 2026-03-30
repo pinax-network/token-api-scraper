@@ -29,6 +29,8 @@ interface ExistingMetadataRow {
     decimals: number;
     name: string;
     symbol: string;
+    display_name: string;
+    display_symbol: string;
     block_num: number;
 }
 
@@ -126,6 +128,8 @@ async function loadExistingMetadata(
                 argMax(metadata.decimals, metadata.block_num) AS decimals,
                 argMax(metadata.name, metadata.block_num) AS name,
                 argMax(metadata.symbol, metadata.block_num) AS symbol,
+                argMax(metadata.display_name, metadata.block_num) AS display_name,
+                argMax(metadata.display_symbol, metadata.block_num) AS display_symbol,
                 max(metadata.block_num) AS block_num
             FROM {db:Identifier}.metadata
             WHERE metadata.network = {network:String}
@@ -231,6 +235,8 @@ export async function initTokenOverrides(): Promise<void> {
                     decimals: override.decimals ?? DEFAULT_OVERRIDE_DECIMALS,
                     name: override.name,
                     symbol: override.symbol,
+                    display_name: override.name,
+                    display_symbol: override.symbol,
                 },
                 `Failed to insert startup metadata for override token ${override.contract}`,
                 { contract: override.contract },
@@ -245,13 +251,13 @@ export async function initTokenOverrides(): Promise<void> {
             continue;
         }
 
-        const name = override.name || row.name;
-        const symbol = override.symbol || row.symbol;
+        const display_name = override.name || row.name;
+        const display_symbol = override.symbol || row.symbol;
         const decimals = override.decimals ?? row.decimals;
 
         if (
-            name === row.name &&
-            symbol === row.symbol &&
+            display_name === row.display_name &&
+            display_symbol === row.display_symbol &&
             decimals === row.decimals
         ) {
             unchangedCount++;
@@ -279,8 +285,10 @@ export async function initTokenOverrides(): Promise<void> {
                 block_num,
                 timestamp,
                 decimals,
-                name,
-                symbol,
+                name: row.name,
+                symbol: row.symbol,
+                display_name,
+                display_symbol,
             },
             `Failed to apply token override for contract ${row.contract}`,
             { contract: row.contract },

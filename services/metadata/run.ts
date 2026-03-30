@@ -27,7 +27,6 @@ export async function run(source: MetadataSource) {
 
     // Initialize service (must be called before using batch insert queue)
     initService({ serviceName });
-    await initTokenOverrides();
 
     // Validate network is set
     const network = getNetwork();
@@ -80,6 +79,10 @@ export async function run(source: MetadataSource) {
     }
 
     stats.logCompletion();
+
+    // Apply display name/symbol overrides from tokens.json after scraping,
+    // so override rows are written at block_num+1 on top of fresh on-chain data.
+    await initTokenOverrides();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();

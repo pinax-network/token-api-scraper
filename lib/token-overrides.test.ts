@@ -82,7 +82,7 @@ describe('token overrides startup application', () => {
         }
     });
 
-    test('should apply overrides and insert missing tokens at startup', async () => {
+    test('should write display fields from overrides, preserve on-chain name/symbol', async () => {
         mockFetch.mockReturnValue(
             Promise.resolve(
                 new Response(
@@ -130,6 +130,8 @@ describe('token overrides startup application', () => {
                         decimals: 18,
                         name: 'Onchain Name',
                         symbol: 'ONC',
+                        display_name: '',
+                        display_symbol: '',
                         block_num: 123,
                     },
                     {
@@ -139,6 +141,8 @@ describe('token overrides startup application', () => {
                         decimals: 6,
                         name: 'Stablecoin',
                         symbol: 'USDT',
+                        display_name: '',
+                        display_symbol: '',
                         block_num: 77,
                     },
                 ],
@@ -152,15 +156,8 @@ describe('token overrides startup application', () => {
 
         await initTokenOverrides();
 
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining('FROM {db:Identifier}.metadata'),
-            {
-                db: TEST_CLICKHOUSE_DATABASE,
-                network: 'mainnet',
-                contracts: ['0xabc123', '0xdef456', '0x987654'],
-            },
-        );
         expect(mockInsertRow).toHaveBeenCalledTimes(3);
+        // Existing token with override name — on-chain name preserved, display_name set
         expect(mockInsertRow).toHaveBeenCalledWith(
             'metadata',
             expect.objectContaining({
@@ -168,12 +165,15 @@ describe('token overrides startup application', () => {
                 contract: '0xabc123',
                 block_num: 124,
                 decimals: 18,
-                name: 'CoinGecko Name',
+                name: 'Onchain Name',
                 symbol: 'ONC',
+                display_name: 'CoinGecko Name',
+                display_symbol: 'ONC',
             }),
             expect.any(String),
             expect.objectContaining({ contract: '0xabc123' }),
         );
+        // Existing token with override symbol + decimals — on-chain name preserved
         expect(mockInsertRow).toHaveBeenCalledWith(
             'metadata',
             expect.objectContaining({
@@ -182,11 +182,14 @@ describe('token overrides startup application', () => {
                 block_num: 78,
                 decimals: 8,
                 name: 'Stablecoin',
-                symbol: 'CGK',
+                symbol: 'USDT',
+                display_name: 'Stablecoin',
+                display_symbol: 'CGK',
             }),
             expect.any(String),
             expect.objectContaining({ contract: '0xdef456' }),
         );
+        // Missing token — override values used for both name/symbol and display fields
         expect(mockInsertRow).toHaveBeenCalledWith(
             'metadata',
             expect.objectContaining({
@@ -196,13 +199,15 @@ describe('token overrides startup application', () => {
                 decimals: 18,
                 name: 'Override Only Token',
                 symbol: '',
+                display_name: 'Override Only Token',
+                display_symbol: '',
             }),
             expect.any(String),
             expect.objectContaining({ contract: '0x987654' }),
         );
     });
 
-    test('should skip inserts when override values already match stored metadata', async () => {
+    test('should skip inserts when display override values already match', async () => {
         mockFetch.mockReturnValue(
             Promise.resolve(
                 new Response(
@@ -230,8 +235,10 @@ describe('token overrides startup application', () => {
                         normalized_contract: '0xabc123',
                         contract: '0xabc123',
                         decimals: 18,
-                        name: 'CoinGecko Name',
-                        symbol: 'CGK',
+                        name: 'Onchain Name',
+                        symbol: 'ONC',
+                        display_name: 'CoinGecko Name',
+                        display_symbol: 'CGK',
                         block_num: 123,
                     },
                 ],
@@ -278,6 +285,8 @@ describe('token overrides startup application', () => {
                         decimals: 18,
                         name: 'Onchain Name',
                         symbol: 'ONC',
+                        display_name: '',
+                        display_symbol: '',
                         block_num: 0xffffffff,
                     },
                 ],
@@ -324,6 +333,8 @@ describe('token overrides startup application', () => {
                         decimals: 18,
                         name: 'Onchain Name',
                         symbol: 'ONC',
+                        display_name: '',
+                        display_symbol: '',
                         block_num: 123,
                     },
                 ],
@@ -344,8 +355,10 @@ describe('token overrides startup application', () => {
             expect.objectContaining({
                 contract: '0xabc123',
                 block_num: 124,
-                name: 'CoinGecko Name',
-                symbol: 'CGK',
+                name: 'Onchain Name',
+                symbol: 'ONC',
+                display_name: 'CoinGecko Name',
+                display_symbol: 'CGK',
             }),
             expect.any(String),
             expect.objectContaining({ contract: '0xabc123' }),
@@ -385,6 +398,8 @@ describe('token overrides startup application', () => {
                 decimals: 6,
                 name: 'CoinGecko Name',
                 symbol: 'CGK',
+                display_name: 'CoinGecko Name',
+                display_symbol: 'CGK',
             }),
             expect.any(String),
             expect.objectContaining({ contract: '0xabc123' }),
