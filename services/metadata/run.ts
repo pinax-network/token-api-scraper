@@ -1,5 +1,8 @@
 import PQueue from 'p-queue';
-import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
+import {
+    getBatchInsertQueue,
+    shutdownBatchInsertQueue,
+} from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import {
     CLICKHOUSE_DATABASE_INSERT,
@@ -79,6 +82,9 @@ export async function run(source: MetadataSource) {
     }
 
     stats.logCompletion();
+
+    // Flush batched inserts so initTokenOverrides sees the latest on-chain rows.
+    await getBatchInsertQueue().flushAll();
 
     // Apply display name/symbol overrides from tokens.json after scraping,
     // so override rows are written at block_num+1 on top of fresh on-chain data.

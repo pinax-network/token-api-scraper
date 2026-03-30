@@ -251,8 +251,8 @@ export async function initTokenOverrides(): Promise<void> {
             continue;
         }
 
-        const display_name = override.name || row.name;
-        const display_symbol = override.symbol || row.symbol;
+        const display_name = override.name || row.display_name || row.name;
+        const display_symbol = override.symbol || row.display_symbol || row.symbol;
         const decimals = override.decimals ?? row.decimals;
 
         if (
