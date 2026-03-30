@@ -43,8 +43,10 @@ mock.module('../../lib/config', () => ({
     CLICKHOUSE_DATABASE_INSERT: undefined,
 }));
 
+const mockFlushAll = mock(() => Promise.resolve());
 mock.module('../../lib/batch-insert', () => ({
     shutdownBatchInsertQueue: mockShutdownBatchInsertQueue,
+    getBatchInsertQueue: () => ({ flushAll: mockFlushAll }),
 }));
 
 mock.module('../../lib/token-overrides', () => ({
