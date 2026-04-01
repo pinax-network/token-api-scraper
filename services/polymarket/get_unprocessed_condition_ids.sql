@@ -11,6 +11,6 @@ ANTI LEFT JOIN (
     SELECT DISTINCT condition_id
     FROM {db:Identifier}.polymarket_markets_errors
     WHERE created_at > now() - INTERVAL 24 HOUR
-) USING (condition_id)
+) e USING (condition_id)
 ORDER BY t.timestamp DESC
 LIMIT 10000;
