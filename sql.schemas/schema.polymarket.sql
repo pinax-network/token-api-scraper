@@ -250,3 +250,14 @@ CREATE TABLE IF NOT EXISTS polymarket_series (
 )
 ENGINE = ReplacingMergeTree(created_at)
 ORDER BY (condition_id, event_id, series_id);
+
+-- Polymarket Events Enriched
+-- Tracks which event slugs have been enriched via Gamma /events endpoint
+CREATE TABLE IF NOT EXISTS polymarket_events_enriched (
+    slug                        String COMMENT 'Event slug that was enriched',
+    markets_found               UInt32 COMMENT 'Number of child markets found on Gamma',
+    markets_inserted            UInt32 COMMENT 'Number of new markets inserted',
+    created_at                  DateTime('UTC') DEFAULT now(),
+)
+ENGINE = ReplacingMergeTree(created_at)
+ORDER BY (slug);
