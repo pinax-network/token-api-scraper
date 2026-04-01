@@ -217,40 +217,58 @@ interface PolymarketSeries {
 }
 
 /**
- * Fetch market data from Polymarket API for a single condition ID
- * @param conditionId - The condition ID to query
- * @returns Market data or null if not found
+ * Interface for the Gamma /events response (simplified — only fields we need)
  */
-async function fetchMarketFromApi(
-    conditionId: string,
-): Promise<PolymarketMarket | null> {
-    const url = `${POLYMARKET_API_BASE}/markets?condition_ids=${conditionId}&limit=1`;
+interface GammaEvent {
+    id: string;
+    slug: string;
+    title: string;
+    markets?: { conditionId: string; question: string }[];
+}
+
+/**
+ * Fetch a single item from a Gamma API list endpoint.
+ * All Gamma endpoints return arrays — this returns the first element or null.
+ */
+async function fetchFromGammaApi<T>(
+    path: string,
+    context: Record<string, string>,
+): Promise<T | null> {
+    const url = `${POLYMARKET_API_BASE}${path}`;
 
     try {
         const response = await fetch(url);
         if (!response.ok) {
             log.warn('Polymarket API returned non-OK status', {
                 status: response.status,
-                statusText: response.statusText,
-                conditionId,
+                ...context,
             });
             return null;
         }
 
-        const markets: PolymarketMarket[] = await response.json();
-
-        if (markets.length === 0) {
-            return null;
-        }
-
-        return markets[0];
+        const results: T[] = await response.json();
+        return results.length > 0 ? results[0] : null;
     } catch (error) {
-        log.warn('Failed to fetch market from Polymarket API', {
-            conditionId,
+        log.warn('Failed to fetch from Polymarket API', {
+            ...context,
             error: (error as Error).message,
         });
         return null;
     }
+}
+
+function fetchMarketFromApi(conditionId: string) {
+    return fetchFromGammaApi<PolymarketMarket>(
+        `/markets?condition_ids=${conditionId}&limit=1`,
+        { conditionId },
+    );
+}
+
+function fetchEventFromApi(eventSlug: string) {
+    return fetchFromGammaApi<GammaEvent>(
+        `/events?slug=${encodeURIComponent(eventSlug)}`,
+        { eventSlug },
+    );
 }
 
 /**
@@ -625,24 +643,131 @@ export async function run(): Promise<void> {
         stats.startProgressLogging(tokens.data.length);
     } else {
         log.info('No new condition_ids to process');
-        await shutdownBatchInsertQueue();
-        return;
     }
 
-    // Process each token individually
-    for (const token of tokens.data) {
-        queue.add(async () => {
-            await processToken(token, stats);
-        });
+    if (tokens.data.length > 0) {
+        // Process each token individually
+        for (const token of tokens.data) {
+            queue.add(async () => {
+                await processToken(token, stats);
+            });
+        }
+
+        // Wait for all tasks to complete
+        await queue.onIdle();
+
+        stats.logCompletion();
     }
 
-    // Wait for all tasks to complete
-    await queue.onIdle();
-
-    stats.logCompletion();
+    await enrichEvents();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();
+}
+
+/**
+ * Discover sibling markets via Gamma /events endpoint.
+ * For each event slug not yet enriched, fetches the parent event and inserts
+ * any child markets missing from our data.
+ */
+async function enrichEvents(): Promise<void> {
+    log.info('Starting event enrichment pass');
+
+    const eventSlugs = await query<{ event_slug: string }>(
+        await Bun.file(__dirname + '/get_events_to_enrich.sql').text(),
+        { db: CLICKHOUSE_DATABASE_INSERT },
+    );
+
+    if (eventSlugs.data.length === 0) {
+        log.info('No events to enrich');
+        return;
+    }
+
+    log.info('Enriching events', { count: eventSlugs.data.length });
+
+    const queue = new PQueue({ concurrency: CONCURRENCY });
+
+    for (const { event_slug } of eventSlugs.data) {
+        queue.add(() => processEventEnrichment(event_slug));
+    }
+
+    await queue.onIdle();
+    log.info('Event enrichment pass complete');
+}
+
+/**
+ * Process a single event slug: fetch from Gamma, insert missing child markets.
+ */
+async function processEventEnrichment(eventSlug: string): Promise<void> {
+    const event = await fetchEventFromApi(eventSlug);
+
+    if (!event || !event.markets) {
+        await insertRow(
+            'polymarket_events_enriched',
+            { slug: eventSlug, markets_found: 0, markets_inserted: 0 },
+            `Failed to record enrichment for ${eventSlug}`,
+            {},
+        );
+        return;
+    }
+
+    const allConditionIds = event.markets
+        .map((m) => m.conditionId)
+        .filter(Boolean);
+
+    // Batch existence check — single query instead of per-market
+    const existing = await query<{ condition_id: string }>(
+        `SELECT condition_id FROM {db:Identifier}.polymarket_markets WHERE condition_id IN ({ids:Array(String)})`,
+        { db: CLICKHOUSE_DATABASE_INSERT, ids: allConditionIds },
+    );
+    const existingSet = new Set(existing.data.map((r) => r.condition_id));
+
+    const missingIds = allConditionIds.filter((id) => !existingSet.has(id));
+    let inserted = 0;
+
+    for (const conditionId of missingIds) {
+        const market = await fetchMarketFromApi(conditionId);
+        if (!market) continue;
+
+        // token0/token1 from CLOB token IDs (on-chain token_registered may differ)
+        const clobTokenIds = parseJsonArray(market.clobTokenIds);
+
+        // Chain fields empty — these markets were discovered via Gamma, not on-chain events
+        const success = await insertMarket(
+            market,
+            clobTokenIds[0] || '0',
+            clobTokenIds[1] || '0',
+            '',
+            '',
+            0,
+        );
+
+        if (success) {
+            await insertEventsAndSeries(market, conditionId);
+            inserted++;
+        }
+
+        await sleep(REQUEST_DELAY_MS);
+    }
+
+    await insertRow(
+        'polymarket_events_enriched',
+        {
+            slug: eventSlug,
+            markets_found: event.markets.length,
+            markets_inserted: inserted,
+        },
+        `Failed to record enrichment for ${eventSlug}`,
+        {},
+    );
+
+    if (inserted > 0) {
+        log.info('Event enriched', {
+            eventSlug,
+            marketsFound: event.markets.length,
+            marketsInserted: inserted,
+        });
+    }
 }
 
 // Run the service if this is the main module
