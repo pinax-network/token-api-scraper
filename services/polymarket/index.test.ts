@@ -1051,7 +1051,7 @@ describe('Polymarket markets service', () => {
             }),
         );
 
-        // Subsequent fetches: Gamma /markets returns market data for each child
+        // Second fetch: batch /markets returns both child markets in one call
         const mockMarketA = { ...baseMockMarket, conditionId: '0xaaa', question: 'Market A?', slug: 'market-a' };
         const mockMarketB = {
             ...baseMockMarket,
@@ -1062,13 +1062,7 @@ describe('Polymarket markets service', () => {
         mockFetch.mockReturnValueOnce(
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve([mockMarketA]),
-            }),
-        );
-        mockFetch.mockReturnValueOnce(
-            Promise.resolve({
-                ok: true,
-                json: () => Promise.resolve([mockMarketB]),
+                json: () => Promise.resolve([mockMarketA, mockMarketB]),
             }),
         );
 

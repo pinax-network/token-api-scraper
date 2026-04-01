@@ -227,13 +227,12 @@ interface GammaEvent {
 }
 
 /**
- * Fetch a single item from a Gamma API list endpoint.
- * All Gamma endpoints return arrays — this returns the first element or null.
+ * Fetch from a Gamma API list endpoint. All Gamma endpoints return JSON arrays.
  */
-async function fetchFromGammaApi<T>(
+async function fetchGammaApi<T>(
     path: string,
     context: Record<string, string>,
-): Promise<T | null> {
+): Promise<T[]> {
     const url = `${POLYMARKET_API_BASE}${path}`;
 
     try {
@@ -243,32 +242,40 @@ async function fetchFromGammaApi<T>(
                 status: response.status,
                 ...context,
             });
-            return null;
+            return [];
         }
-
-        const results: T[] = await response.json();
-        return results.length > 0 ? results[0] : null;
+        return await response.json();
     } catch (error) {
         log.warn('Failed to fetch from Polymarket API', {
             ...context,
             error: (error as Error).message,
         });
-        return null;
+        return [];
     }
 }
 
 function fetchMarketFromApi(conditionId: string) {
-    return fetchFromGammaApi<PolymarketMarket>(
+    return fetchGammaApi<PolymarketMarket>(
         `/markets?condition_ids=${conditionId}&limit=1`,
         { conditionId },
+    ).then((r) => r[0] ?? null);
+}
+
+function fetchMarketsFromApi(conditionIds: string[]) {
+    const params = new URLSearchParams();
+    for (const id of conditionIds) params.append('condition_ids', id);
+    params.set('limit', String(conditionIds.length));
+    return fetchGammaApi<PolymarketMarket>(
+        `/markets?${params}`,
+        { conditionIds: String(conditionIds.length) },
     );
 }
 
 function fetchEventFromApi(eventSlug: string) {
-    return fetchFromGammaApi<GammaEvent>(
+    return fetchGammaApi<GammaEvent>(
         `/events?slug=${encodeURIComponent(eventSlug)}`,
         { eventSlug },
-    );
+    ).then((r) => r[0] ?? null);
 }
 
 /**
@@ -701,13 +708,9 @@ async function enrichEvents(): Promise<void> {
 async function processEventEnrichment(eventSlug: string): Promise<void> {
     const event = await fetchEventFromApi(eventSlug);
 
-    if (!event || !event.markets) {
-        await insertRow(
-            'polymarket_events_enriched',
-            { slug: eventSlug, markets_found: 0, markets_inserted: 0 },
-            `Failed to record enrichment for ${eventSlug}`,
-            {},
-        );
+    if (!event || !event.markets || event.markets.length === 0) {
+        // Don't record in enriched table — transient API failures should be retriable
+        log.debug('Event enrichment skipped', { eventSlug, hasEvent: !!event });
         return;
     }
 
@@ -723,13 +726,26 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
     const existingSet = new Set(existing.data.map((r) => r.condition_id));
 
     const missingIds = allConditionIds.filter((id) => !existingSet.has(id));
+    if (missingIds.length === 0) {
+        await insertRow(
+            'polymarket_events_enriched',
+            { slug: eventSlug, markets_found: event.markets.length, markets_inserted: 0 },
+            `Failed to record enrichment for ${eventSlug}`,
+            {},
+        );
+        return;
+    }
+
+    // Batch fetch all missing markets in one API call
+    const markets = await fetchMarketsFromApi(missingIds);
+    if (markets.length === 0) {
+        // API failure or none resolved — don't record, allow retry
+        log.debug('Batch market fetch returned nothing', { eventSlug, missingCount: missingIds.length });
+        return;
+    }
     let inserted = 0;
 
-    for (const conditionId of missingIds) {
-        const market = await fetchMarketFromApi(conditionId);
-        if (!market) continue;
-
-        // token0/token1 from CLOB token IDs (on-chain token_registered may differ)
+    for (const market of markets) {
         const clobTokenIds = parseJsonArray(market.clobTokenIds);
 
         // Chain fields empty — these markets were discovered via Gamma, not on-chain events
@@ -743,11 +759,9 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
         );
 
         if (success) {
-            await insertEventsAndSeries(market, conditionId);
+            await insertEventsAndSeries(market, market.conditionId);
             inserted++;
         }
-
-        await sleep(REQUEST_DELAY_MS);
     }
 
     await insertRow(
