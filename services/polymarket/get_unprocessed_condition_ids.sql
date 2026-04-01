@@ -6,7 +6,11 @@ SELECT
     t.block_hash AS block_hash,
     t.timestamp AS timestamp
 FROM ctfexchange_token_registered t
-ANTI LEFT JOIN {db:Identifier}.polymarket_markets_errors USING (condition_id)
 ANTI LEFT JOIN {db:Identifier}.polymarket_markets USING (condition_id)
+ANTI LEFT JOIN (
+    SELECT condition_id
+    FROM {db:Identifier}.polymarket_markets_errors
+    WHERE created_at > now() - INTERVAL 24 HOUR
+) USING (condition_id)
 ORDER BY t.timestamp DESC
 LIMIT 10000;
