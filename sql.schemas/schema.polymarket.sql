@@ -109,26 +109,32 @@ ENGINE = ReplacingMergeTree(created_at)
 ORDER BY (condition_id);
 
 -- Polymarket Assets
--- Links asset_id (token0/token1) to condition_id for lookup
+-- Links asset_id (token0/token1) to condition_id with market context for lightweight lookups
 CREATE TABLE IF NOT EXISTS polymarket_markets_by_asset_id (
     -- identifiers --
     asset_id                    UInt256 COMMENT 'Asset ID (token0 or token1)',
-    condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)'
+    condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)',
+    market_slug                 String DEFAULT '' COMMENT 'Market slug for URL',
+    outcome_label               String DEFAULT '' COMMENT 'Outcome label for this token (e.g. Yes, No, Up, Down)'
 )
 ENGINE = ReplacingMergeTree
 ORDER BY (asset_id);
 
--- create MV to load data from polymarket_markets into polymarket_markets_by_asset_id
+-- Populate polymarket_markets_by_asset_id from polymarket_markets on insert
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_polymarket_markets_by_asset_id
 TO polymarket_markets_by_asset_id AS
 SELECT
     token0 AS asset_id,
-    condition_id
+    condition_id,
+    market_slug,
+    outcomes[1] AS outcome_label
 FROM polymarket_markets
 UNION ALL
 SELECT
     token1 AS asset_id,
-    condition_id
+    condition_id,
+    market_slug,
+    outcomes[2] AS outcome_label
 FROM polymarket_markets;
 
 -- Polymarket Markets Errors
