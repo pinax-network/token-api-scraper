@@ -1,9 +1,8 @@
 SELECT DISTINCT
     e.slug AS event_slug
 FROM {db:Identifier}.polymarket_events e
+LEFT JOIN {db:Identifier}.polymarket_events_enriched pe ON e.slug = pe.slug
 WHERE e.slug != ''
-  AND e.slug NOT IN (
-    SELECT slug FROM {db:Identifier}.polymarket_events_enriched FINAL
-  )
+  AND pe.slug IS NULL
 ORDER BY e.slug
 LIMIT 1000;

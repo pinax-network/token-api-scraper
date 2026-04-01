@@ -239,7 +239,9 @@ async function fetchGammaApi<T>(
         const response = await fetch(url);
         if (!response.ok) {
             log.warn('Polymarket API returned non-OK status', {
+                path,
                 status: response.status,
+                statusText: response.statusText,
                 ...context,
             });
             return [];
@@ -247,6 +249,7 @@ async function fetchGammaApi<T>(
         return await response.json();
     } catch (error) {
         log.warn('Failed to fetch from Polymarket API', {
+            path,
             ...context,
             error: (error as Error).message,
         });
@@ -692,10 +695,14 @@ async function enrichEvents(): Promise<void> {
 
     log.info('Enriching events', { count: eventSlugs.data.length });
 
-    const queue = new PQueue({ concurrency: CONCURRENCY });
+    const enrichmentConcurrency = Math.max(1, Math.floor(CONCURRENCY / 2));
+    const queue = new PQueue({ concurrency: enrichmentConcurrency });
 
     for (const { event_slug } of eventSlugs.data) {
-        queue.add(() => processEventEnrichment(event_slug));
+        queue.add(async () => {
+            await sleep(REQUEST_DELAY_MS);
+            await processEventEnrichment(event_slug);
+        });
     }
 
     await queue.onIdle();
