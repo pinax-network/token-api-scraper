@@ -755,12 +755,12 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
     for (const market of markets) {
         const clobTokenIds = parseJsonArray(market.clobTokenIds);
 
-        // Chain fields empty — these markets were discovered via Gamma, not on-chain events
+        // Chain fields unavailable — these markets were discovered via Gamma, not on-chain events
         const success = await insertMarket(
             market,
             clobTokenIds[0] || '0',
             clobTokenIds[1] || '0',
-            '',
+            market.createdAt || '1970-01-01T00:00:00Z',
             '',
             0,
         );
