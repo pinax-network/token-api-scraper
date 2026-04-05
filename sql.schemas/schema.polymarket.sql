@@ -115,7 +115,8 @@ CREATE TABLE IF NOT EXISTS polymarket_markets_by_asset_id (
     asset_id                    UInt256 COMMENT 'Asset ID (token0 or token1)',
     condition_id                String COMMENT 'Condition ID (bytes32 as hex with 0x prefix)',
     market_slug                 String DEFAULT '' COMMENT 'Market slug for URL',
-    outcome_label               String DEFAULT '' COMMENT 'Outcome label for this token (e.g. Yes, No, Up, Down)'
+    outcome_label               String DEFAULT '' COMMENT 'Outcome label for this token (e.g. Yes, No, Up, Down)',
+    closed                      Bool DEFAULT false COMMENT 'Whether the market is resolved/closed'
 )
 ENGINE = ReplacingMergeTree
 ORDER BY (asset_id);
@@ -127,14 +128,16 @@ SELECT
     token0 AS asset_id,
     condition_id,
     market_slug,
-    outcomes[1] AS outcome_label
+    outcomes[1] AS outcome_label,
+    closed
 FROM polymarket_markets
 UNION ALL
 SELECT
     token1 AS asset_id,
     condition_id,
     market_slug,
-    outcomes[2] AS outcome_label
+    outcomes[2] AS outcome_label,
+    closed
 FROM polymarket_markets;
 
 -- Polymarket Markets Errors
