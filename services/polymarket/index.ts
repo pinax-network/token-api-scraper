@@ -257,21 +257,34 @@ async function fetchGammaApi<T>(
     }
 }
 
-function fetchMarketFromApi(conditionId: string) {
-    return fetchGammaApi<PolymarketMarket>(
-        `/markets?condition_ids=${conditionId}&limit=1`,
-        { conditionId },
-    ).then((r) => r[0] ?? null);
+function buildMarketParams(ids: string[], closed?: boolean) {
+    const params = new URLSearchParams();
+    for (const id of ids) params.append('condition_ids', id);
+    params.set('limit', String(ids.length));
+    if (closed) params.set('closed', 'true');
+    return params;
 }
 
-function fetchMarketsFromApi(conditionIds: string[]) {
-    const params = new URLSearchParams();
-    for (const id of conditionIds) params.append('condition_ids', id);
-    params.set('limit', String(conditionIds.length));
-    return fetchGammaApi<PolymarketMarket>(
-        `/markets?${params}`,
-        { conditionIds: String(conditionIds.length) },
+async function fetchMarketFromApi(conditionId: string) {
+    const results = await fetchMarketsFromApi([conditionId]);
+    return results[0] ?? null;
+}
+
+async function fetchMarketsFromApi(conditionIds: string[]) {
+    const ctx = { conditionIdCount: String(conditionIds.length) };
+    const results = await fetchGammaApi<PolymarketMarket>(
+        `/markets?${buildMarketParams(conditionIds)}`,
+        ctx,
     );
+    if (results.length >= conditionIds.length) return results;
+    const foundIds = new Set(results.map((m) => m.conditionId));
+    const missingIds = conditionIds.filter((id) => !foundIds.has(id));
+    if (missingIds.length === 0) return results;
+    const closedResults = await fetchGammaApi<PolymarketMarket>(
+        `/markets?${buildMarketParams(missingIds, true)}`,
+        ctx,
+    );
+    return [...results, ...closedResults];
 }
 
 function fetchEventFromApi(eventSlug: string) {
@@ -736,7 +749,11 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
     if (missingIds.length === 0) {
         await insertRow(
             'polymarket_events_enriched',
-            { slug: eventSlug, markets_found: event.markets.length, markets_inserted: 0 },
+            {
+                slug: eventSlug,
+                markets_found: event.markets.length,
+                markets_inserted: 0,
+            },
             `Failed to record enrichment for ${eventSlug}`,
             {},
         );
@@ -747,7 +764,10 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
     const markets = await fetchMarketsFromApi(missingIds);
     if (markets.length === 0) {
         // API failure or none resolved — don't record, allow retry
-        log.debug('Batch market fetch returned nothing', { eventSlug, missingCount: missingIds.length });
+        log.debug('Batch market fetch returned nothing', {
+            eventSlug,
+            missingCount: missingIds.length,
+        });
         return;
     }
     let inserted = 0;
