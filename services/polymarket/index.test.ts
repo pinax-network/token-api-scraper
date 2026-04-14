@@ -766,12 +766,19 @@ describe('Polymarket markets service', () => {
             }),
         );
 
-        // First request returns market, second returns empty (not found)
+        // First request returns market; second returns empty (not found),
+        // then retry with closed=true also returns empty
         mockFetch
             .mockReturnValueOnce(
                 Promise.resolve({
                     ok: true,
                     json: () => Promise.resolve([mockMarket]),
+                }),
+            )
+            .mockReturnValueOnce(
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([]),
                 }),
             )
             .mockReturnValueOnce(
@@ -786,8 +793,8 @@ describe('Polymarket markets service', () => {
         await run();
 
         expect(mockQuery).toHaveBeenCalled();
-        // Should make TWO fetch calls (one per condition_id)
-        expect(mockFetch).toHaveBeenCalledTimes(2);
+        // 3 fetch calls: found market, not-found market, not-found retry with closed=true
+        expect(mockFetch).toHaveBeenCalledTimes(3);
         // Should insert 1 market and 1 error
         expect(mockInsertRow).toHaveBeenCalledTimes(2);
         expect(mockInsertRow).toHaveBeenCalledWith(
@@ -812,6 +819,62 @@ describe('Polymarket markets service', () => {
         expect(mockIncrementSuccess).toHaveBeenCalledTimes(1);
         expect(mockIncrementError).toHaveBeenCalledTimes(1);
         expect(mockShutdownBatchInsertQueue).toHaveBeenCalled();
+    });
+
+    test('should find closed market on retry with closed=true', async () => {
+        const registeredTokens = [
+            {
+                condition_id: '0xclosed111111111111111111111111111111111111111111111111111111111',
+                token0: '111',
+                token1: '222',
+                timestamp: '2025-06-01 00:00:00',
+                block_hash: '0xaaa',
+                block_num: 99999,
+            },
+        ];
+
+        const closedMarket = {
+            ...baseMockMarket,
+            id: '999',
+            conditionId: '0xclosed111111111111111111111111111111111111111111111111111111111',
+            question: 'Resolved market?',
+            slug: 'resolved-market',
+            closed: true,
+            active: false,
+        };
+
+        mockQuery.mockReturnValueOnce(
+            Promise.resolve({
+                data: registeredTokens,
+                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+            }),
+        );
+
+        // First fetch (open markets) returns empty, retry with closed=true finds it
+        mockFetch
+            .mockReturnValueOnce(
+                Promise.resolve({ ok: true, json: () => Promise.resolve([]) }),
+            )
+            .mockReturnValueOnce(
+                Promise.resolve({ ok: true, json: () => Promise.resolve([closedMarket]) }),
+            );
+
+        const { run } = await import('./index');
+        await run();
+
+        // 2 fetch calls: initial (empty) + retry with closed=true (found)
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'polymarket_markets',
+            expect.objectContaining({
+                condition_id: '0xclosed111111111111111111111111111111111111111111111111111111111',
+                closed: true,
+            }),
+            expect.any(String),
+            expect.any(Object),
+        );
+        expect(mockIncrementSuccess).toHaveBeenCalledTimes(1);
+        expect(mockIncrementError).not.toHaveBeenCalled();
     });
 
     test('should handle negative commentCount by converting to 0', async () => {
