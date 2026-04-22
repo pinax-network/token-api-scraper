@@ -1,8 +1,7 @@
--- Rotate through currently-open markets by oldest Gamma-reported updated_at_api.
--- Re-inserting with a fresh ReplacingMergeTree `created_at` lets FINAL serve
--- the refreshed row; ordering by `updated_at_api ASC` means each cycle picks
--- up the markets we've seen the freshest data for longest ago, giving round-
--- robin coverage over time.
+-- Rotate through currently-open markets by oldest `created_at`. Each
+-- re-insert bumps `created_at` (DEFAULT now(), also the ReplacingMergeTree
+-- version column), so refreshed rows naturally fall to the tail of the
+-- queue and the scraper round-robins through the open-market set.
 SELECT
     condition_id,
     toString(token0) AS token0,
@@ -12,5 +11,5 @@ SELECT
     block_num
 FROM {db:Identifier}.polymarket_markets FINAL
 WHERE closed = false
-ORDER BY parseDateTime64BestEffortOrNull(updated_at_api) ASC NULLS FIRST
+ORDER BY created_at ASC
 LIMIT {limit:UInt64};

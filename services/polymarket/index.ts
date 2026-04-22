@@ -712,10 +712,6 @@ async function refreshOpenMarkets(): Promise<void> {
         return;
     }
 
-    log.info('Starting market refresh pass', {
-        batchSize: REFRESH_BATCH_SIZE,
-    });
-
     const stale = await query<RegisteredToken>(
         await Bun.file(
             __dirname + '/get_stale_markets_for_refresh.sql',
@@ -731,7 +727,10 @@ async function refreshOpenMarkets(): Promise<void> {
         return;
     }
 
-    log.info('Refreshing open markets', { count: stale.data.length });
+    log.info('Refreshing open markets', {
+        count: stale.data.length,
+        batchSize: REFRESH_BATCH_SIZE,
+    });
 
     const stats = new ProcessingStats(serviceName, 'polygon');
     stats.startProgressLogging(stale.data.length);
