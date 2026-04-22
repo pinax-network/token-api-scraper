@@ -10,9 +10,24 @@ import { initService } from '../../lib/service-init';
 import { insertRow } from '../../src/insert';
 
 /**
- * Delay between requests in milliseconds to avoid overwhelming the API
+ * Delay between requests in milliseconds to avoid overwhelming the API.
+ * Configurable via POLYMARKET_REQUEST_DELAY_MS. Default raised from 100ms
+ * to 250ms to reduce 429 pressure under Gamma's per-IP rate limits.
  */
-const REQUEST_DELAY_MS = 100;
+const REQUEST_DELAY_MS = parseInt(
+    process.env.POLYMARKET_REQUEST_DELAY_MS || '250',
+    10,
+);
+
+/**
+ * Per-request timeout for Gamma API calls. Without this, a stalled TCP
+ * connection (which Polymarket occasionally emits when heavily rate-limited)
+ * can hang the entire PQueue and deadlock the scraper.
+ */
+const FETCH_TIMEOUT_MS = parseInt(
+    process.env.POLYMARKET_FETCH_TIMEOUT_MS || '30000',
+    10,
+);
 
 const serviceName = 'polymarket';
 const log = createLogger(serviceName);
@@ -236,7 +251,9 @@ async function fetchGammaApi<T>(
     const url = `${POLYMARKET_API_BASE}${path}`;
 
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
         if (!response.ok) {
             log.warn('Polymarket API returned non-OK status', {
                 path,
