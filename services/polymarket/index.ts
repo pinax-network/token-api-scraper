@@ -29,6 +29,16 @@ const FETCH_TIMEOUT_MS = parseInt(
     10,
 );
 
+/**
+ * Refresh pass: number of currently-open markets to re-scrape each cycle so
+ * mutable Gamma fields (closed, accepting_orders, volume, ...) don't drift
+ * after initial ingestion. Set to 0 to disable the pass (e.g. for backfills).
+ */
+const REFRESH_BATCH_SIZE = parseInt(
+    process.env.POLYMARKET_REFRESH_BATCH_SIZE || '1000',
+    10,
+);
+
 const serviceName = 'polymarket';
 const log = createLogger(serviceName);
 
@@ -700,9 +710,57 @@ export async function run(): Promise<void> {
     }
 
     await enrichEvents();
+    await refreshOpenMarkets();
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();
+}
+
+/**
+ * Refresh pass: re-scrape a rotating slice of currently-open markets so
+ * mutable fields (closed, accepting_orders, volume, ...) stay in sync with
+ * Gamma. Without this, the main loop's ANTI LEFT JOIN would only ever
+ * insert each market once and a resolved market would remain closed=false
+ * in our mirror indefinitely.
+ */
+async function refreshOpenMarkets(): Promise<void> {
+    if (REFRESH_BATCH_SIZE <= 0) {
+        log.info('Market refresh pass disabled');
+        return;
+    }
+
+    const stale = await query<RegisteredToken>(
+        await Bun.file(
+            __dirname + '/get_stale_markets_for_refresh.sql',
+        ).text(),
+        {
+            db: CLICKHOUSE_DATABASE_INSERT,
+            limit: REFRESH_BATCH_SIZE,
+        },
+    );
+
+    if (stale.data.length === 0) {
+        log.info('No open markets to refresh');
+        return;
+    }
+
+    log.info('Refreshing open markets', {
+        count: stale.data.length,
+        batchSize: REFRESH_BATCH_SIZE,
+    });
+
+    const stats = new ProcessingStats(serviceName, 'polygon');
+    stats.startProgressLogging(stale.data.length);
+
+    const queue = new PQueue({ concurrency: CONCURRENCY });
+    for (const token of stale.data) {
+        queue.add(async () => {
+            await processToken(token, stats);
+        });
+    }
+    await queue.onIdle();
+
+    stats.logCompletion();
 }
 
 /**
