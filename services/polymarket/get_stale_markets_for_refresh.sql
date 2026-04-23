@@ -1,7 +1,7 @@
--- Rotate through currently-open markets by oldest `created_at`. Each
--- re-insert bumps `created_at` (DEFAULT now(), also the ReplacingMergeTree
--- version column), so refreshed rows naturally fall to the tail of the
--- queue and the scraper round-robins through the open-market set.
+-- Prioritize drift candidates (end_date passed but still `closed=false`),
+-- then nearest-to-resolve, then round-robin by `created_at`. Each re-insert
+-- bumps `created_at` (DEFAULT now(), also the ReplacingMergeTree version
+-- column), so refreshed rows naturally fall to the tail of the queue.
 SELECT
     condition_id,
     toString(token0) AS token0,
@@ -11,5 +11,8 @@ SELECT
     block_num
 FROM {db:Identifier}.polymarket_markets FINAL
 WHERE closed = false
-ORDER BY created_at ASC
+ORDER BY
+    (parseDateTime64BestEffortOrNull(end_date) < now()) DESC,
+    parseDateTime64BestEffortOrNull(end_date) ASC NULLS LAST,
+    created_at ASC
 LIMIT {limit:UInt64};

@@ -1,5 +1,6 @@
 import * as http from 'http';
 import * as promClient from 'prom-client';
+import { getBatchInsertQueue } from './batch-insert';
 import {
     CLICKHOUSE_DATABASE,
     CLICKHOUSE_URL,
@@ -7,6 +8,19 @@ import {
     PROMETHEUS_HOSTNAME,
 } from './config';
 import { createLogger } from './logger';
+
+/** How long since the last successful batch flush before `/live` returns 503.
+ * A liveness probe targets the scraper worker actually making progress, not
+ * just the process being up. Default 5min covers normal cycle pacing. */
+const LIVENESS_STALE_THRESHOLD_MS = parseInt(
+    process.env.LIVENESS_STALE_THRESHOLD_MS || '300000',
+    10,
+);
+const STARTUP_GRACE_MS = parseInt(
+    process.env.LIVENESS_STARTUP_GRACE_MS || '600000',
+    10,
+);
+const startedAt = Date.now();
 
 const log = createLogger('prometheus');
 
@@ -118,6 +132,8 @@ export function startPrometheusServer(
                 res.setHeader('Content-Type', register.contentType);
                 const metrics = await register.metrics();
                 res.end(metrics);
+            } else if (req.url === '/live') {
+                handleLiveness(res);
             } else {
                 res.statusCode = 404;
                 res.end('Not Found');
@@ -138,6 +154,36 @@ export function startPrometheusServer(
             reject(err);
         });
     });
+}
+
+/**
+ * Liveness probe: healthy if a batch flush succeeded within the stale
+ * threshold, or we're still within the startup grace window.
+ */
+function handleLiveness(res: http.ServerResponse): void {
+    res.setHeader('Content-Type', 'application/json');
+    let lastFlushAt: number | undefined;
+    try {
+        lastFlushAt = getBatchInsertQueue().getLastSuccessfulFlushAt();
+    } catch {
+        // Queue not initialized yet — treat as startup grace
+        lastFlushAt = undefined;
+    }
+    const now = Date.now();
+    const withinGrace = now - startedAt < STARTUP_GRACE_MS;
+    const ageMs = lastFlushAt !== undefined ? now - lastFlushAt : undefined;
+    const healthy =
+        (ageMs !== undefined && ageMs < LIVENESS_STALE_THRESHOLD_MS) ||
+        (lastFlushAt === undefined && withinGrace);
+    res.statusCode = healthy ? 200 : 503;
+    res.end(
+        JSON.stringify({
+            healthy,
+            lastFlushAgeMs: ageMs,
+            staleThresholdMs: LIVENESS_STALE_THRESHOLD_MS,
+            withinStartupGrace: withinGrace && lastFlushAt === undefined,
+        }),
+    );
 }
 
 /**

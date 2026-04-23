@@ -27,6 +27,11 @@ export class BatchInsertQueue {
     private config: BatchInsertConfig;
     private isShuttingDown = false;
 
+    /** `undefined` until the first flush completes. Otherwise tracks the last
+     * flush outcome so callers can detect silent insert loss. */
+    private lastFlushError: string | undefined;
+    private lastSuccessfulFlushAt: number | undefined;
+
     constructor(config: BatchInsertConfig) {
         this.config = config;
         this.startTimer();
@@ -66,9 +71,13 @@ export class BatchInsertQueue {
         try {
             await this.insertImmediate(table, items);
             trackClickHouseOperation('write', 'success', startTime);
+            this.lastFlushError = undefined;
+            this.lastSuccessfulFlushAt = Date.now();
         } catch (error) {
             this.handleInsertError(error, table, items.length);
             trackClickHouseOperation('write', 'error', startTime);
+            const err = error as Error;
+            this.lastFlushError = err?.message || String(error);
         }
     }
 
@@ -147,8 +156,8 @@ export class BatchInsertQueue {
     }
 
     /**
-     * Shutdown the batch insert queue
-     * Flushes all pending inserts and stops the timer
+     * Shutdown the batch insert queue. Throws if the final flush failed so
+     * buffered rows can't be dropped silently on cycle boundaries.
      */
     public async shutdown(): Promise<void> {
         this.isShuttingDown = true;
@@ -159,6 +168,12 @@ export class BatchInsertQueue {
         }
 
         await this.flushAll();
+
+        if (this.lastFlushError !== undefined) {
+            throw new Error(
+                `Batch insert shutdown failed — last flush error: ${this.lastFlushError}`,
+            );
+        }
     }
 
     /**
@@ -177,6 +192,21 @@ export class BatchInsertQueue {
             total += queue.length;
         }
         return total;
+    }
+
+    /** True when the most recent flush succeeded (or no flush has run). */
+    public isHealthy(): boolean {
+        return this.lastFlushError === undefined;
+    }
+
+    /** Last flush error message, or `undefined` if the most recent flush succeeded. */
+    public getLastError(): string | undefined {
+        return this.lastFlushError;
+    }
+
+    /** Unix ms of the last successful flush; `undefined` until the first. */
+    public getLastSuccessfulFlushAt(): number | undefined {
+        return this.lastSuccessfulFlushAt;
     }
 }
 

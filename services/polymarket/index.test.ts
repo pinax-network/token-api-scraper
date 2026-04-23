@@ -45,6 +45,11 @@ mock.module('../../lib/service-init', () => ({
 
 mock.module('../../lib/batch-insert', () => ({
     shutdownBatchInsertQueue: mockShutdownBatchInsertQueue,
+    getBatchInsertQueue: () => ({
+        flushAll: async () => {},
+        isHealthy: () => true,
+        getLastError: () => undefined,
+    }),
 }));
 
 // Replace global fetch
