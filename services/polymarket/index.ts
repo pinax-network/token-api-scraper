@@ -50,7 +50,7 @@ const log = createLogger(serviceName);
  * ClickHouse `DateTime('UTC')` columns. Gamma returns microsecond precision
  * (e.g. `2026-04-22T23:20:10.368406Z`) which CH's DateTime parser rejects.
  */
-function normalizeGammaTimestamp(s: string | undefined | null): string {
+export function normalizeGammaTimestamp(s: string | undefined | null): string {
     if (!s) return '1970-01-01T00:00:00Z';
     return s.replace(/\.\d+(Z|[+-]\d{2}:?\d{2})?$/, '$1');
 }

@@ -23,15 +23,20 @@ function transportJSON(logObj: Record<string, unknown>): void {
     const indexed: Record<string, unknown> = rest;
     const msg = indexed[0];
     const payload = indexed[1];
+    // Spread payload fields first so reserved keys (level/time/logger/msg)
+    // set afterwards take precedence over any caller-supplied collisions.
+    const payloadFields =
+        payload && typeof payload === 'object'
+            ? (payload as Record<string, unknown>)
+            : {};
     const flat: Record<string, unknown> = {
+        ...payloadFields,
         level: String(meta.logLevelName || 'info').toLowerCase(),
         time: meta.date,
         logger: meta.name,
         msg,
     };
-    if (payload && typeof payload === 'object') {
-        Object.assign(flat, payload);
-    } else if (payload !== undefined) {
+    if (payload !== undefined && (payload === null || typeof payload !== 'object')) {
         flat.data = payload;
     }
     process.stdout.write(JSON.stringify(flat) + '\n');

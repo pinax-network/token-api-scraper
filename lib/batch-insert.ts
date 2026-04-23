@@ -56,37 +56,44 @@ export class BatchInsertQueue {
     }
 
     /**
-     * Flush all pending inserts for a specific table
+     * Flush pending inserts for a specific table. Returns 'noop' | 'ok' | 'err'.
+     * Success stamps `lastSuccessfulFlushAt` and clears `lastFlushError`;
+     * failure records the message. `shutdown()` additionally checks the
+     * per-cycle `flushAll` results so a lingering error from a prior
+     * (no-retry-since) failure also triggers a loud shutdown.
      */
-    private async flush(table: string): Promise<void> {
+    private async flush(table: string): Promise<'noop' | 'ok' | 'err'> {
         const queue = this.queues.get(table);
         if (!queue || queue.length === 0) {
-            return;
+            return 'noop';
         }
 
-        // Get all items and clear the queue
         const items = queue.splice(0);
         const startTime = performance.now();
 
         try {
             await this.insertImmediate(table, items);
             trackClickHouseOperation('write', 'success', startTime);
-            this.lastFlushError = undefined;
             this.lastSuccessfulFlushAt = Date.now();
+            this.lastFlushError = undefined;
+            return 'ok';
         } catch (error) {
             this.handleInsertError(error, table, items.length);
             trackClickHouseOperation('write', 'error', startTime);
             const err = error as Error;
             this.lastFlushError = err?.message || String(error);
+            return 'err';
         }
     }
 
     /**
-     * Flush all pending inserts for all tables
+     * Flush every table's pending inserts. Returns the per-table outcomes so
+     * callers (`shutdown`) can reason about failures independently of the
+     * shared `lastFlushError` field, which a concurrent success could clear.
      */
-    public async flushAll(): Promise<void> {
+    public async flushAll(): Promise<Array<'noop' | 'ok' | 'err'>> {
         const tables = Array.from(this.queues.keys());
-        await Promise.all(tables.map((table) => this.flush(table)));
+        return Promise.all(tables.map((table) => this.flush(table)));
     }
 
     /**
@@ -156,8 +163,10 @@ export class BatchInsertQueue {
     }
 
     /**
-     * Shutdown the batch insert queue. Throws if the final flush failed so
-     * buffered rows can't be dropped silently on cycle boundaries.
+     * Shutdown the batch insert queue. Throws if either the final flush had
+     * an error OR a prior unresolved error is still on the queue (no
+     * successful flush between the failure and shutdown) — buffered rows
+     * mustn't be dropped silently on cycle boundaries.
      */
     public async shutdown(): Promise<void> {
         this.isShuttingDown = true;
@@ -167,9 +176,9 @@ export class BatchInsertQueue {
             this.timer = null;
         }
 
-        await this.flushAll();
+        const results = await this.flushAll();
 
-        if (this.lastFlushError !== undefined) {
+        if (results.includes('err') || this.lastFlushError !== undefined) {
             throw new Error(
                 `Batch insert shutdown failed — last flush error: ${this.lastFlushError}`,
             );

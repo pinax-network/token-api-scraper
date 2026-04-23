@@ -186,18 +186,23 @@ describe('BatchInsertQueue', () => {
             );
         });
 
-        test('recovers to healthy after a successful flush', async () => {
-            mockInsert.mockRejectedValueOnce(new Error('Transient')); // first flush fails
-            mockInsert.mockResolvedValueOnce(undefined); // second succeeds
+        test('recovers to healthy after a clean flushAll cycle', async () => {
+            mockInsert.mockRejectedValueOnce(new Error('Transient'));
+            mockInsert.mockResolvedValueOnce(undefined);
 
-            const q = new BatchInsertQueue({ intervalMs: 1000, maxSize: 1 });
+            const q = new BatchInsertQueue({ intervalMs: 60_000, maxSize: 1 });
 
-            await q.add('test_table', { id: 1 }); // triggers failing flush
+            // First add triggers a failing single-table flush.
+            await q.add('test_table', { id: 1 });
             await new Promise((r) => setTimeout(r, 20));
             expect(q.isHealthy()).toBe(false);
+            expect(q.getLastError()).toBe('Transient');
 
-            await q.add('test_table', { id: 2 }); // triggers successful flush
-            await new Promise((r) => setTimeout(r, 20));
+            // A clean flushAll cycle (queue reloaded, all tables succeed)
+            // is what actually clears the error — not a stray single-table
+            // success during a concurrent cycle.
+            await q.add('test_table', { id: 2 });
+            await q.flushAll();
             expect(q.isHealthy()).toBe(true);
             expect(q.getLastError()).toBeUndefined();
             expect(q.getLastSuccessfulFlushAt()).toBeDefined();

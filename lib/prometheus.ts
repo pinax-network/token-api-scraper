@@ -1,6 +1,5 @@
 import * as http from 'http';
 import * as promClient from 'prom-client';
-import { getBatchInsertQueue } from './batch-insert';
 import {
     CLICKHOUSE_DATABASE,
     CLICKHOUSE_URL,
@@ -21,6 +20,15 @@ const STARTUP_GRACE_MS = parseInt(
     10,
 );
 const startedAt = Date.now();
+
+/** Setter-injected so this module doesn't import batch-insert directly, which
+ * would close a dependency cycle (batch-insert uses `trackClickHouseOperation`
+ * from this module). */
+let getLastFlushAt: () => number | undefined = () => undefined;
+
+export function setLivenessSource(fn: () => number | undefined): void {
+    getLastFlushAt = fn;
+}
 
 const log = createLogger('prometheus');
 
@@ -162,13 +170,7 @@ export function startPrometheusServer(
  */
 function handleLiveness(res: http.ServerResponse): void {
     res.setHeader('Content-Type', 'application/json');
-    let lastFlushAt: number | undefined;
-    try {
-        lastFlushAt = getBatchInsertQueue().getLastSuccessfulFlushAt();
-    } catch {
-        // Queue not initialized yet — treat as startup grace
-        lastFlushAt = undefined;
-    }
+    const lastFlushAt = getLastFlushAt();
     const now = Date.now();
     const withinGrace = now - startedAt < STARTUP_GRACE_MS;
     const ageMs = lastFlushAt !== undefined ? now - lastFlushAt : undefined;

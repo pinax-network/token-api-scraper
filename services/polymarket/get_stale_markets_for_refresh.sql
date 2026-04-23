@@ -12,7 +12,7 @@ SELECT
 FROM {db:Identifier}.polymarket_markets FINAL
 WHERE closed = false
 ORDER BY
-    (parseDateTime64BestEffortOrNull(end_date) < now()) DESC,
+    ifNull(parseDateTime64BestEffortOrNull(end_date) < now(), false) DESC,
     parseDateTime64BestEffortOrNull(end_date) ASC NULLS LAST,
     created_at ASC
 LIMIT {limit:UInt64};
