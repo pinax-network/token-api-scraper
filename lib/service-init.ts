@@ -3,7 +3,7 @@
  * Handles common initialization tasks for all services
  */
 
-import { initBatchInsertQueue } from './batch-insert';
+import { getBatchInsertQueue, initBatchInsertQueue } from './batch-insert';
 import {
     BATCH_INSERT_INTERVAL_MS,
     BATCH_INSERT_MAX_SIZE,
@@ -11,6 +11,7 @@ import {
     DEFAULT_CONFIG,
 } from './config';
 import { createLogger } from './logger';
+import { setLivenessSource } from './prometheus';
 
 const log = createLogger('service');
 
@@ -31,6 +32,17 @@ export function initService(options: ServiceInitOptions): void {
     initBatchInsertQueue({
         intervalMs: BATCH_INSERT_INTERVAL_MS,
         maxSize: BATCH_INSERT_MAX_SIZE,
+    });
+
+    // Wire the liveness probe's progress signal without letting prometheus.ts
+    // depend on batch-insert.ts (batch-insert already depends on prometheus
+    // for metrics, so a direct import would close the cycle).
+    setLivenessSource(() => {
+        try {
+            return getBatchInsertQueue().getLastSuccessfulFlushAt();
+        } catch {
+            return undefined;
+        }
     });
 
     // Log startup info (always at INFO level)

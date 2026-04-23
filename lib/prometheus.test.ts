@@ -3,6 +3,7 @@ import { sleep } from 'bun';
 import {
     incrementError,
     incrementSuccess,
+    setLivenessSource,
     startPrometheusServer,
     stopPrometheusServer,
     trackClickHouseOperation,
@@ -200,5 +201,58 @@ describe('Prometheus Histogram Helpers', () => {
 
         // Wait for server to fully close
         await sleep(100);
+    });
+});
+
+describe('Liveness endpoint', () => {
+    test('returns 200 when last flush is fresh', async () => {
+        const port = 19100;
+        setLivenessSource(() => Date.now() - 1000); // 1s ago → well under 5min threshold
+        await startPrometheusServer(port);
+        await sleep(50);
+
+        const res = await fetch(`http://localhost:${port}/live`);
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as Record<string, unknown>;
+        expect(body.healthy).toBe(true);
+        expect(body.lastFlushAgeMs).toBeGreaterThan(0);
+
+        await stopPrometheusServer();
+        setLivenessSource(() => undefined);
+        await sleep(50);
+    });
+
+    test('returns 503 when last flush is older than the stale threshold', async () => {
+        const port = 19101;
+        // Pretend last flush was 1 hour ago; default threshold is 5min
+        setLivenessSource(() => Date.now() - 60 * 60 * 1000);
+        await startPrometheusServer(port);
+        await sleep(50);
+
+        const res = await fetch(`http://localhost:${port}/live`);
+        expect(res.status).toBe(503);
+        const body = (await res.json()) as Record<string, unknown>;
+        expect(body.healthy).toBe(false);
+
+        await stopPrometheusServer();
+        setLivenessSource(() => undefined);
+        await sleep(50);
+    });
+
+    test('returns 200 during startup grace before any flush has run', async () => {
+        const port = 19102;
+        setLivenessSource(() => undefined); // no flush yet
+        await startPrometheusServer(port);
+        await sleep(50);
+
+        const res = await fetch(`http://localhost:${port}/live`);
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as Record<string, unknown>;
+        expect(body.healthy).toBe(true);
+        expect(body.withinStartupGrace).toBe(true);
+        expect(body.lastFlushAgeMs).toBeUndefined();
+
+        await stopPrometheusServer();
+        await sleep(50);
     });
 });

@@ -1,6 +1,9 @@
 import { sleep } from 'bun';
 import PQueue from 'p-queue';
-import { shutdownBatchInsertQueue } from '../../lib/batch-insert';
+import {
+    getBatchInsertQueue,
+    shutdownBatchInsertQueue,
+} from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { CLICKHOUSE_DATABASE_INSERT, CONCURRENCY } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
@@ -41,6 +44,16 @@ const REFRESH_BATCH_SIZE = parseInt(
 
 const serviceName = 'polymarket';
 const log = createLogger(serviceName);
+
+/**
+ * Strip fractional seconds from a Gamma ISO 8601 timestamp so it fits
+ * ClickHouse `DateTime('UTC')` columns. Gamma returns microsecond precision
+ * (e.g. `2026-04-22T23:20:10.368406Z`) which CH's DateTime parser rejects.
+ */
+export function normalizeGammaTimestamp(s: string | undefined | null): string {
+    if (!s) return '1970-01-01T00:00:00Z';
+    return s.replace(/\.\d+(Z|[+-]\d{2}:?\d{2})?$/, '$1');
+}
 
 /**
  * Polymarket API base URL
@@ -336,7 +349,7 @@ async function insertMarket(
         condition_id: market.conditionId || '',
         token0,
         token1,
-        timestamp,
+        timestamp: normalizeGammaTimestamp(timestamp),
         block_hash,
         block_num,
         market_id: market.id || '',
@@ -602,10 +615,20 @@ async function insertEventsAndSeries(
  * Process a single registered token
  * Fetches market data for the token and inserts into tables
  */
+interface ProcessTokenOptions {
+    /** Record "market not found" rows in `polymarket_markets_errors`.
+     * Main/enrichment passes want this (drives the 24h error-retry gate);
+     * the refresh pass already has the condition_id in our mirror, so
+     * a transient Gamma miss shouldn't pollute the errors table. */
+    recordErrors?: boolean;
+}
+
 async function processToken(
     token: RegisteredToken,
     stats: ProcessingStats,
+    options: ProcessTokenOptions = {},
 ): Promise<void> {
+    const { recordErrors = true } = options;
     const { condition_id, token0, token1, timestamp, block_hash, block_num } =
         token;
     const startTime = performance.now();
@@ -624,7 +647,9 @@ async function processToken(
         log.warn('No market found for condition_id', {
             conditionId: condition_id,
         });
-        await insertError(condition_id, token0, token1, 'Market not found');
+        if (recordErrors) {
+            await insertError(condition_id, token0, token1, 'Market not found');
+        }
         incrementError(serviceName);
         stats.incrementError();
         return;
@@ -709,11 +734,32 @@ export async function run(): Promise<void> {
         stats.logCompletion();
     }
 
+    await flushPass('main');
     await enrichEvents();
+    await flushPass('enrichment');
     await refreshOpenMarkets();
+    await flushPass('refresh');
 
     // Shutdown batch insert queue
     await shutdownBatchInsertQueue();
+}
+
+type PassName = 'main' | 'enrichment' | 'refresh';
+
+/**
+ * Drain the shared batch queue between passes and warn loudly if CH rejected
+ * any rows. Keeps per-pass error attribution clean and catches silent CH-side
+ * rejections before the next pass piles more rows on.
+ */
+async function flushPass(passName: PassName): Promise<void> {
+    const batchQueue = getBatchInsertQueue();
+    await batchQueue.flushAll();
+    if (!batchQueue.isHealthy()) {
+        log.error('Batch queue unhealthy after pass', {
+            pass: passName,
+            lastError: batchQueue.getLastError(),
+        });
+    }
 }
 
 /**
@@ -755,7 +801,7 @@ async function refreshOpenMarkets(): Promise<void> {
     const queue = new PQueue({ concurrency: CONCURRENCY });
     for (const token of stale.data) {
         queue.add(async () => {
-            await processToken(token, stats);
+            await processToken(token, stats, { recordErrors: false });
         });
     }
     await queue.onIdle();

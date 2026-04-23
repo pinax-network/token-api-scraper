@@ -45,6 +45,11 @@ mock.module('../../lib/service-init', () => ({
 
 mock.module('../../lib/batch-insert', () => ({
     shutdownBatchInsertQueue: mockShutdownBatchInsertQueue,
+    getBatchInsertQueue: () => ({
+        flushAll: async () => {},
+        isHealthy: () => true,
+        getLastError: () => undefined,
+    }),
 }));
 
 // Replace global fetch
@@ -75,6 +80,44 @@ const baseMockMarket = {
     oneDayPriceChange: 0, oneHourPriceChange: 0, lastTradePrice: 0,
     bestBid: 0, bestAsk: 0, umaResolutionStatuses: '',
 };
+
+describe('normalizeGammaTimestamp', () => {
+    test('strips microsecond precision from Z-suffixed timestamps', async () => {
+        const { normalizeGammaTimestamp } = await import('./index');
+        expect(normalizeGammaTimestamp('2026-04-22T23:20:10.368406Z')).toBe(
+            '2026-04-22T23:20:10Z',
+        );
+    });
+
+    test('strips fractional seconds with numeric offsets', async () => {
+        const { normalizeGammaTimestamp } = await import('./index');
+        expect(normalizeGammaTimestamp('2026-04-22T23:20:10.5+00:00')).toBe(
+            '2026-04-22T23:20:10+00:00',
+        );
+        expect(normalizeGammaTimestamp('2026-04-22T23:20:10.123-05:00')).toBe(
+            '2026-04-22T23:20:10-05:00',
+        );
+    });
+
+    test('passes already-whole-second timestamps through unchanged', async () => {
+        const { normalizeGammaTimestamp } = await import('./index');
+        expect(normalizeGammaTimestamp('2026-04-22T23:20:10Z')).toBe(
+            '2026-04-22T23:20:10Z',
+        );
+        expect(normalizeGammaTimestamp('2026-04-22 14:54:44')).toBe(
+            '2026-04-22 14:54:44',
+        );
+    });
+
+    test('returns epoch sentinel for empty or missing input', async () => {
+        const { normalizeGammaTimestamp } = await import('./index');
+        expect(normalizeGammaTimestamp('')).toBe('1970-01-01T00:00:00Z');
+        expect(normalizeGammaTimestamp(undefined)).toBe(
+            '1970-01-01T00:00:00Z',
+        );
+        expect(normalizeGammaTimestamp(null)).toBe('1970-01-01T00:00:00Z');
+    });
+});
 
 describe('Polymarket markets service', () => {
     beforeEach(() => {
