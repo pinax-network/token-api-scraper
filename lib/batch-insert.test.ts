@@ -176,7 +176,33 @@ describe('BatchInsertQueue', () => {
             // Should have attempted the insert
             expect(mockInsert).toHaveBeenCalled();
 
-            await errorQueue.shutdown();
+            // Shutdown surfaces the prior flush error so cycle boundaries
+            // don't drop buffered rows silently. A successful subsequent
+            // flush would clear the state, but we only mocked one failure.
+            expect(errorQueue.isHealthy()).toBe(false);
+            expect(errorQueue.getLastError()).toBe('Insert failed');
+            await expect(errorQueue.shutdown()).rejects.toThrow(
+                /Batch insert shutdown failed.*Insert failed/,
+            );
+        });
+
+        test('recovers to healthy after a successful flush', async () => {
+            mockInsert.mockRejectedValueOnce(new Error('Transient')); // first flush fails
+            mockInsert.mockResolvedValueOnce(undefined); // second succeeds
+
+            const q = new BatchInsertQueue({ intervalMs: 1000, maxSize: 1 });
+
+            await q.add('test_table', { id: 1 }); // triggers failing flush
+            await new Promise((r) => setTimeout(r, 20));
+            expect(q.isHealthy()).toBe(false);
+
+            await q.add('test_table', { id: 2 }); // triggers successful flush
+            await new Promise((r) => setTimeout(r, 20));
+            expect(q.isHealthy()).toBe(true);
+            expect(q.getLastError()).toBeUndefined();
+            expect(q.getLastSuccessfulFlushAt()).toBeDefined();
+
+            await q.shutdown();
         });
     });
 });
