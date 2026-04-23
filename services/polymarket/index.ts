@@ -46,13 +46,16 @@ const serviceName = 'polymarket';
 const log = createLogger(serviceName);
 
 /**
- * Strip fractional seconds from a Gamma ISO 8601 timestamp so it fits
- * ClickHouse `DateTime('UTC')` columns. Gamma returns microsecond precision
- * (e.g. `2026-04-22T23:20:10.368406Z`) which CH's DateTime parser rejects.
+ * Normalize a Gamma ISO 8601 timestamp so it fits ClickHouse
+ * `DateTime('UTC')` columns. CH's DateTime parser accepts
+ * `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS` but rejects fractional
+ * seconds and the trailing `Z` / `±HH:MM` offset Gamma tacks on, so strip
+ * both. A caller that feeds chain-sourced "YYYY-MM-DD HH:MM:SS" already
+ * matches the accepted shape and passes through unchanged.
  */
 export function normalizeGammaTimestamp(s: string | undefined | null): string {
-    if (!s) return '1970-01-01T00:00:00Z';
-    return s.replace(/\.\d+(Z|[+-]\d{2}:?\d{2})?$/, '$1');
+    if (!s) return '1970-01-01T00:00:00';
+    return s.replace(/\.\d+/, '').replace(/(Z|[+-]\d{2}:?\d{2})$/, '');
 }
 
 /**
