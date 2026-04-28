@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { fetchGammaApi, fetchMarketsFromApi } from './gamma';
 
-// LOG_LEVEL=error keeps warn/info noise out of the test output. We don't
-// mock `lib/logger` here because `services/polymarket/index.test.ts` (run in
-// the same process) already imports `./index` with the real logger, and
-// `mock.module` doesn't retroactively rewire bindings captured at import time.
+// LOG_LEVEL=error keeps warn/info noise out of the test output.
 process.env.LOG_LEVEL = 'error';
 
 const mockFetch = mock(() =>
@@ -13,8 +11,6 @@ const mockFetch = mock(() =>
     }),
 );
 globalThis.fetch = mockFetch as unknown as typeof fetch;
-
-const { fetchGammaApi, fetchMarketsFromApi } = await import('./index');
 
 const conditionId = (i: number) =>
     `0x${i.toString(16).padStart(64, '0')}`;
