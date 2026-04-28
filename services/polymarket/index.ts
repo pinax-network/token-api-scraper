@@ -269,13 +269,19 @@ interface GammaEvent {
 }
 
 /**
+ * Maximum items the Gamma keyset endpoints accept per request. Above this they
+ * silently truncate, so we chunk batched calls and never set `limit` higher.
+ */
+const KEYSET_PAGE_LIMIT = 1000;
+
+/**
  * Fetch a list from a Gamma keyset endpoint. The keyset variants wrap the
  * collection in a top-level object keyed by the resource name (e.g. `markets`
- * or `events`) alongside an optional `next_cursor`. Our calls all filter by
- * specific IDs/slugs and stay well under the per-request limit, so we ignore
- * `next_cursor` and just return the array.
+ * or `events`) alongside an optional `next_cursor`. Callers chunk inputs to
+ * stay within `KEYSET_PAGE_LIMIT`, so we ignore `next_cursor` and just return
+ * the array.
  */
-async function fetchGammaApi<T>(
+export async function fetchGammaApi<T>(
     path: string,
     wrapperKey: 'markets' | 'events',
     context: Record<string, string>,
@@ -297,7 +303,14 @@ async function fetchGammaApi<T>(
         }
         const json = (await response.json()) as Record<string, unknown>;
         const items = json?.[wrapperKey];
-        return Array.isArray(items) ? (items as T[]) : [];
+        if (Array.isArray(items)) return items as T[];
+        log.warn('Polymarket API returned unexpected response shape', {
+            path,
+            wrapperKey,
+            topLevelKeys: Object.keys(json ?? {}),
+            ...context,
+        });
+        return [];
     } catch (error) {
         log.warn('Failed to fetch from Polymarket API', {
             path,
@@ -321,7 +334,20 @@ async function fetchMarketFromApi(conditionId: string) {
     return results[0] ?? null;
 }
 
-async function fetchMarketsFromApi(conditionIds: string[]) {
+export async function fetchMarketsFromApi(
+    conditionIds: string[],
+): Promise<PolymarketMarket[]> {
+    if (conditionIds.length > KEYSET_PAGE_LIMIT) {
+        const chunks: PolymarketMarket[][] = [];
+        for (let i = 0; i < conditionIds.length; i += KEYSET_PAGE_LIMIT) {
+            chunks.push(
+                await fetchMarketsFromApi(
+                    conditionIds.slice(i, i + KEYSET_PAGE_LIMIT),
+                ),
+            );
+        }
+        return chunks.flat();
+    }
     const ctx = { conditionIdCount: String(conditionIds.length) };
     const results = await fetchGammaApi<PolymarketMarket>(
         `/markets/keyset?${buildMarketParams(conditionIds)}`,
