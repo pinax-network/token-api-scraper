@@ -258,7 +258,8 @@ interface PolymarketSeries {
 }
 
 /**
- * Interface for the Gamma /events response (simplified — only fields we need)
+ * Interface for items inside the Gamma `/events/keyset` response (simplified
+ * — only fields we need).
  */
 interface GammaEvent {
     id: string;
@@ -268,10 +269,15 @@ interface GammaEvent {
 }
 
 /**
- * Fetch from a Gamma API list endpoint. All Gamma endpoints return JSON arrays.
+ * Fetch a list from a Gamma keyset endpoint. The keyset variants wrap the
+ * collection in a top-level object keyed by the resource name (e.g. `markets`
+ * or `events`) alongside an optional `next_cursor`. Our calls all filter by
+ * specific IDs/slugs and stay well under the per-request limit, so we ignore
+ * `next_cursor` and just return the array.
  */
 async function fetchGammaApi<T>(
     path: string,
+    wrapperKey: 'markets' | 'events',
     context: Record<string, string>,
 ): Promise<T[]> {
     const url = `${POLYMARKET_API_BASE}${path}`;
@@ -289,7 +295,9 @@ async function fetchGammaApi<T>(
             });
             return [];
         }
-        return await response.json();
+        const json = (await response.json()) as Record<string, unknown>;
+        const items = json?.[wrapperKey];
+        return Array.isArray(items) ? (items as T[]) : [];
     } catch (error) {
         log.warn('Failed to fetch from Polymarket API', {
             path,
@@ -316,7 +324,8 @@ async function fetchMarketFromApi(conditionId: string) {
 async function fetchMarketsFromApi(conditionIds: string[]) {
     const ctx = { conditionIdCount: String(conditionIds.length) };
     const results = await fetchGammaApi<PolymarketMarket>(
-        `/markets?${buildMarketParams(conditionIds)}`,
+        `/markets/keyset?${buildMarketParams(conditionIds)}`,
+        'markets',
         ctx,
     );
     if (results.length >= conditionIds.length) return results;
@@ -324,7 +333,8 @@ async function fetchMarketsFromApi(conditionIds: string[]) {
     const missingIds = conditionIds.filter((id) => !foundIds.has(id));
     if (missingIds.length === 0) return results;
     const closedResults = await fetchGammaApi<PolymarketMarket>(
-        `/markets?${buildMarketParams(missingIds, true)}`,
+        `/markets/keyset?${buildMarketParams(missingIds, true)}`,
+        'markets',
         ctx,
     );
     return [...results, ...closedResults];
@@ -332,7 +342,8 @@ async function fetchMarketsFromApi(conditionIds: string[]) {
 
 function fetchEventFromApi(eventSlug: string) {
     return fetchGammaApi<GammaEvent>(
-        `/events?slug=${encodeURIComponent(eventSlug)}`,
+        `/events/keyset?slug=${encodeURIComponent(eventSlug)}`,
+        'events',
         { eventSlug },
     ).then((r) => r[0] ?? null);
 }
@@ -813,7 +824,7 @@ async function refreshOpenMarkets(): Promise<void> {
 }
 
 /**
- * Discover sibling markets via Gamma /events endpoint.
+ * Discover sibling markets via the Gamma `/events/keyset` endpoint.
  * For each event slug not yet enriched, fetches the parent event and inserts
  * any child markets missing from our data.
  */
