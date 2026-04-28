@@ -46,4 +46,9 @@ jobs:
         run: echo "GIT_DATE=$(git log -1 --format=%cd --date=short)" >> $GITHUB_ENV
 
       - name: Run test
-        run: bun test
+        # `--isolate` runs each test file in a fresh global. Several
+        # `mock.module(...)` calls register partial replacements for
+        # `lib/clickhouse` and `lib/batch-insert`; without isolation those
+        # replacements bleed across files and later test files fail to resolve
+        # the exports they need (e.g. `client`, `insertClient`).
+        run: bun test --isolate

@@ -11,6 +11,14 @@ import { ProcessingStats } from '../../lib/processing-stats';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
 import { initService } from '../../lib/service-init';
 import { insertRow } from '../../src/insert';
+import {
+    fetchEventFromApi,
+    fetchMarketFromApi,
+    fetchMarketsFromApi,
+    type PolymarketEvent,
+    type PolymarketMarket,
+    type PolymarketSeries,
+} from './gamma';
 
 /**
  * Delay between requests in milliseconds to avoid overwhelming the API.
@@ -19,16 +27,6 @@ import { insertRow } from '../../src/insert';
  */
 const REQUEST_DELAY_MS = parseInt(
     process.env.POLYMARKET_REQUEST_DELAY_MS || '250',
-    10,
-);
-
-/**
- * Per-request timeout for Gamma API calls. Without this, a stalled TCP
- * connection (which Polymarket occasionally emits when heavily rate-limited)
- * can hang the entire PQueue and deadlock the scraper.
- */
-const FETCH_TIMEOUT_MS = parseInt(
-    process.env.POLYMARKET_FETCH_TIMEOUT_MS || '30000',
     10,
 );
 
@@ -59,11 +57,6 @@ export function normalizeGammaTimestamp(s: string | undefined | null): string {
 }
 
 /**
- * Polymarket API base URL
- */
-const POLYMARKET_API_BASE = 'https://gamma-api.polymarket.com';
-
-/**
  * Parse a JSON array string into a string array
  * Returns an empty array if parsing fails
  */
@@ -90,251 +83,6 @@ interface RegisteredToken {
     timestamp: string;
     block_hash: string;
     block_num: number;
-}
-
-/**
- * Interface for the Polymarket API market response
- */
-interface PolymarketMarket {
-    id: string;
-    question: string;
-    conditionId: string;
-    slug: string;
-    resolutionSource: string;
-    endDate: string;
-    startDate: string;
-    image: string;
-    icon: string;
-    description: string;
-    outcomes: string;
-    outcomePrices: string;
-    createdAt: string;
-    updatedAt: string;
-    submitted_by: string;
-    marketMakerAddress: string;
-    questionID: string;
-    umaEndDate: string;
-    orderPriceMinTickSize: number;
-    orderMinSize: number;
-    endDateIso: string;
-    startDateIso: string;
-    negRisk: boolean;
-    negRiskRequestID: string;
-    negRiskOther: boolean;
-    clobTokenIds: string;
-    enableOrderBook: boolean;
-    archived: boolean;
-    new: boolean;
-    featured: boolean;
-    resolvedBy: string;
-    restricted: boolean;
-    hasReviewedDates: boolean;
-    umaBond: string;
-    umaReward: string;
-    customLiveness: number;
-    acceptingOrders: boolean;
-    ready: boolean;
-    funded: boolean;
-    acceptingOrdersTimestamp: string;
-    cyom: boolean;
-    competitive: number;
-    pagerDutyNotificationEnabled: boolean;
-    approved: boolean;
-    rewardsMinSize: number;
-    rewardsMaxSpread: number;
-    spread: number;
-    automaticallyActive: boolean;
-    clearBookOnStart: boolean;
-    manualActivation: boolean;
-    pendingDeployment: boolean;
-    deploying: boolean;
-    deployingTimestamp: string;
-    rfqEnabled: boolean;
-    eventStartTime: string;
-    holdingRewardsEnabled: boolean;
-    feesEnabled: boolean;
-    requiresTranslation: boolean;
-    // Volume and liquidity fields
-    liquidity: string;
-    volume: string;
-    volumeNum: number;
-    liquidityNum: number;
-    volume24hr: number;
-    volume1wk: number;
-    volume1mo: number;
-    volume1yr: number;
-    volume24hrClob: number;
-    volume1wkClob: number;
-    volume1moClob: number;
-    volume1yrClob: number;
-    volumeClob: number;
-    liquidityClob: number;
-    // Market status
-    active: boolean;
-    closed: boolean;
-    // Pricing
-    oneDayPriceChange: number;
-    oneHourPriceChange: number;
-    lastTradePrice: number;
-    bestBid: number;
-    bestAsk: number;
-    // UMA
-    umaResolutionStatuses: string;
-    // Events
-    events: PolymarketEvent[];
-}
-
-/**
- * Interface for the Polymarket API event response
- */
-interface PolymarketEvent {
-    id: string;
-    ticker: string;
-    slug: string;
-    title: string;
-    description: string;
-    resolutionSource: string;
-    startDate: string;
-    creationDate: string;
-    endDate: string;
-    image: string;
-    icon: string;
-    active: boolean;
-    closed: boolean;
-    archived: boolean;
-    new: boolean;
-    featured: boolean;
-    restricted: boolean;
-    liquidity: number;
-    volume: number;
-    openInterest: number;
-    createdAt: string;
-    updatedAt: string;
-    competitive: number;
-    volume24hr: number;
-    volume1wk: number;
-    volume1mo: number;
-    volume1yr: number;
-    enableOrderBook: boolean;
-    liquidityClob: number;
-    negRisk: boolean;
-    commentCount: number;
-    cyom: boolean;
-    showAllOutcomes: boolean;
-    showMarketImages: boolean;
-    enableNegRisk: boolean;
-    automaticallyActive: boolean;
-    seriesSlug: string;
-    negRiskAugmented: boolean;
-    pendingDeployment: boolean;
-    deploying: boolean;
-    requiresTranslation: boolean;
-    series: PolymarketSeries[];
-}
-
-/**
- * Interface for the Polymarket API series response
- */
-interface PolymarketSeries {
-    id: string;
-    ticker: string;
-    slug: string;
-    title: string;
-    seriesType: string;
-    recurrence: string;
-    image: string;
-    icon: string;
-    active: boolean;
-    closed: boolean;
-    archived: boolean;
-    featured: boolean;
-    restricted: boolean;
-    createdAt: string;
-    updatedAt: string;
-    volume: number;
-    liquidity: number;
-    commentCount: number;
-    requiresTranslation: boolean;
-}
-
-/**
- * Interface for the Gamma /events response (simplified — only fields we need)
- */
-interface GammaEvent {
-    id: string;
-    slug: string;
-    title: string;
-    markets?: { conditionId: string; question: string }[];
-}
-
-/**
- * Fetch from a Gamma API list endpoint. All Gamma endpoints return JSON arrays.
- */
-async function fetchGammaApi<T>(
-    path: string,
-    context: Record<string, string>,
-): Promise<T[]> {
-    const url = `${POLYMARKET_API_BASE}${path}`;
-
-    try {
-        const response = await fetch(url, {
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        });
-        if (!response.ok) {
-            log.warn('Polymarket API returned non-OK status', {
-                path,
-                status: response.status,
-                statusText: response.statusText,
-                ...context,
-            });
-            return [];
-        }
-        return await response.json();
-    } catch (error) {
-        log.warn('Failed to fetch from Polymarket API', {
-            path,
-            ...context,
-            error: (error as Error).message,
-        });
-        return [];
-    }
-}
-
-function buildMarketParams(ids: string[], closed?: boolean) {
-    const params = new URLSearchParams();
-    for (const id of ids) params.append('condition_ids', id);
-    params.set('limit', String(ids.length));
-    if (closed) params.set('closed', 'true');
-    return params;
-}
-
-async function fetchMarketFromApi(conditionId: string) {
-    const results = await fetchMarketsFromApi([conditionId]);
-    return results[0] ?? null;
-}
-
-async function fetchMarketsFromApi(conditionIds: string[]) {
-    const ctx = { conditionIdCount: String(conditionIds.length) };
-    const results = await fetchGammaApi<PolymarketMarket>(
-        `/markets?${buildMarketParams(conditionIds)}`,
-        ctx,
-    );
-    if (results.length >= conditionIds.length) return results;
-    const foundIds = new Set(results.map((m) => m.conditionId));
-    const missingIds = conditionIds.filter((id) => !foundIds.has(id));
-    if (missingIds.length === 0) return results;
-    const closedResults = await fetchGammaApi<PolymarketMarket>(
-        `/markets?${buildMarketParams(missingIds, true)}`,
-        ctx,
-    );
-    return [...results, ...closedResults];
-}
-
-function fetchEventFromApi(eventSlug: string) {
-    return fetchGammaApi<GammaEvent>(
-        `/events?slug=${encodeURIComponent(eventSlug)}`,
-        { eventSlug },
-    ).then((r) => r[0] ?? null);
 }
 
 /**
@@ -813,7 +561,7 @@ async function refreshOpenMarkets(): Promise<void> {
 }
 
 /**
- * Discover sibling markets via Gamma /events endpoint.
+ * Discover sibling markets via the Gamma `/events/keyset` endpoint.
  * For each event slug not yet enriched, fetches the parent event and inserts
  * any child markets missing from our data.
  */

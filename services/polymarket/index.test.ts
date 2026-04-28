@@ -18,11 +18,13 @@ const mockIncrementError = mock(() => {});
 const mockInitService = mock(() => {});
 const mockShutdownBatchInsertQueue = mock(() => Promise.resolve());
 
-// Mock fetch for Polymarket API
+// Mock fetch for Polymarket API. Default to the keyset wrapper shape used by
+// both `/markets/keyset` and `/events/keyset`; the helper picks the right key
+// per-request, so populating both is a safe catch-all for unspecified mocks.
 const mockFetch = mock(() =>
     Promise.resolve({
         ok: true,
-        json: () => Promise.resolve([]),
+        json: () => Promise.resolve({ markets: [], events: [] }),
     }),
 );
 
@@ -95,7 +97,7 @@ describe('Polymarket markets service', () => {
         mockFetch.mockReturnValue(
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve([]),
+                json: () => Promise.resolve({ markets: [], events: [] }),
             }),
         );
 
@@ -223,7 +225,7 @@ describe('Polymarket markets service', () => {
         mockFetch.mockReturnValue(
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve([mockMarket]),
+                json: () => Promise.resolve({ markets: [mockMarket] }),
             }),
         );
 
@@ -280,7 +282,7 @@ describe('Polymarket markets service', () => {
         mockFetch.mockReturnValue(
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve([]),
+                json: () => Promise.resolve({ markets: [] }),
             }),
         );
 
@@ -451,7 +453,7 @@ describe('Polymarket markets service', () => {
         mockFetch.mockReturnValue(
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve([mockMarket]),
+                json: () => Promise.resolve({ markets: [mockMarket] }),
             }),
         );
 
@@ -632,13 +634,13 @@ describe('Polymarket markets service', () => {
             .mockReturnValueOnce(
                 Promise.resolve({
                     ok: true,
-                    json: () => Promise.resolve([mockMarket1]),
+                    json: () => Promise.resolve({ markets: [mockMarket1] }),
                 }),
             )
             .mockReturnValueOnce(
                 Promise.resolve({
                     ok: true,
-                    json: () => Promise.resolve([mockMarket2]),
+                    json: () => Promise.resolve({ markets: [mockMarket2] }),
                 }),
             );
 
@@ -777,19 +779,19 @@ describe('Polymarket markets service', () => {
             .mockReturnValueOnce(
                 Promise.resolve({
                     ok: true,
-                    json: () => Promise.resolve([mockMarket]),
+                    json: () => Promise.resolve({ markets: [mockMarket] }),
                 }),
             )
             .mockReturnValueOnce(
                 Promise.resolve({
                     ok: true,
-                    json: () => Promise.resolve([]),
+                    json: () => Promise.resolve({ markets: [] }),
                 }),
             )
             .mockReturnValueOnce(
                 Promise.resolve({
                     ok: true,
-                    json: () => Promise.resolve([]),
+                    json: () => Promise.resolve({ markets: [] }),
                 }),
             );
 
@@ -858,10 +860,10 @@ describe('Polymarket markets service', () => {
         // First fetch (open markets) returns empty, retry with closed=true finds it
         mockFetch
             .mockReturnValueOnce(
-                Promise.resolve({ ok: true, json: () => Promise.resolve([]) }),
+                Promise.resolve({ ok: true, json: () => Promise.resolve({ markets: [] }) }),
             )
             .mockReturnValueOnce(
-                Promise.resolve({ ok: true, json: () => Promise.resolve([closedMarket]) }),
+                Promise.resolve({ ok: true, json: () => Promise.resolve({ markets: [closedMarket] }) }),
             );
 
         const { run } = await import('./index');
@@ -1042,7 +1044,7 @@ describe('Polymarket markets service', () => {
         mockFetch.mockReturnValue(
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve([mockMarket]),
+                json: () => Promise.resolve({ markets: [mockMarket] }),
             }),
         );
 
@@ -1100,26 +1102,28 @@ describe('Polymarket markets service', () => {
             }),
         );
 
-        // First fetch: Gamma /events returns event with 2 child markets
+        // First fetch: Gamma /events/keyset returns event with 2 child markets
         mockFetch.mockReturnValueOnce(
             Promise.resolve({
                 ok: true,
                 json: () =>
-                    Promise.resolve([
-                        {
-                            id: 'evt1',
-                            slug: 'test-event',
-                            title: 'Test Event',
-                            markets: [
-                                { conditionId: '0xaaa', question: 'Market A?' },
-                                { conditionId: '0xbbb', question: 'Market B?' },
-                            ],
-                        },
-                    ]),
+                    Promise.resolve({
+                        events: [
+                            {
+                                id: 'evt1',
+                                slug: 'test-event',
+                                title: 'Test Event',
+                                markets: [
+                                    { conditionId: '0xaaa', question: 'Market A?' },
+                                    { conditionId: '0xbbb', question: 'Market B?' },
+                                ],
+                            },
+                        ],
+                    }),
             }),
         );
 
-        // Second fetch: batch /markets returns both child markets in one call
+        // Second fetch: batch /markets/keyset returns both child markets in one call
         const mockMarketA = { ...baseMockMarket, conditionId: '0xaaa', question: 'Market A?', slug: 'market-a' };
         const mockMarketB = {
             ...baseMockMarket,
@@ -1130,7 +1134,7 @@ describe('Polymarket markets service', () => {
         mockFetch.mockReturnValueOnce(
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve([mockMarketA, mockMarketB]),
+                json: () => Promise.resolve({ markets: [mockMarketA, mockMarketB] }),
             }),
         );
 
@@ -1180,40 +1184,44 @@ describe('Polymarket markets service', () => {
             }),
         );
 
-        // Gamma /events returns event with 2 markets (one already exists)
+        // Gamma /events/keyset returns event with 2 markets (one already exists)
         mockFetch.mockReturnValueOnce(
             Promise.resolve({
                 ok: true,
                 json: () =>
-                    Promise.resolve([
-                        {
-                            id: 'evt2',
-                            slug: 'existing-event',
-                            title: 'Existing Event',
-                            markets: [
-                                { conditionId: '0xaaa', question: 'Already scraped' },
-                                { conditionId: '0xbbb', question: 'New market' },
-                            ],
-                        },
-                    ]),
+                    Promise.resolve({
+                        events: [
+                            {
+                                id: 'evt2',
+                                slug: 'existing-event',
+                                title: 'Existing Event',
+                                markets: [
+                                    { conditionId: '0xaaa', question: 'Already scraped' },
+                                    { conditionId: '0xbbb', question: 'New market' },
+                                ],
+                            },
+                        ],
+                    }),
             }),
         );
 
-        // Only one /markets fetch needed (for 0xbbb, since 0xaaa is skipped)
+        // Only one /markets/keyset fetch needed (for 0xbbb, since 0xaaa is skipped)
         mockFetch.mockReturnValueOnce(
             Promise.resolve({
                 ok: true,
                 json: () =>
-                    Promise.resolve([
-                        {
-                            ...baseMockMarket,
-                            id: '3',
-                            conditionId: '0xbbb',
-                            question: 'New market',
-                            slug: 'new-market',
-                            clobTokenIds: '["555", "666"]',
-                        },
-                    ]),
+                    Promise.resolve({
+                        markets: [
+                            {
+                                ...baseMockMarket,
+                                id: '3',
+                                conditionId: '0xbbb',
+                                question: 'New market',
+                                slug: 'new-market',
+                                clobTokenIds: '["555", "666"]',
+                            },
+                        ],
+                    }),
             }),
         );
 
