@@ -1,4 +1,5 @@
 import { type ClickHouseClient, createClient } from '@clickhouse/client';
+import { CLICKHOUSE_REQUEST_TIMEOUT_MS } from './config';
 import { createLogger } from './logger';
 import { trackClickHouseOperation } from './prometheus';
 
@@ -31,6 +32,7 @@ function getClient(): ClickHouseClient {
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
             database: process.env.CLICKHOUSE_DATABASE,
+            request_timeout: CLICKHOUSE_REQUEST_TIMEOUT_MS,
         });
     }
     return _client;
@@ -47,6 +49,7 @@ function getInsertClient(): ClickHouseClient {
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
             database: getInsertDatabase(),
+            request_timeout: CLICKHOUSE_REQUEST_TIMEOUT_MS,
         });
     }
     return _insertClient;
@@ -64,6 +67,7 @@ function getSetupClient(): ClickHouseClient {
             username: process.env.CLICKHOUSE_USERNAME || 'default',
             password: process.env.CLICKHOUSE_PASSWORD || '',
             database: getInsertDatabase(),
+            request_timeout: CLICKHOUSE_REQUEST_TIMEOUT_MS,
         });
     }
     return _setupClient;
@@ -149,6 +153,15 @@ export async function query<T = any>(
     // Track total operation time
     const startTime = performance.now();
 
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => {
+        controller.abort(
+            new Error(
+                `ClickHouse query timed out after ${CLICKHOUSE_REQUEST_TIMEOUT_MS}ms`,
+            ),
+        );
+    }, CLICKHOUSE_REQUEST_TIMEOUT_MS);
+
     try {
         // Track query execution time
         const queryStartTime = performance.now();
@@ -156,6 +169,7 @@ export async function query<T = any>(
             query,
             query_params,
             format: 'JSONEachRow',
+            abort_signal: controller.signal,
         });
         trackClickHouseOperation('read', 'success', startTime);
         const queryEndTime = performance.now();
@@ -182,6 +196,7 @@ export async function query<T = any>(
             totalTimeMs,
         });
 
+        clearTimeout(timeoutHandle);
         return {
             data,
             metrics: {
@@ -191,6 +206,7 @@ export async function query<T = any>(
             },
         };
     } catch (error: unknown) {
+        clearTimeout(timeoutHandle);
         trackClickHouseOperation('read', 'error', startTime);
         const url = process.env.CLICKHOUSE_URL || 'http://localhost:8123';
         const urlObj = new URL(url);
