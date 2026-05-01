@@ -36,7 +36,10 @@ function transportJSON(logObj: Record<string, unknown>): void {
         logger: meta.name,
         msg,
     };
-    if (payload !== undefined && (payload === null || typeof payload !== 'object')) {
+    if (
+        payload !== undefined &&
+        (payload === null || typeof payload !== 'object')
+    ) {
         flat.data = payload;
     }
     process.stdout.write(JSON.stringify(flat) + '\n');

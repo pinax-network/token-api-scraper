@@ -12,8 +12,7 @@ const mockFetch = mock(() =>
 );
 globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-const conditionId = (i: number) =>
-    `0x${i.toString(16).padStart(64, '0')}`;
+const conditionId = (i: number) => `0x${i.toString(16).padStart(64, '0')}`;
 
 const marketStub = (id: number) => ({
     id: String(id),
@@ -31,7 +30,9 @@ describe('fetchGammaApi', () => {
             Promise.resolve({
                 ok: true,
                 json: () =>
-                    Promise.resolve({ markets: [marketStub(1), marketStub(2)] }),
+                    Promise.resolve({
+                        markets: [marketStub(1), marketStub(2)],
+                    }),
             }),
         );
         const result = await fetchGammaApi(

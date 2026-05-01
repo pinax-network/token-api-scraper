@@ -25,6 +25,11 @@ cp .env.example .env
 - **`CLICKHOUSE_DATABASE`** - ClickHouse database name
   - Default: `default`
 
+- **`CLICKHOUSE_REQUEST_TIMEOUT_MS`** - Timeout in milliseconds for ClickHouse HTTP requests
+  - Default: `30000` (30 seconds)
+  - Guards against indefinitely hung queries — particularly important when running under Bun, which does not send TCP keepalive probes via `http.Agent`, meaning a silently dead connection (e.g. NAT table expiry in Kubernetes) would otherwise hang forever
+  - Increase if your ClickHouse queries legitimately take longer than 30 seconds
+
 ### RPC Configuration
 
 - **`NODE_URL`** - EVM RPC node URL (required)

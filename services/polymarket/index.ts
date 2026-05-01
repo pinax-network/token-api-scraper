@@ -527,9 +527,7 @@ async function refreshOpenMarkets(): Promise<void> {
     }
 
     const stale = await query<RegisteredToken>(
-        await Bun.file(
-            __dirname + '/get_stale_markets_for_refresh.sql',
-        ).text(),
+        await Bun.file(__dirname + '/get_stale_markets_for_refresh.sql').text(),
         {
             db: CLICKHOUSE_DATABASE_INSERT,
             limit: REFRESH_BATCH_SIZE,

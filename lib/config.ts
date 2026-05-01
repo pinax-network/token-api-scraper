@@ -40,6 +40,9 @@ export const DEFAULT_CONFIG = {
 
     // Auto-restart
     AUTO_RESTART_DELAY: 10,
+
+    // ClickHouse request timeout
+    CLICKHOUSE_REQUEST_TIMEOUT_MS: 30_000,
 } as const;
 
 // ============================================================================
@@ -111,6 +114,16 @@ export const CLICKHOUSE_USERNAME =
 export const CLICKHOUSE_PASSWORD =
     process.env.CLICKHOUSE_PASSWORD || DEFAULT_CONFIG.CLICKHOUSE_PASSWORD;
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE;
+
+/**
+ * Timeout in milliseconds for ClickHouse HTTP requests
+ * Default: 30000ms (30 seconds)
+ */
+export const CLICKHOUSE_REQUEST_TIMEOUT_MS = parseInt(
+    process.env.CLICKHOUSE_REQUEST_TIMEOUT_MS ||
+        String(DEFAULT_CONFIG.CLICKHOUSE_REQUEST_TIMEOUT_MS),
+    10,
+);
 
 /**
  * Database name for insert operations (INSERT, DDL)
