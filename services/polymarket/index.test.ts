@@ -58,29 +58,86 @@ mock.module('../../lib/batch-insert', () => ({
 globalThis.fetch = mockFetch as unknown as typeof fetch;
 
 const baseMockMarket = {
-    id: '1', conditionId: '0xaaa', question: 'Test?', description: '',
-    slug: 'test', outcomes: '["Yes", "No"]', outcomePrices: '["0.5", "0.5"]',
-    resolutionSource: '', image: '', icon: '', questionID: '',
-    clobTokenIds: '["111", "222"]', submitted_by: '', marketMakerAddress: '',
-    enableOrderBook: true, orderPriceMinTickSize: 0.001, orderMinSize: 5,
-    negRisk: false, negRiskRequestID: '', negRiskOther: false,
-    archived: false, new: false, featured: false, resolvedBy: '',
-    restricted: false, hasReviewedDates: false, umaBond: '', umaReward: '',
-    customLiveness: 0, acceptingOrders: true, ready: true, funded: true,
-    acceptingOrdersTimestamp: '', cyom: false, competitive: 0,
-    pagerDutyNotificationEnabled: false, approved: true, rewardsMinSize: 0,
-    rewardsMaxSpread: 0, spread: 0, automaticallyActive: true,
-    clearBookOnStart: false, manualActivation: false, pendingDeployment: false,
-    deploying: false, deployingTimestamp: '', rfqEnabled: false,
-    eventStartTime: '', holdingRewardsEnabled: false, feesEnabled: false,
-    requiresTranslation: false, startDate: '', endDate: '', startDateIso: '',
-    endDateIso: '', umaEndDate: '', createdAt: '', events: [] as any[],
-    liquidity: '', volume: '', volumeNum: 0, liquidityNum: 0,
-    volume24hr: 0, volume1wk: 0, volume1mo: 0, volume1yr: 0,
-    volume24hrClob: 0, volume1wkClob: 0, volume1moClob: 0, volume1yrClob: 0,
-    volumeClob: 0, liquidityClob: 0, active: true, closed: false,
-    oneDayPriceChange: 0, oneHourPriceChange: 0, lastTradePrice: 0,
-    bestBid: 0, bestAsk: 0, umaResolutionStatuses: '',
+    id: '1',
+    conditionId: '0xaaa',
+    question: 'Test?',
+    description: '',
+    slug: 'test',
+    outcomes: '["Yes", "No"]',
+    outcomePrices: '["0.5", "0.5"]',
+    resolutionSource: '',
+    image: '',
+    icon: '',
+    questionID: '',
+    clobTokenIds: '["111", "222"]',
+    submitted_by: '',
+    marketMakerAddress: '',
+    enableOrderBook: true,
+    orderPriceMinTickSize: 0.001,
+    orderMinSize: 5,
+    negRisk: false,
+    negRiskRequestID: '',
+    negRiskOther: false,
+    archived: false,
+    new: false,
+    featured: false,
+    resolvedBy: '',
+    restricted: false,
+    hasReviewedDates: false,
+    umaBond: '',
+    umaReward: '',
+    customLiveness: 0,
+    acceptingOrders: true,
+    ready: true,
+    funded: true,
+    acceptingOrdersTimestamp: '',
+    cyom: false,
+    competitive: 0,
+    pagerDutyNotificationEnabled: false,
+    approved: true,
+    rewardsMinSize: 0,
+    rewardsMaxSpread: 0,
+    spread: 0,
+    automaticallyActive: true,
+    clearBookOnStart: false,
+    manualActivation: false,
+    pendingDeployment: false,
+    deploying: false,
+    deployingTimestamp: '',
+    rfqEnabled: false,
+    eventStartTime: '',
+    holdingRewardsEnabled: false,
+    feesEnabled: false,
+    requiresTranslation: false,
+    startDate: '',
+    endDate: '',
+    startDateIso: '',
+    endDateIso: '',
+    umaEndDate: '',
+    createdAt: '',
+    events: [] as any[],
+    liquidity: '',
+    volume: '',
+    volumeNum: 0,
+    liquidityNum: 0,
+    volume24hr: 0,
+    volume1wk: 0,
+    volume1mo: 0,
+    volume1yr: 0,
+    volume24hrClob: 0,
+    volume1wkClob: 0,
+    volume1moClob: 0,
+    volume1yrClob: 0,
+    volumeClob: 0,
+    liquidityClob: 0,
+    active: true,
+    closed: false,
+    oneDayPriceChange: 0,
+    oneHourPriceChange: 0,
+    lastTradePrice: 0,
+    bestBid: 0,
+    bestAsk: 0,
+    umaResolutionStatuses: '',
 };
 
 describe('Polymarket markets service', () => {
@@ -108,7 +165,11 @@ describe('Polymarket markets service', () => {
         mockQuery.mockReturnValue(
             Promise.resolve({
                 data: [],
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
     });
@@ -831,7 +892,8 @@ describe('Polymarket markets service', () => {
     test('should find closed market on retry with closed=true', async () => {
         const registeredTokens = [
             {
-                condition_id: '0xclosed111111111111111111111111111111111111111111111111111111111',
+                condition_id:
+                    '0xclosed111111111111111111111111111111111111111111111111111111111',
                 token0: '111',
                 token1: '222',
                 timestamp: '2025-06-01 00:00:00',
@@ -843,7 +905,8 @@ describe('Polymarket markets service', () => {
         const closedMarket = {
             ...baseMockMarket,
             id: '999',
-            conditionId: '0xclosed111111111111111111111111111111111111111111111111111111111',
+            conditionId:
+                '0xclosed111111111111111111111111111111111111111111111111111111111',
             question: 'Resolved market?',
             slug: 'resolved-market',
             closed: true,
@@ -853,17 +916,27 @@ describe('Polymarket markets service', () => {
         mockQuery.mockReturnValueOnce(
             Promise.resolve({
                 data: registeredTokens,
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
 
         // First fetch (open markets) returns empty, retry with closed=true finds it
         mockFetch
             .mockReturnValueOnce(
-                Promise.resolve({ ok: true, json: () => Promise.resolve({ markets: [] }) }),
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({ markets: [] }),
+                }),
             )
             .mockReturnValueOnce(
-                Promise.resolve({ ok: true, json: () => Promise.resolve({ markets: [closedMarket] }) }),
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({ markets: [closedMarket] }),
+                }),
             );
 
         const { run } = await import('./index');
@@ -874,7 +947,8 @@ describe('Polymarket markets service', () => {
         expect(mockInsertRow).toHaveBeenCalledWith(
             'polymarket_markets',
             expect.objectContaining({
-                condition_id: '0xclosed111111111111111111111111111111111111111111111111111111111',
+                condition_id:
+                    '0xclosed111111111111111111111111111111111111111111111111111111111',
                 closed: true,
             }),
             expect.any(String),
@@ -1084,21 +1158,33 @@ describe('Polymarket markets service', () => {
         mockQuery.mockReturnValueOnce(
             Promise.resolve({
                 data: [],
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
         // Second query: one event slug to enrich
         mockQuery.mockReturnValueOnce(
             Promise.resolve({
                 data: [{ event_slug: 'test-event' }],
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
         // Third query: batch existence check returns empty (no existing markets)
         mockQuery.mockReturnValueOnce(
             Promise.resolve({
                 data: [],
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
 
@@ -1114,8 +1200,14 @@ describe('Polymarket markets service', () => {
                                 slug: 'test-event',
                                 title: 'Test Event',
                                 markets: [
-                                    { conditionId: '0xaaa', question: 'Market A?' },
-                                    { conditionId: '0xbbb', question: 'Market B?' },
+                                    {
+                                        conditionId: '0xaaa',
+                                        question: 'Market A?',
+                                    },
+                                    {
+                                        conditionId: '0xbbb',
+                                        question: 'Market B?',
+                                    },
                                 ],
                             },
                         ],
@@ -1124,17 +1216,26 @@ describe('Polymarket markets service', () => {
         );
 
         // Second fetch: batch /markets/keyset returns both child markets in one call
-        const mockMarketA = { ...baseMockMarket, conditionId: '0xaaa', question: 'Market A?', slug: 'market-a' };
+        const mockMarketA = {
+            ...baseMockMarket,
+            conditionId: '0xaaa',
+            question: 'Market A?',
+            slug: 'market-a',
+        };
         const mockMarketB = {
             ...baseMockMarket,
-            id: '2', conditionId: '0xbbb', question: 'Market B?',
-            slug: 'market-b', clobTokenIds: '["333", "444"]',
+            id: '2',
+            conditionId: '0xbbb',
+            question: 'Market B?',
+            slug: 'market-b',
+            clobTokenIds: '["333", "444"]',
         };
 
         mockFetch.mockReturnValueOnce(
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve({ markets: [mockMarketA, mockMarketB] }),
+                json: () =>
+                    Promise.resolve({ markets: [mockMarketA, mockMarketB] }),
             }),
         );
 
@@ -1142,9 +1243,7 @@ describe('Polymarket markets service', () => {
         await run();
 
         // Should insert: market A, market B, enrichment tracking record
-        const insertCalls = mockInsertRow.mock.calls.map(
-            (call) => call[0],
-        );
+        const insertCalls = mockInsertRow.mock.calls.map((call) => call[0]);
         expect(insertCalls).toContain('polymarket_markets');
         expect(insertCalls).toContain('polymarket_events_enriched');
 
@@ -1166,21 +1265,33 @@ describe('Polymarket markets service', () => {
         mockQuery.mockReturnValueOnce(
             Promise.resolve({
                 data: [],
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
         // Event slugs to enrich
         mockQuery.mockReturnValueOnce(
             Promise.resolve({
                 data: [{ event_slug: 'existing-event' }],
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
         // Batch existence check: one market already exists
         mockQuery.mockReturnValueOnce(
             Promise.resolve({
                 data: [{ condition_id: '0xaaa' }],
-                metrics: { httpRequestTimeMs: 0, dataFetchTimeMs: 0, totalTimeMs: 0 },
+                metrics: {
+                    httpRequestTimeMs: 0,
+                    dataFetchTimeMs: 0,
+                    totalTimeMs: 0,
+                },
             }),
         );
 
@@ -1196,8 +1307,14 @@ describe('Polymarket markets service', () => {
                                 slug: 'existing-event',
                                 title: 'Existing Event',
                                 markets: [
-                                    { conditionId: '0xaaa', question: 'Already scraped' },
-                                    { conditionId: '0xbbb', question: 'New market' },
+                                    {
+                                        conditionId: '0xaaa',
+                                        question: 'Already scraped',
+                                    },
+                                    {
+                                        conditionId: '0xbbb',
+                                        question: 'New market',
+                                    },
                                 ],
                             },
                         ],
