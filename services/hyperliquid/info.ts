@@ -2,12 +2,17 @@ import { createLogger } from '../../lib/logger';
 
 /**
  * Per-request timeout for Hyperliquid Info API calls. Without this, a stalled
- * TCP connection can hang the run loop indefinitely.
+ * TCP connection can hang the run loop indefinitely. Falls back to 30s if the
+ * env override is missing, non-numeric, or non-positive — guards against
+ * `parseInt('garbage')` ⇒ NaN ⇒ instant abort.
  */
-const FETCH_TIMEOUT_MS = parseInt(
-    process.env.HYPERLIQUID_FETCH_TIMEOUT_MS || '30000',
-    10,
-);
+const FETCH_TIMEOUT_MS = (() => {
+    const parsed = Number.parseInt(
+        process.env.HYPERLIQUID_FETCH_TIMEOUT_MS ?? '',
+        10,
+    );
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 30000;
+})();
 
 const log = createLogger('hyperliquid');
 
@@ -49,8 +54,10 @@ export interface HyperliquidSpotMeta {
 }
 
 export interface SpotPairNameRow {
-    spot_coin: string;
-    pair_name: string;
+    coin: string;
+    market_name: string;
+    base_token: string;
+    quote_token: string;
 }
 
 /**
@@ -94,14 +101,15 @@ export async function fetchSpotMeta(
 }
 
 /**
- * Resolve `@N` pair names into `BASE/QUOTE` strings using the token table.
- * Canonical pairs (`PURR/USDC`) come through with their human name already set
- * — those pass through unchanged. Auction-deployed pairs (`@107`) get joined
- * against the token index to produce `HYPE/USDC`.
+ * Resolve `@N` pair names into `BASE/QUOTE` strings using the token table,
+ * and split out the base/quote token symbols for discovery filters.
  *
- * The `spot_coin` column is the value substreams writes into `coin` on fills,
- * so Token API can JOIN directly: `LEFT JOIN state_spot_pair_names AS n FINAL
- * ON n.spot_coin = coin`.
+ * Canonical pairs (`PURR/USDC`) come through with their human name already
+ * set — split on `/` to recover the token symbols. Auction-deployed pairs
+ * (`@107`) get joined against the token index to produce `HYPE/USDC`.
+ *
+ * The `coin` column matches the value substreams writes into `coin` on fills,
+ * so Token API can JOIN directly with `USING (coin)`.
  */
 export function resolvePairNames(meta: HyperliquidSpotMeta): SpotPairNameRow[] {
     const tokensByIndex = new Map<number, HyperliquidSpotToken>();
@@ -122,12 +130,22 @@ export function resolvePairNames(meta: HyperliquidSpotMeta): SpotPairNameRow[] {
                 continue;
             }
             rows.push({
-                spot_coin: pair.name,
-                pair_name: `${base.name}/${quote.name}`,
+                coin: pair.name,
+                market_name: `${base.name}/${quote.name}`,
+                base_token: base.name,
+                quote_token: quote.name,
             });
         } else {
-            // canonical pair — name already in BASE/QUOTE form
-            rows.push({ spot_coin: pair.name, pair_name: pair.name });
+            // Canonical pair — name already in BASE/QUOTE form. Split to
+            // recover the token symbols for discovery filters.
+            const [base_token = pair.name, quote_token = ''] =
+                pair.name.split('/');
+            rows.push({
+                coin: pair.name,
+                market_name: pair.name,
+                base_token,
+                quote_token,
+            });
         }
     }
     return rows;
