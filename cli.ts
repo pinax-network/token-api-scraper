@@ -40,6 +40,11 @@ const SERVICES = {
         description:
             'Fetch and store Polymarket market metadata from condition_id and token0/token1',
     },
+    hyperliquid: {
+        path: './services/hyperliquid/index.ts',
+        description:
+            'Fetch and store Hyperliquid spot pair name lookups from the Info API spotMeta endpoint',
+    },
     'metadata-solana-rpc': {
         path: './services/metadata-solana-rpc/index.ts',
         description:
@@ -75,6 +80,11 @@ const SETUP_ACTIONS = {
         files: ['./sql.schemas/schema.polymarket.sql'],
         description:
             'Deploy polymarket tables (polymarket_markets, polymarket_assets)',
+    },
+    hyperliquid: {
+        files: ['./sql.schemas/schema.hyperliquid.sql'],
+        description:
+            'Deploy hyperliquid spot pair name lookup table (state_spot_pair_names)',
     },
     'forked-blocks': {
         files: ['./sql.schemas/schema.blocks_forked.sql'],
@@ -371,6 +381,7 @@ Services:
   metadata-swaps              ${SERVICES['metadata-swaps'].description}
   metadata-balances           ${SERVICES['metadata-balances'].description}
   polymarket                  ${SERVICES['polymarket'].description}
+  hyperliquid                 ${SERVICES['hyperliquid'].description}
   metadata-solana-rpc         ${SERVICES['metadata-solana-rpc'].description}
   metadata-solana-extras-rpc  ${SERVICES['metadata-solana-extras-rpc'].description}
   metadata-solana-clickhouse  ${SERVICES['metadata-solana-clickhouse'].description}
@@ -380,6 +391,7 @@ Examples:
   $ npm run cli run metadata-swaps
   $ npm run cli run metadata-balances
   $ npm run cli run polymarket
+  $ npm run cli run hyperliquid
   $ npm run cli run metadata-solana-rpc
   $ npm run cli run metadata-solana-extras-rpc
   $ npm run cli run metadata-solana-clickhouse
@@ -593,6 +605,33 @@ Example:
         await handleSetupCommand(files, options);
     });
 addClickhouseOptions(setupPolymarket);
+
+// ---- setup hyperliquid ----
+const setupHyperliquid = setupCommand
+    .command('hyperliquid')
+    .description(SETUP_ACTIONS.hyperliquid.description)
+    .addHelpText(
+        'after',
+        `
+This command deploys the Hyperliquid spot pair name lookup table.
+It only needs to be run once per database to initialize the table.
+
+Tables created:
+  - state_spot_pair_names: Resolves \`@N\` and canonical pair coin values to BASE/QUOTE strings
+
+Example:
+  $ npm run cli setup hyperliquid
+  $ npm run cli setup hyperliquid --cluster my_cluster
+`,
+    )
+    .action(async (options: any) => {
+        log.info('Setting up hyperliquid spot pair name lookup table');
+        const files = SETUP_ACTIONS.hyperliquid.files.map((f) =>
+            resolve(__dirname, f),
+        );
+        await handleSetupCommand(files, options);
+    });
+addClickhouseOptions(setupHyperliquid);
 
 // ---- setup forked-blocks ----
 const setupForkedBlocks = setupCommand
