@@ -42,7 +42,12 @@ describe('resolvePairNames', () => {
             ],
         };
         expect(resolvePairNames(meta)).toEqual([
-            { spot_coin: 'PURR/USDC', pair_name: 'PURR/USDC' },
+            {
+                coin: 'PURR/USDC',
+                market_name: 'PURR/USDC',
+                base_token: 'PURR',
+                quote_token: 'USDC',
+            },
         ]);
     });
 
@@ -82,7 +87,12 @@ describe('resolvePairNames', () => {
             ],
         };
         expect(resolvePairNames(meta)).toEqual([
-            { spot_coin: '@107', pair_name: 'HYPE/USDC' },
+            {
+                coin: '@107',
+                market_name: 'HYPE/USDC',
+                base_token: 'HYPE',
+                quote_token: 'USDC',
+            },
         ]);
     });
 
@@ -154,8 +164,18 @@ describe('resolvePairNames', () => {
             ],
         };
         expect(resolvePairNames(meta)).toEqual([
-            { spot_coin: 'PURR/USDC', pair_name: 'PURR/USDC' },
-            { spot_coin: '@107', pair_name: 'HYPE/USDC' },
+            {
+                coin: 'PURR/USDC',
+                market_name: 'PURR/USDC',
+                base_token: 'PURR',
+                quote_token: 'USDC',
+            },
+            {
+                coin: '@107',
+                market_name: 'HYPE/USDC',
+                base_token: 'HYPE',
+                quote_token: 'USDC',
+            },
         ]);
     });
 });

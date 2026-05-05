@@ -106,8 +106,10 @@ describe('hyperliquid run()', () => {
         const arg = mockInsert.mock.calls[0]![0] as {
             table: string;
             values: Array<{
-                spot_coin: string;
-                pair_name: string;
+                coin: string;
+                market_name: string;
+                base_token: string;
+                quote_token: string;
                 refresh_time: string;
             }>;
             format: string;
@@ -115,8 +117,10 @@ describe('hyperliquid run()', () => {
         expect(arg.table).toBe('state_spot_pair_names');
         expect(arg.format).toBe('JSONEachRow');
         expect(arg.values).toHaveLength(1);
-        expect(arg.values[0]!.spot_coin).toBe('@107');
-        expect(arg.values[0]!.pair_name).toBe('HYPE/USDC');
+        expect(arg.values[0]!.coin).toBe('@107');
+        expect(arg.values[0]!.market_name).toBe('HYPE/USDC');
+        expect(arg.values[0]!.base_token).toBe('HYPE');
+        expect(arg.values[0]!.quote_token).toBe('USDC');
         expect(arg.values[0]!.refresh_time).toMatch(
             /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
         );

@@ -14,10 +14,11 @@ const log = createLogger(serviceName);
 const INFO_URL = process.env.HYPERLIQUID_INFO_URL;
 
 /**
- * Fetch the latest spot universe + tokens, resolve `@N` pair names, and
- * snapshot all rows into `state_spot_pair_names` with a fresh `refresh_time`.
- * The CLI runner loops with `AUTO_RESTART_DELAY` between iterations, so a
- * single `run()` invocation maps to one poll cycle.
+ * Fetch the latest spot universe + tokens, resolve `@N` pair names into their
+ * `BASE/QUOTE` market names with split base/quote token symbols, and snapshot
+ * all rows into `state_spot_pair_names` with a fresh `refresh_time`. The CLI
+ * runner loops with `AUTO_RESTART_DELAY` between iterations, so a single
+ * `run()` invocation maps to one poll cycle.
  */
 export async function run(): Promise<void> {
     initService({ serviceName });
