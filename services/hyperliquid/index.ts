@@ -11,8 +11,6 @@ import {
 const serviceName = 'hyperliquid';
 const log = createLogger(serviceName);
 
-const INFO_URL = process.env.HYPERLIQUID_INFO_URL;
-
 /**
  * Fetch the latest spot universe + tokens, resolve `@N` pair names into their
  * `BASE/QUOTE` market names with split base/quote token symbols, and snapshot
@@ -23,7 +21,8 @@ const INFO_URL = process.env.HYPERLIQUID_INFO_URL;
 export async function run(): Promise<void> {
     initService({ serviceName });
 
-    if (!INFO_URL) {
+    const infoUrl = process.env.HYPERLIQUID_INFO_URL;
+    if (!infoUrl) {
         throw new Error(
             'HYPERLIQUID_INFO_URL is required (set to a Hyperliquid /info endpoint)',
         );
@@ -34,7 +33,7 @@ export async function run(): Promise<void> {
 
     let meta: HyperliquidSpotMeta;
     try {
-        meta = await fetchSpotMeta(INFO_URL);
+        meta = await fetchSpotMeta(infoUrl);
     } catch (error) {
         log.error('Failed to fetch spot metadata', { error });
         incrementError(serviceName);
@@ -56,11 +55,12 @@ export async function run(): Promise<void> {
         return;
     }
 
-    // ClickHouse DateTime('UTC') rejects the trailing `Z` and fractional
-    // seconds that toISOString() emits, so trim both.
+    // ClickHouse DateTime64(3, 'UTC') rejects the trailing `Z`, so trim it
+    // but keep the millisecond precision so closely-spaced polls produce
+    // distinct `refresh_time` values (deterministic RMT merges).
     const refresh_time = new Date()
         .toISOString()
-        .slice(0, 19)
+        .slice(0, 23)
         .replace('T', ' ');
     const values = rows.map((r) => ({ ...r, refresh_time }));
 

@@ -86,8 +86,7 @@ describe('hyperliquid run()', () => {
 
     test('throws when HYPERLIQUID_INFO_URL is unset', async () => {
         delete process.env.HYPERLIQUID_INFO_URL;
-        // Re-import after env change so the module-level constant is re-read.
-        const { run } = await import(`./index?nocache=${Date.now()}`);
+        const { run } = await import('./index');
         await expect(run()).rejects.toThrow(/HYPERLIQUID_INFO_URL/);
     });
 
@@ -99,7 +98,7 @@ describe('hyperliquid run()', () => {
             ),
         ) as unknown as typeof fetch;
 
-        const { run } = await import(`./index?nocache=${Date.now()}`);
+        const { run } = await import('./index');
         await run();
 
         expect(mockInsert).toHaveBeenCalledTimes(1);
@@ -122,7 +121,7 @@ describe('hyperliquid run()', () => {
         expect(arg.values[0]!.base_token).toBe('HYPE');
         expect(arg.values[0]!.quote_token).toBe('USDC');
         expect(arg.values[0]!.refresh_time).toMatch(
-            /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+            /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/,
         );
         expect(mockIncrementSuccess).toHaveBeenCalledTimes(1);
         expect(mockIncrementError).not.toHaveBeenCalled();
@@ -134,7 +133,7 @@ describe('hyperliquid run()', () => {
             Promise.resolve(new Response('boom', { status: 502 })),
         ) as unknown as typeof fetch;
 
-        const { run } = await import(`./index?nocache=${Date.now()}`);
+        const { run } = await import('./index');
         await expect(run()).rejects.toThrow();
         expect(mockIncrementError).toHaveBeenCalledTimes(1);
         expect(mockInsert).not.toHaveBeenCalled();

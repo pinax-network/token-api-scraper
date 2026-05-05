@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS state_spot_pair_names (
     market_name   LowCardinality(String) COMMENT 'resolved human market name (e.g. `HYPE/USDC`)',
     base_token    LowCardinality(String) COMMENT 'base token symbol (e.g. `HYPE`)',
     quote_token   LowCardinality(String) COMMENT 'quote token symbol (e.g. `USDC`)',
-    refresh_time  DateTime('UTC')        COMMENT 'snapshot time for this row'
+    refresh_time  DateTime64(3, 'UTC')   COMMENT 'snapshot time for this row (ms precision so closely-spaced polls remain deterministic for ReplacingMergeTree merges)'
 )
 ENGINE = ReplacingMergeTree(refresh_time)
 ORDER BY (coin)

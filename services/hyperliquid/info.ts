@@ -2,12 +2,17 @@ import { createLogger } from '../../lib/logger';
 
 /**
  * Per-request timeout for Hyperliquid Info API calls. Without this, a stalled
- * TCP connection can hang the run loop indefinitely.
+ * TCP connection can hang the run loop indefinitely. Falls back to 30s if the
+ * env override is missing, non-numeric, or non-positive — guards against
+ * `parseInt('garbage')` ⇒ NaN ⇒ instant abort.
  */
-const FETCH_TIMEOUT_MS = parseInt(
-    process.env.HYPERLIQUID_FETCH_TIMEOUT_MS || '30000',
-    10,
-);
+const FETCH_TIMEOUT_MS = (() => {
+    const parsed = Number.parseInt(
+        process.env.HYPERLIQUID_FETCH_TIMEOUT_MS ?? '',
+        10,
+    );
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 30000;
+})();
 
 const log = createLogger('hyperliquid');
 
