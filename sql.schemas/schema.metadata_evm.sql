@@ -32,7 +32,7 @@ ENGINE = ReplacingMergeTree(created_at)
 TTL created_at + INTERVAL 1 WEEK
 ORDER BY ( network, contract );
 
--- base,avalanche,unichain,tron,bsc,polygon,mainnet,arbitrum-one,optimism --
+-- base,avalanche,unichain,tron,bsc,polygon,mainnet,arbitrum-one,optimism,hyperevm --
 INSERT INTO metadata (network, contract, decimals, name, symbol) VALUES
     ('tron', 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', 6, 'Tron', 'TRX'),
     ('tron', '0x0000000000000000000000000000000000000000', 6, 'Tron', 'TRX'),
@@ -43,4 +43,5 @@ INSERT INTO metadata (network, contract, decimals, name, symbol) VALUES
     ('optimism', '0x0000000000000000000000000000000000000000', 18, 'ETH', 'ETH'),
     ('arbitrum-one', '0x0000000000000000000000000000000000000000', 18, 'ETH', 'ETH'),
     ('unichain', '0x0000000000000000000000000000000000000000', 18, 'ETH', 'ETH'),
-    ('base', '0x0000000000000000000000000000000000000000', 18, 'ETH', 'ETH');
+    ('base', '0x0000000000000000000000000000000000000000', 18, 'ETH', 'ETH'),
+    ('hyperevm', '0x0000000000000000000000000000000000000000', 18, 'HYPE', 'HYPE');
