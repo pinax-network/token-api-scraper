@@ -28,8 +28,8 @@ const DEFAULTS: Required<ClientOptions> = {
     maxRetries: 5,
     baseDelayMs: DEFAULT_CONFIG.BASE_DELAY_MS,
     maxDelayMs: DEFAULT_CONFIG.MAX_DELAY_MS,
-    // The lib default (100ms) is tuned for EVM RPCs; HTTP REST needs longer.
-    requestTimeoutMs: 15_000,
+    // /series returns ~14MB; 30s leaves headroom for slow links + CDN warm-up.
+    requestTimeoutMs: 30_000,
 };
 
 // Mirrors lib/uri-fetch.ts isRetryable status set.
@@ -93,7 +93,27 @@ export class KalshiClient {
                 throw err;
             }
 
-            if (resp.ok) return (await resp.json()) as T;
+            if (resp.ok) {
+                try {
+                    return (await resp.json()) as T;
+                } catch (parseErr) {
+                    // 200 OK but body parse failed — typically truncation /
+                    // CDN flake mid-stream. Treat as transient; retry the
+                    // whole request so we get a fresh body.
+                    if (attempt >= this.opts.maxRetries) {
+                        throw new Error(
+                            `Kalshi 200 body parse failed on GET ${path}: ${String((parseErr as Error)?.message ?? parseErr)}`,
+                        );
+                    }
+                    await this.sleep(attempt);
+                    logger.warn('kalshi body-parse retry', {
+                        url,
+                        attempt,
+                        err: String((parseErr as Error)?.message ?? parseErr),
+                    });
+                    continue;
+                }
+            }
 
             const retryable = RETRYABLE_STATUSES.has(resp.status);
             if (!retryable || attempt >= this.opts.maxRetries) {

@@ -122,6 +122,33 @@ describe('KalshiClient.get', () => {
         expect(calls).toBe(2);
     });
 
+    test('retries on body-parse failure (200 OK with broken json mid-stream)', async () => {
+        let calls = 0;
+        installFetch(() => {
+            calls++;
+            const body =
+                calls < 2
+                    ? ({
+                          json: () =>
+                              Promise.reject(
+                                  new SyntaxError(
+                                      'Unexpected end of JSON input',
+                                  ),
+                              ),
+                          text: () => Promise.resolve(''),
+                          ok: true,
+                          status: 200,
+                      } as unknown as Response)
+                    : mockJson({ ok: 1 });
+            return Promise.resolve(body);
+        });
+        const out = await fastClient({ maxRetries: 3 }).get<{ ok: number }>(
+            '/test',
+        );
+        expect(out).toEqual({ ok: 1 });
+        expect(calls).toBe(2);
+    });
+
     test('does NOT retry on non-transient errors (TypeError, syntax errors, etc.)', async () => {
         let calls = 0;
         installFetch(() => {
