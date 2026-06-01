@@ -248,13 +248,20 @@ export function getBatchInsertQueue(): BatchInsertQueue {
 }
 
 /**
- * Shutdown the global batch insert queue
+ * Shutdown the global batch insert queue.
+ *
+ * Always nulls `globalBatchQueue` — even when the inner shutdown throws — so a
+ * subsequent `initBatchInsertQueue()` doesn't no-op against a half-dead queue
+ * whose periodic-flush timer is already cleared. The thrown error still
+ * propagates so callers see it.
  */
 export async function shutdownBatchInsertQueue(): Promise<void> {
-    if (globalBatchQueue) {
-        log.info('Shutting down batch insert queue');
+    if (!globalBatchQueue) return;
+    log.info('Shutting down batch insert queue');
+    try {
         await globalBatchQueue.shutdown();
         log.info('Batch insert queue shutdown complete');
+    } finally {
         globalBatchQueue = null;
     }
 }
