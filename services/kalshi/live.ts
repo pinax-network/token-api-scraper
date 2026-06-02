@@ -147,6 +147,12 @@ async function wrap<T>(pass: string, fn: () => Promise<T>): Promise<T> {
     }
 }
 
+/** Unix ms → `YYYY-MM-DDTHH:MM:SS.NNNNNNZ` with the fractional seconds padded
+ * to 6 digits to match Kalshi's µs-precision trade timestamps. */
+export function padIsoToMicroseconds(ms: number): string {
+    return new Date(ms).toISOString().replace(/\.(\d{3})Z$/, '.$1000Z');
+}
+
 async function runTradesPass(
     client: KalshiClient,
     queue: Queue,
@@ -154,11 +160,13 @@ async function runTradesPass(
 ): Promise<void> {
     // Watermark for filter + comparison. Trade-side uses the full µs ISO from
     // the prior cursor so chronologically-newer trades that share the same ms
-    // bucket aren't dropped by a lexicographic prefix collision.
+    // bucket aren't dropped by a lexicographic prefix collision. Cold-start
+    // pads the ms-precision `Date#toISOString()` to 6 fractional digits — Kalshi
+    // emits `.NNNNNNZ` and `'4' < 'Z'`, so `.233Z` lex-orders AFTER `.233435Z`.
     const watermarkMs =
         prev?.last_processed_ts_ms ?? Date.now() - COLD_START_LOOKBACK_S * 1000;
     const watermarkIso =
-        prev?.last_processed_ts_iso ?? new Date(watermarkMs).toISOString();
+        prev?.last_processed_ts_iso ?? padIsoToMicroseconds(watermarkMs);
 
     let cursor: string | undefined;
     let prevCursor: string | undefined;
@@ -237,16 +245,29 @@ async function runRefreshPass<P, T>(
         : Math.floor(Date.now() / 1000) - opts.intervalSec;
 
     let cursor: string | undefined;
+    let prevCursor: string | undefined;
     let pages = 0;
     let inserted = 0;
     while (true) {
+        if (pages >= PAGE_HARD_LIMIT) {
+            throw new Error(
+                `${opts.label} refresh exceeded ${PAGE_HARD_LIMIT} pages — possible cursor loop`,
+            );
+        }
         const page = await opts.fetch(cursor, minUpdatedTs);
         for (const item of opts.items(page)) {
             await queue.add(opts.table, opts.mapper(item));
             inserted++;
         }
         pages++;
-        cursor = opts.nextCursor(page);
+        const nextCursor = opts.nextCursor(page);
+        if (nextCursor && nextCursor === prevCursor) {
+            throw new Error(
+                `${opts.label} refresh got the same cursor twice — server-side loop suspected`,
+            );
+        }
+        prevCursor = cursor;
+        cursor = nextCursor;
         if (!cursor) break;
     }
     log.info(`${opts.label} refresh`, { pages, inserted, minUpdatedTs });

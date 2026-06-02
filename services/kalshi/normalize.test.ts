@@ -334,4 +334,17 @@ describe('candleRow', () => {
         expect(row.ticker).toBe('KXBTC15M-Y');
         expect(row.end_period_ts).toBe(1780329660);
     });
+
+    test('throws on unsupported period_interval (defensive runtime guard)', () => {
+        // Deliberately bypassing the PeriodInterval type to exercise the
+        // runtime guard against future codepaths that might widen the input.
+        const widened = candleRow as unknown as (
+            t: string,
+            p: number,
+            c: typeof CANDLE_FIXTURE,
+        ) => unknown;
+        expect(() => widened('X', 5, CANDLE_FIXTURE)).toThrow(
+            /unsupported period_interval 5/,
+        );
+    });
 });

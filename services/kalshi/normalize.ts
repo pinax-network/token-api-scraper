@@ -10,7 +10,7 @@ const SENTINEL_TS_PREFIX = '0001-01-01';
 export function ts(s: string | null | undefined): string | null {
     if (!s) return null;
     if (s.startsWith(SENTINEL_TS_PREFIX)) return null;
-    return s.replace('Z', '');
+    return s.replace(/Z$/, '');
 }
 
 /** Empty string → NULL. */
@@ -135,16 +135,26 @@ export function seriesRow(s: Series) {
 }
 
 /** Map Kalshi's int period_interval (1/60/1440) to the CH Enum16 label. */
-const PERIOD_LABEL: Record<number, '1m' | '60m' | '1440m'> = {
+const PERIOD_LABEL = {
     1: '1m',
     60: '60m',
     1440: '1440m',
-};
+} as const satisfies Record<number, '1m' | '60m' | '1440m'>;
 
-export function candleRow(ticker: string, period: number, c: Candlestick) {
+export type PeriodInterval = keyof typeof PERIOD_LABEL;
+
+export function candleRow(
+    ticker: string,
+    period: PeriodInterval,
+    c: Candlestick,
+) {
+    const label = PERIOD_LABEL[period];
+    if (!label) {
+        throw new Error(`candleRow: unsupported period_interval ${period}`);
+    }
     return {
         ticker,
-        period_interval: PERIOD_LABEL[period],
+        period_interval: label,
         end_period_ts: c.end_period_ts,
         price_open_dollars: c.price.open_dollars,
         price_high_dollars: c.price.high_dollars,
