@@ -4,7 +4,7 @@
 
 import type { Candlestick, EventEntity, Market, Series, Trade } from './types';
 
-const SENTINEL_TS_PREFIX = '0001-01-01';
+export const SENTINEL_TS_PREFIX = '0001-01-01';
 
 /** ISO 8601 timestamp → CH-acceptable form, or NULL if missing/sentinel. */
 export function ts(s: string | null | undefined): string | null {

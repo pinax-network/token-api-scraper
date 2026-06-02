@@ -8,7 +8,7 @@ import {
 import { query } from '../../lib/clickhouse';
 import { createLogger } from '../../lib/logger';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
-import { initService } from '../../lib/service-init';
+import { initService, markServiceAlive } from '../../lib/service-init';
 import { KalshiClient } from './client';
 import {
     type CursorCheckpoint,
@@ -21,6 +21,7 @@ import {
     candleRow,
     eventRow,
     marketRow,
+    SENTINEL_TS_PREFIX,
     seriesRow,
     tradeRow,
 } from './normalize';
@@ -33,6 +34,12 @@ const SCOPE_MARKETS = 'markets_refresh';
 const SCOPE_EVENTS = 'events_refresh';
 const SCOPE_SERIES = 'series_refresh';
 const SCOPE_CANDLES = 'candles_refresh';
+
+/** Quarantine marker for a scope whose cursor pagination got stuck in a
+ * loop (server returned a cursor we already used). Subsequent cycles
+ * short-circuit on this value so the scope doesn't crashloop. Operator must
+ * clear the row to resume. */
+export const POISONED_SENTINEL = '__POISONED__';
 
 // Cold-start lookback: bounds the very first cycle when cursor_state is empty.
 // Steady-state runs drive `min_ts` from the persisted watermark instead.
@@ -64,6 +71,9 @@ export async function run(): Promise<void> {
     const client = new KalshiClient();
     const queue = getBatchInsertQueue();
 
+    let primaryError: unknown;
+    let cycleProgressed = false;
+
     try {
         const cursors = await getCursors([
             SCOPE_TRADES,
@@ -73,78 +83,150 @@ export async function run(): Promise<void> {
             SCOPE_CANDLES,
         ]);
 
-        await wrap('trades', () =>
-            runTradesPass(client, queue, cursors.get(SCOPE_TRADES)),
+        await runPass(
+            cursors,
+            'trades',
+            SCOPE_TRADES,
+            // Always due — trades pass tip-follows on every cycle.
+            true,
+            () => runTradesPass(client, queue, cursors.get(SCOPE_TRADES)),
         );
-
-        if (
+        await runPass(
+            cursors,
+            'markets',
+            SCOPE_MARKETS,
             isDue(
                 cursors.get(SCOPE_MARKETS)?.last_processed_ts_ms,
                 MARKETS_REFRESH_S,
-            )
-        ) {
-            await wrap('markets', async () => {
+            ),
+            async () => {
                 await runMarketsPass(client, queue, cursors.get(SCOPE_MARKETS));
-                await markRan(SCOPE_MARKETS);
-            });
-        }
-        if (
+                await flushAndMarkRan(queue, SCOPE_MARKETS, 'markets');
+            },
+        );
+        await runPass(
+            cursors,
+            'events',
+            SCOPE_EVENTS,
             isDue(
                 cursors.get(SCOPE_EVENTS)?.last_processed_ts_ms,
                 EVENTS_REFRESH_S,
-            )
-        ) {
-            await wrap('events', async () => {
+            ),
+            async () => {
                 await runEventsPass(client, queue, cursors.get(SCOPE_EVENTS));
-                await markRan(SCOPE_EVENTS);
-            });
-        }
-        if (
+                await flushAndMarkRan(queue, SCOPE_EVENTS, 'events');
+            },
+        );
+        await runPass(
+            cursors,
+            'series',
+            SCOPE_SERIES,
             isDue(
                 cursors.get(SCOPE_SERIES)?.last_processed_ts_ms,
                 SERIES_REFRESH_S,
-            )
-        ) {
-            await wrap('series', async () => {
+            ),
+            async () => {
                 await runSeriesPass(client, queue);
-                await markRan(SCOPE_SERIES);
-            });
-        }
-        if (
+                await flushAndMarkRan(queue, SCOPE_SERIES, 'series');
+            },
+        );
+        await runPass(
+            cursors,
+            'candles',
+            SCOPE_CANDLES,
             isDue(
                 cursors.get(SCOPE_CANDLES)?.last_processed_ts_ms,
                 CANDLES_REFRESH_S,
-            )
-        ) {
-            await wrap('candles', async () => {
+            ),
+            async () => {
                 await runCandlesPass(client, queue);
-                await markRan(SCOPE_CANDLES);
-            });
-        }
+                await flushAndMarkRan(queue, SCOPE_CANDLES, 'candles');
+            },
+        );
 
-        incrementSuccess(serviceName);
+        cycleProgressed = true;
     } catch (error) {
+        primaryError = error;
         const err = error as Error & { pass?: string };
         log.error('kalshi-live cycle failed', {
             pass: err?.pass,
             message: err?.message ?? String(error),
             stack: err?.stack,
         });
-        incrementError(serviceName);
-        throw error;
-    } finally {
+    }
+
+    // Shutdown runs on both paths to flush in-flight rows. If shutdown
+    // throws AND we already have a primary error, log+swallow so the
+    // original root cause survives propagation.
+    try {
         await shutdownBatchInsertQueue();
+    } catch (shutdownErr) {
+        if (primaryError) {
+            log.error('shutdown also failed; preserving original cycle error', {
+                shutdownErr: String(
+                    (shutdownErr as Error)?.message ?? shutdownErr,
+                ),
+            });
+        } else {
+            primaryError = shutdownErr;
+        }
+    }
+
+    if (primaryError) {
+        incrementError(serviceName);
+        throw primaryError;
+    }
+    // Heartbeat only on cycles that finished cleanly — error paths
+    // deliberately leave it stale so the liveness probe can catch silent
+    // insert failures + shutdown errors after the grace window.
+    if (cycleProgressed) {
+        markServiceAlive();
+    }
+    incrementSuccess(serviceName);
+}
+
+/** Run a single pass with quarantine + due-gate + per-pass error tagging.
+ * The quarantine check short-circuits if `cursor_state.<scope>.last_cursor`
+ * is `__POISONED__` — operator must clear the row to resume. */
+async function runPass(
+    cursors: Map<string, CursorCheckpoint>,
+    label: string,
+    scope: string,
+    due: boolean,
+    body: () => Promise<void>,
+): Promise<void> {
+    if (cursors.get(scope)?.last_cursor === POISONED_SENTINEL) {
+        log.warn(`${label} pass quarantined — manual intervention required`, {
+            scope,
+            oldest_seen: cursors.get(scope)?.last_processed_ts_iso,
+        });
+        return;
+    }
+    if (!due) return;
+    try {
+        await body();
+    } catch (err) {
+        (err as Error & { pass?: string }).pass = label;
+        throw err;
     }
 }
 
-/** Tag thrown errors with the pass name so the cycle catch can report which pass blew up. */
-async function wrap<T>(pass: string, fn: () => Promise<T>): Promise<T> {
-    try {
-        return await fn();
-    } catch (err) {
-        (err as Error & { pass?: string }).pass = pass;
-        throw err;
+/** Flush buffered rows, abort if any flush failed (or a prior periodic-timer
+ * flush left an unresolved error), then stamp the refresh-pass clock. The
+ * flush+check pair must precede `markRan` so the clock can't advance past
+ * rows that were lost mid-cycle. */
+async function flushAndMarkRan(
+    queue: Queue,
+    scope: string,
+    label: string,
+): Promise<void> {
+    const results = await queue.flushAll();
+    if (results.includes('err') || !queue.isHealthy()) {
+        throw new Error(
+            `${label} refresh: batch flush failed; clock not advanced`,
+        );
     }
+    await markRan(scope);
 }
 
 /** Unix ms → `YYYY-MM-DDTHH:MM:SS.NNNNNNZ` with the fractional seconds padded
@@ -168,6 +250,9 @@ async function runTradesPass(
     const watermarkIso =
         prev?.last_processed_ts_iso ?? padIsoToMicroseconds(watermarkMs);
 
+    // Local cursor only — live's resume mechanism is `min_ts` from the
+    // persisted watermark, not the persisted cursor token. The cursor is
+    // ephemeral for the duration of this cycle.
     let cursor: string | undefined;
     let prevCursor: string | undefined;
     let pages = 0;
@@ -191,6 +276,17 @@ async function runTradesPass(
         if (page.trades.length === 0) break;
 
         for (const t of page.trades) {
+            // Filter Kalshi's `0001-01-01...` sentinel BEFORE the watermark
+            // comparison — otherwise the sentinel lex-orders below any real
+            // watermark, falsely flips crossedWatermark, and the rest of the
+            // page is silently dropped.
+            if (t.created_time.startsWith(SENTINEL_TS_PREFIX)) {
+                log.warn('skipping trade with sentinel created_time', {
+                    trade_id: t.trade_id,
+                    ticker: t.ticker,
+                });
+                continue;
+            }
             if (t.created_time <= watermarkIso) {
                 crossedWatermark = true;
                 break;
@@ -203,9 +299,27 @@ async function runTradesPass(
         }
 
         const nextCursor = page.cursor || undefined;
-        if (nextCursor && nextCursor === prevCursor) {
+        // Detect both 1-hop self-loop (server echoes the cursor we just
+        // sent) and 2-hop alternation (A → B → A).
+        const isLoop =
+            !!nextCursor &&
+            (nextCursor === cursor || nextCursor === prevCursor);
+        if (isLoop) {
+            // Quarantine the looping scope. Flush first so already-queued
+            // rows reach CH; skip the quarantine persist if the flush itself
+            // failed so the next cycle can re-fetch and re-insert those rows.
+            const flushResults = await queue.flushAll();
+            const flushFailed =
+                flushResults.includes('err') || !queue.isHealthy();
+            if (!flushFailed) {
+                const watermark =
+                    newestSeen ?? padIsoToMicroseconds(Date.now());
+                await setCursor(SCOPE_TRADES, POISONED_SENTINEL, watermark);
+            }
             throw new Error(
-                'trades pass got the same cursor twice — server-side loop suspected',
+                flushFailed
+                    ? 'trades pass got a stale cursor back AND batch flush failed; cursor NOT quarantined to allow row recovery on retry'
+                    : 'trades pass got a stale cursor back — server-side loop suspected; cursor quarantined',
             );
         }
         prevCursor = cursor;
@@ -214,7 +328,18 @@ async function runTradesPass(
     }
 
     if (newestSeen) {
-        await setCursor(SCOPE_TRADES, cursor ?? '', newestSeen);
+        // Flush BEFORE advancing the watermark so the next cycle's `min_ts`
+        // never moves past rows that haven't landed in CH. Mirrors the
+        // refresh-pass guard via `flushAndMarkRan`.
+        const results = await queue.flushAll();
+        if (results.includes('err') || !queue.isHealthy()) {
+            throw new Error(
+                'trades pass: batch flush failed; watermark not advanced',
+            );
+        }
+        // `last_cursor` is unused on the read side (cycle-local), so persist
+        // an empty string and let `last_processed_ts` carry the resume signal.
+        await setCursor(SCOPE_TRADES, '', newestSeen);
     }
 
     log.info('trades-live cycle', {
@@ -227,12 +352,17 @@ async function runTradesPass(
 
 interface RefreshPassOpts<P, T> {
     label: string;
+    scope: string;
     intervalSec: number;
     table: string;
     fetch: (cursor: string | undefined, minUpdatedTs: number) => Promise<P>;
     items: (page: P) => T[];
     nextCursor: (page: P) => string | undefined;
     mapper: (item: T) => Record<string, unknown>;
+    /** Optional predicate: return a reason string to skip the item, or
+     * undefined to keep it. Used to drop entries whose sentinel timestamps
+     * would null-out into a non-nullable column on insert. */
+    skip?: (item: T) => string | undefined;
 }
 
 async function runRefreshPass<P, T>(
@@ -248,6 +378,7 @@ async function runRefreshPass<P, T>(
     let prevCursor: string | undefined;
     let pages = 0;
     let inserted = 0;
+    let skipped = 0;
     while (true) {
         if (pages >= PAGE_HARD_LIMIT) {
             throw new Error(
@@ -256,21 +387,49 @@ async function runRefreshPass<P, T>(
         }
         const page = await opts.fetch(cursor, minUpdatedTs);
         for (const item of opts.items(page)) {
+            const skipReason = opts.skip?.(item);
+            if (skipReason) {
+                log.warn(`skipping ${opts.label} item`, {
+                    reason: skipReason,
+                });
+                skipped++;
+                continue;
+            }
             await queue.add(opts.table, opts.mapper(item));
             inserted++;
         }
         pages++;
         const nextCursor = opts.nextCursor(page);
-        if (nextCursor && nextCursor === prevCursor) {
+        const isLoop =
+            !!nextCursor &&
+            (nextCursor === cursor || nextCursor === prevCursor);
+        if (isLoop) {
+            const flushResults = await queue.flushAll();
+            const flushFailed =
+                flushResults.includes('err') || !queue.isHealthy();
+            if (!flushFailed) {
+                await setCursor(
+                    opts.scope,
+                    POISONED_SENTINEL,
+                    padIsoToMicroseconds(Date.now()),
+                );
+            }
             throw new Error(
-                `${opts.label} refresh got the same cursor twice — server-side loop suspected`,
+                flushFailed
+                    ? `${opts.label} refresh got a stale cursor back AND batch flush failed; cursor NOT quarantined to allow row recovery on retry`
+                    : `${opts.label} refresh got a stale cursor back — server-side loop suspected; cursor quarantined`,
             );
         }
         prevCursor = cursor;
         cursor = nextCursor;
         if (!cursor) break;
     }
-    log.info(`${opts.label} refresh`, { pages, inserted, minUpdatedTs });
+    log.info(`${opts.label} refresh`, {
+        pages,
+        inserted,
+        skipped,
+        minUpdatedTs,
+    });
 }
 
 function runMarketsPass(
@@ -280,6 +439,7 @@ function runMarketsPass(
 ): Promise<void> {
     return runRefreshPass(queue, prev, {
         label: 'markets',
+        scope: SCOPE_MARKETS,
         intervalSec: MARKETS_REFRESH_S,
         table: 'markets',
         fetch: (cursor, minUpdatedTs) =>
@@ -291,6 +451,18 @@ function runMarketsPass(
         items: (p) => p.markets,
         nextCursor: (p) => p.cursor || undefined,
         mapper: marketRow,
+        // markets.created_time + markets.updated_time are non-nullable in CH.
+        // `ts()` would coerce the Kalshi sentinel to null and the batch insert
+        // would then fail; drop the row before it reaches the queue.
+        skip: (m) => {
+            if (m.created_time?.startsWith(SENTINEL_TS_PREFIX)) {
+                return 'sentinel created_time';
+            }
+            if (m.updated_time?.startsWith(SENTINEL_TS_PREFIX)) {
+                return 'sentinel updated_time';
+            }
+            return undefined;
+        },
     });
 }
 
@@ -301,6 +473,7 @@ function runEventsPass(
 ): Promise<void> {
     return runRefreshPass(queue, prev, {
         label: 'events',
+        scope: SCOPE_EVENTS,
         intervalSec: EVENTS_REFRESH_S,
         table: 'events',
         fetch: (cursor, minUpdatedTs) =>
