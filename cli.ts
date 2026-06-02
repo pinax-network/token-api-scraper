@@ -50,6 +50,11 @@ const SERVICES = {
         description:
             'Tip-follow Kalshi Trade API v2 (trades / markets / events / series / candlesticks) into the kalshi.* tables',
     },
+    'kalshi-backfill': {
+        path: './services/kalshi/backfill.ts',
+        description:
+            'Backfill the Kalshi `/historical/trades` archive (cutoff → oldest) into the shared trades table; resumable via cursor_state',
+    },
     'metadata-solana-rpc': {
         path: './services/metadata-solana-rpc/index.ts',
         description:
@@ -393,6 +398,7 @@ Services:
   polymarket                  ${SERVICES['polymarket'].description}
   hyperliquid                 ${SERVICES['hyperliquid'].description}
   kalshi-live                 ${SERVICES['kalshi-live'].description}
+  kalshi-backfill             ${SERVICES['kalshi-backfill'].description}
   metadata-solana-rpc         ${SERVICES['metadata-solana-rpc'].description}
   metadata-solana-extras-rpc  ${SERVICES['metadata-solana-extras-rpc'].description}
   metadata-solana-clickhouse  ${SERVICES['metadata-solana-clickhouse'].description}
