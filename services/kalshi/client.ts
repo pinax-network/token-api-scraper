@@ -2,7 +2,7 @@
 // no auth, no signing.
 
 import { DEFAULT_CONFIG } from '../../lib/config';
-import { logger } from '../../lib/logger';
+import { createLogger } from '../../lib/logger';
 import type {
     BulkCandlesPage,
     CandlesPage,
@@ -12,6 +12,8 @@ import type {
     SeriesPage,
     TradesPage,
 } from './types';
+
+const log = createLogger('kalshi-client');
 
 export const KALSHI_BASE = 'https://api.elections.kalshi.com/trade-api/v2';
 
@@ -83,7 +85,7 @@ export class KalshiClient {
                     attempt < this.opts.maxRetries
                 ) {
                     await this.sleep(attempt);
-                    logger.warn('kalshi transport retry', {
+                    log.warn('kalshi transport retry', {
                         url,
                         attempt,
                         err: String((err as Error)?.message || err),
@@ -106,7 +108,7 @@ export class KalshiClient {
                         );
                     }
                     await this.sleep(attempt);
-                    logger.warn('kalshi body-parse retry', {
+                    log.warn('kalshi body-parse retry', {
                         url,
                         attempt,
                         err: String((parseErr as Error)?.message ?? parseErr),
@@ -123,7 +125,7 @@ export class KalshiClient {
                 );
             }
             await this.sleep(attempt);
-            logger.warn('kalshi retry', {
+            log.warn('kalshi retry', {
                 url,
                 status: resp.status,
                 attempt,
