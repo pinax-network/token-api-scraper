@@ -44,9 +44,17 @@ function fakeClient(pages: PageSpec[]) {
     };
 }
 
-function fakeQueue() {
+/**
+ * `flushSequence` is a list of per-call results — flushAll() pops one entry
+ * per invocation. Default ([] every call) means "no rows, no error" matching
+ * the real BatchInsertQueue's behavior on an empty queue.
+ */
+function fakeQueue(
+    flushSequence: Array<Array<'noop' | 'ok' | 'err'>> | undefined = undefined,
+) {
     const rows: Array<{ table: string; row: unknown }> = [];
     const flushCalls: number[] = [];
+    let i = 0;
     return {
         rows,
         flushCalls,
@@ -56,7 +64,8 @@ function fakeQueue() {
         },
         flushAll: () => {
             flushCalls.push(rows.length);
-            return Promise.resolve([]);
+            const result = flushSequence?.[i++] ?? [];
+            return Promise.resolve(result);
         },
     } as unknown as Parameters<typeof runTradesBackfill>[1] & {
         rows: Array<{ table: string; row: unknown }>;
@@ -288,6 +297,20 @@ describe('runTradesBackfill — durability', () => {
         }
         expect(lastFlushRowCount).toBe(2);
     });
+
+    test('aborts the cycle and skips persist when flushAll reports err', async () => {
+        const t1 = trade({
+            trade_id: 'a',
+            created_time: '2026-03-02T00:00:00.000000Z',
+        });
+        const client = fakeClient([{ trades: [t1], cursor: 'next-1' }]);
+        const queue = fakeQueue([['err']]);
+        const persist = spyPersist();
+        await expect(
+            runTradesBackfill(client, queue, persist, undefined, undefined),
+        ).rejects.toThrow(/batch flush failed; cursor not advanced/);
+        expect(persist.mock.calls.length).toBe(0);
+    });
 });
 
 describe('runTradesBackfill — loop quarantine', () => {
@@ -333,6 +356,27 @@ describe('runTradesBackfill — loop quarantine', () => {
                 undefined,
             ),
         ).rejects.toThrow(/stale cursor back/);
+    });
+
+    test('skips quarantine if the page flush also failed so rows can be re-fetched on retry', async () => {
+        const t = trade({ trade_id: 'a' });
+        // Iter 1: send undefined, get 'loop'. Normal path: flushAll → ['ok'].
+        // Iter 2: send 'loop', get 'loop'. Self-loop detected → quarantine
+        //         path runs flushAll which returns ['err'] in this test.
+        const client = fakeClient([
+            { trades: [t], cursor: 'loop' },
+            { trades: [t], cursor: 'loop' },
+        ]);
+        const queue = fakeQueue([['ok'], ['err']]);
+        const persist = spyPersist();
+        await expect(
+            runTradesBackfill(client, queue, persist, undefined, undefined),
+        ).rejects.toThrow(/stale cursor back AND batch flush failed/);
+        // POISONED_SENTINEL is NOT persisted when the flush failed —
+        // otherwise the spliced-out rows would be lost on retry.
+        for (const call of persist.mock.calls) {
+            expect(call[0]).not.toBe(POISONED_SENTINEL);
+        }
     });
 });
 

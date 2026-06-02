@@ -190,14 +190,23 @@ export async function runTradesBackfill(
             !!nextCursor &&
             (nextCursor === cursor || nextCursor === prevCursor);
         if (isLoop) {
-            // Quarantine the looping cursor so the next CLI cycle won't
-            // re-enter the loop and crash again. Operator must inspect
-            // cursor_state and clear the POISONED_SENTINEL row to resume.
-            const watermark = oldestSeen ?? padIsoToMicroseconds(Date.now());
-            await queue.flushAll();
-            await persist(POISONED_SENTINEL, watermark);
+            // Flush buffered trades for this page before quarantining the
+            // cursor. If the flush itself failed, do NOT persist
+            // POISONED_SENTINEL: the spliced-out rows weren't written to CH
+            // and quarantining would block the next cycle from re-fetching
+            // and re-inserting them. Throw with both signals so the operator
+            // sees both the loop and the flush failure.
+            const flushResults = await queue.flushAll();
+            const flushFailed = flushResults.includes('err');
+            if (!flushFailed) {
+                const watermark =
+                    oldestSeen ?? padIsoToMicroseconds(Date.now());
+                await persist(POISONED_SENTINEL, watermark);
+            }
             throw new Error(
-                'backfill got a stale cursor back — server-side loop suspected; cursor quarantined',
+                flushFailed
+                    ? 'backfill got a stale cursor back AND batch flush failed; cursor NOT quarantined to allow row recovery on retry'
+                    : 'backfill got a stale cursor back — server-side loop suspected; cursor quarantined',
             );
         }
 
