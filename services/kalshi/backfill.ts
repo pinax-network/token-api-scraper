@@ -195,9 +195,13 @@ export async function runTradesBackfill(
             // POISONED_SENTINEL: the spliced-out rows weren't written to CH
             // and quarantining would block the next cycle from re-fetching
             // and re-inserting them. Throw with both signals so the operator
-            // sees both the loop and the flush failure.
+            // sees both the loop and the flush failure. Mirror shutdown's
+            // check by also catching a lingering periodic-timer flush error
+            // (`!queue.isHealthy()`) that a subsequent partial-success flush
+            // hasn't cleared.
             const flushResults = await queue.flushAll();
-            const flushFailed = flushResults.includes('err');
+            const flushFailed =
+                flushResults.includes('err') || !queue.isHealthy();
             if (!flushFailed) {
                 const watermark =
                     oldestSeen ?? padIsoToMicroseconds(Date.now());
@@ -220,9 +224,12 @@ export async function runTradesBackfill(
         // past them (unrecoverable on opaque-cursor pagination).
         // BatchInsertQueue catches and tags per-table flush errors as 'err'
         // rather than throwing; abort the cycle on any err so the cursor
-        // doesn't advance past lost rows.
+        // doesn't advance past lost rows. Also check `!queue.isHealthy()`
+        // to catch a periodic-timer flush error that occurred between our
+        // explicit flushes and that the current batch's success didn't
+        // happen to clear (mirrors shutdown's combined check).
         const results = await queue.flushAll();
-        if (results.includes('err')) {
+        if (results.includes('err') || !queue.isHealthy()) {
             throw new Error(
                 'backfill aborting cycle — batch flush failed; cursor not advanced',
             );

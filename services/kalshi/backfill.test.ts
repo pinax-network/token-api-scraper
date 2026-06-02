@@ -47,14 +47,18 @@ function fakeClient(pages: PageSpec[]) {
 /**
  * `flushSequence` is a list of per-call results — flushAll() pops one entry
  * per invocation. Default ([] every call) means "no rows, no error" matching
- * the real BatchInsertQueue's behavior on an empty queue.
+ * the real BatchInsertQueue's behavior on an empty queue. `healthSequence`
+ * controls per-call `isHealthy()` return values (default true) — used to
+ * simulate a lingering periodic-timer flush error between explicit flushes.
  */
 function fakeQueue(
     flushSequence: Array<Array<'noop' | 'ok' | 'err'>> | undefined = undefined,
+    healthSequence: boolean[] | undefined = undefined,
 ) {
     const rows: Array<{ table: string; row: unknown }> = [];
     const flushCalls: number[] = [];
     let i = 0;
+    let h = 0;
     return {
         rows,
         flushCalls,
@@ -67,6 +71,7 @@ function fakeQueue(
             const result = flushSequence?.[i++] ?? [];
             return Promise.resolve(result);
         },
+        isHealthy: () => healthSequence?.[h++] ?? true,
     } as unknown as Parameters<typeof runTradesBackfill>[1] & {
         rows: Array<{ table: string; row: unknown }>;
         flushCalls: number[];
@@ -305,6 +310,25 @@ describe('runTradesBackfill — durability', () => {
         });
         const client = fakeClient([{ trades: [t1], cursor: 'next-1' }]);
         const queue = fakeQueue([['err']]);
+        const persist = spyPersist();
+        await expect(
+            runTradesBackfill(client, queue, persist, undefined, undefined),
+        ).rejects.toThrow(/batch flush failed; cursor not advanced/);
+        expect(persist.mock.calls.length).toBe(0);
+    });
+
+    test('aborts the cycle when an explicit flushAll is `ok` but queue.isHealthy() reports a lingering periodic-flush error', async () => {
+        // Simulates: a periodic-timer flush failed between this page's add()
+        // calls (setting `lastFlushError`), but the explicit flushAll our
+        // walker calls happens to return `ok` (because the failed timer
+        // already spliced + lost the prior batch). Without checking
+        // isHealthy(), the walker would advance the cursor past lost rows.
+        const t1 = trade({
+            trade_id: 'a',
+            created_time: '2026-03-02T00:00:00.000000Z',
+        });
+        const client = fakeClient([{ trades: [t1], cursor: 'next-1' }]);
+        const queue = fakeQueue([['ok']], [false]);
         const persist = spyPersist();
         await expect(
             runTradesBackfill(client, queue, persist, undefined, undefined),
