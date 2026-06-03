@@ -347,8 +347,10 @@ export function trackRpcRequest(
 }
 
 /** Record the newest record-timestamp this scope has processed. Accepts ISO
- * 8601 (with or without fractional seconds) or unix-ms; converts to unix
- * seconds with sub-second precision preserved when present. */
+ * 8601 or unix-ms. Resolution is millisecond — `new Date(iso)` truncates
+ * anything beyond 3 fractional digits, so µs-precision Kalshi timestamps
+ * land in the gauge at ms granularity. Sufficient for dashboard freshness
+ * panels; not load-bearing for sub-ms accuracy. */
 export function setScopeHeadTime(
     scope: string,
     timestamp: string | number,

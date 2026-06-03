@@ -479,12 +479,15 @@ function runMarketsPass(
         // markets.created_time + markets.updated_time are non-nullable in CH.
         // `ts()` would coerce the Kalshi sentinel to null and the batch insert
         // would then fail; drop the row before it reaches the queue.
+        // Skip reason strings double as `scraper_items_skipped_total.reason`
+        // labels — use snake_case to stay consistent with the same skip
+        // condition in kalshi-backfill's markets pass.
         skip: (m) => {
             if (m.created_time?.startsWith(SENTINEL_TS_PREFIX)) {
-                return 'sentinel created_time';
+                return 'sentinel_created_time';
             }
             if (m.updated_time?.startsWith(SENTINEL_TS_PREFIX)) {
-                return 'sentinel updated_time';
+                return 'sentinel_updated_time';
             }
             return undefined;
         },
