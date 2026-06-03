@@ -8,7 +8,14 @@ import {
     shutdownBatchInsertQueue,
 } from '../../lib/batch-insert';
 import { createLogger } from '../../lib/logger';
-import { incrementError, incrementSuccess } from '../../lib/prometheus';
+import {
+    incrementError,
+    incrementItemsSkipped,
+    incrementPagesReceived,
+    incrementSuccess,
+    setBackfillDrained,
+    setScopePoisoned,
+} from '../../lib/prometheus';
 import { initService, markServiceAlive } from '../../lib/service-init';
 import { KalshiClient } from './client';
 import { getCursor, setCursor } from './cursor';
@@ -50,6 +57,10 @@ export async function run(): Promise<void> {
 
     try {
         const prev = await getCursor(SCOPE);
+        // Reassert state gauges every cycle. If an operator clears the
+        // row the next cycle resets these to 0 without code changes.
+        setBackfillDrained(SCOPE, prev?.last_cursor === DRAINED_SENTINEL);
+        setScopePoisoned(SCOPE, prev?.last_cursor === POISONED_SENTINEL);
         if (prev?.last_cursor === DRAINED_SENTINEL) {
             log.info('backfill archive drained, idling', {
                 oldest_seen: prev.last_processed_ts_iso,
@@ -147,6 +158,7 @@ export async function runTradesBackfill(
 
     while (pages < MAX_PAGES_PER_CYCLE) {
         const page = await client.getTradesHistorical({ cursor, limit: 1000 });
+        incrementPagesReceived(SCOPE);
 
         // Server hiccups (empty body / brief 200 with no content) return
         // {trades: [], cursor: ''}. Distinguishing a true drain from a
@@ -172,6 +184,7 @@ export async function runTradesBackfill(
                     trade_id: t.trade_id,
                     ticker: t.ticker,
                 });
+                incrementItemsSkipped('trades', 'sentinel_created_time');
                 continue;
             }
             await queue.add('trades', tradeRow(t));

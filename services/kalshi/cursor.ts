@@ -5,6 +5,7 @@
 // as a clock — `last_processed_ts` is the time of the last successful run.
 
 import { insertClient, query } from '../../lib/clickhouse';
+import { setScopeHeadTime } from '../../lib/prometheus';
 
 export interface CursorCheckpoint {
     scope: string;
@@ -75,6 +76,7 @@ export async function setCursor(
         values: [{ scope, last_cursor, last_processed_ts: persisted }],
         format: 'JSONEachRow',
     });
+    setScopeHeadTime(scope, last_processed_ts_iso);
 }
 
 /** True if `intervalSec` has elapsed since `lastMs` (or no prior run exists). */
