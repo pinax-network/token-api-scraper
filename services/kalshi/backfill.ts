@@ -63,6 +63,15 @@ const SENTINELS = new Set([DRAINED_SENTINEL, POISONED_SENTINEL]);
  * resumable from the last checkpoint. */
 const MAX_PAGES_PER_CYCLE = 1000;
 
+/** When true, the three backfill passes run concurrently within one cycle
+ * (via `Promise.allSettled`). Default sequential — concurrent mode is
+ * faster when upstream RTT dominates but shares the BatchInsertQueue's
+ * `lastFlushError` health across passes (one pass's flush failure forces
+ * the others' next-page check to abort too). Opt in via the env var. */
+function isParallelEnabled(): boolean {
+    return process.env.KALSHI_BACKFILL_PARALLEL === 'true';
+}
+
 type Queue = ReturnType<typeof getBatchInsertQueue>;
 
 /** Callback that durably persists the current pagination cursor + watermark
@@ -78,6 +87,7 @@ export async function run(): Promise<void> {
 
     const client = new KalshiClient();
     const queue = getBatchInsertQueue();
+    const parallel = isParallelEnabled();
 
     let primaryError: unknown;
 
@@ -91,36 +101,7 @@ export async function run(): Promise<void> {
             setScopePoisoned(scope, c?.last_cursor === POISONED_SENTINEL);
         }
 
-        // Sequential — three short HTTP-bound walks share the same batch
-        // queue, so running them back-to-back keeps the queue's table-keyed
-        // buffers from interleaving. Each pass yields the queue clean.
-        await runPass(SCOPE_TRADES, 'trades', cursors, () =>
-            runTradesBackfill(
-                client,
-                queue,
-                (c, t) => setCursor(SCOPE_TRADES, c, t),
-                cursors.get(SCOPE_TRADES)?.last_cursor,
-                cursors.get(SCOPE_TRADES)?.last_processed_ts_iso,
-            ),
-        );
-        await runPass(SCOPE_MARKETS, 'markets', cursors, () =>
-            runMarketsBackfill(
-                client,
-                queue,
-                (c, t) => setCursor(SCOPE_MARKETS, c, t),
-                cursors.get(SCOPE_MARKETS)?.last_cursor,
-                cursors.get(SCOPE_MARKETS)?.last_processed_ts_iso,
-            ),
-        );
-        await runPass(SCOPE_EVENTS, 'events', cursors, () =>
-            runEventsBackfill(
-                client,
-                queue,
-                (c, t) => setCursor(SCOPE_EVENTS, c, t),
-                cursors.get(SCOPE_EVENTS)?.last_cursor,
-                cursors.get(SCOPE_EVENTS)?.last_processed_ts_iso,
-            ),
-        );
+        await runPasses(client, queue, cursors, parallel);
 
         // Heartbeat on every cycle — even when all three passes are drained
         // (no walker ran). Without the bump an idle-but-healthy service
@@ -158,6 +139,88 @@ export async function run(): Promise<void> {
         throw primaryError;
     }
     incrementSuccess(serviceName);
+}
+
+/** Build the three pass invocations + run them either sequentially or
+ * concurrently based on `parallel`. Exported for unit testing. */
+export async function runPasses(
+    client: KalshiClient,
+    queue: Queue,
+    cursors: Map<string, CursorCheckpoint>,
+    parallel: boolean,
+): Promise<void> {
+    const passes: Array<{
+        scope: string;
+        label: string;
+        body: () => Promise<unknown>;
+    }> = [
+        {
+            scope: SCOPE_TRADES,
+            label: 'trades',
+            body: () =>
+                runTradesBackfill(
+                    client,
+                    queue,
+                    (c, t) => setCursor(SCOPE_TRADES, c, t),
+                    cursors.get(SCOPE_TRADES)?.last_cursor,
+                    cursors.get(SCOPE_TRADES)?.last_processed_ts_iso,
+                ),
+        },
+        {
+            scope: SCOPE_MARKETS,
+            label: 'markets',
+            body: () =>
+                runMarketsBackfill(
+                    client,
+                    queue,
+                    (c, t) => setCursor(SCOPE_MARKETS, c, t),
+                    cursors.get(SCOPE_MARKETS)?.last_cursor,
+                    cursors.get(SCOPE_MARKETS)?.last_processed_ts_iso,
+                ),
+        },
+        {
+            scope: SCOPE_EVENTS,
+            label: 'events',
+            body: () =>
+                runEventsBackfill(
+                    client,
+                    queue,
+                    (c, t) => setCursor(SCOPE_EVENTS, c, t),
+                    cursors.get(SCOPE_EVENTS)?.last_cursor,
+                    cursors.get(SCOPE_EVENTS)?.last_processed_ts_iso,
+                ),
+        },
+    ];
+
+    if (parallel) {
+        // `allSettled` so a failure in one pass doesn't cancel the others
+        // — passes write to independent CH tables + cursor scopes, so
+        // partial-cycle progress is durable per-pass. Aggregate failures
+        // afterward; the first one carries through with its pass label.
+        const results = await Promise.allSettled(
+            passes.map((p) => runPass(p.scope, p.label, cursors, p.body)),
+        );
+        const failures = results
+            .map((r, i) => ({ r, label: passes[i]?.label ?? '' }))
+            .filter(({ r }) => r.status === 'rejected');
+        if (failures.length > 1) {
+            for (const f of failures) {
+                const reason = (f.r as PromiseRejectedResult).reason;
+                log.error('parallel backfill pass failed', {
+                    pass: f.label,
+                    message: (reason as Error)?.message ?? String(reason),
+                });
+            }
+        }
+        if (failures.length > 0) {
+            throw (failures[0]!.r as PromiseRejectedResult).reason;
+        }
+        return;
+    }
+
+    for (const p of passes) {
+        await runPass(p.scope, p.label, cursors, p.body);
+    }
 }
 
 /** Run one pass with quarantine + drained short-circuits + per-pass error
