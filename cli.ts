@@ -58,7 +58,7 @@ const SERVICES = {
     'kalshi-backfill': {
         path: './services/kalshi/backfill.ts',
         description:
-            'Backfill the Kalshi `/historical/trades` archive (cutoff → oldest) into the shared trades table; resumable via cursor_state',
+            'Backfill the Kalshi cold-start state — trades (`/historical/trades`), settled markets (`/historical/markets`), and events (`/events` ungated) — into the shared kalshi.* tables; each pass resumable via its own cursor_state scope',
     },
     'metadata-solana-rpc': {
         path: './services/metadata-solana-rpc/index.ts',
