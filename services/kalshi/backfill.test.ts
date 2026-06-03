@@ -2,9 +2,11 @@ import { describe, expect, mock, test } from 'bun:test';
 import {
     DRAINED_SENTINEL,
     POISONED_SENTINEL,
+    runEventsBackfill,
+    runMarketsBackfill,
     runTradesBackfill,
 } from './backfill';
-import type { Trade } from './types';
+import type { EventEntity, Market, Trade } from './types';
 
 function trade(overrides: Partial<Trade>): Trade {
     return {
@@ -429,5 +431,223 @@ describe('runTradesBackfill — defensive sentinel input', () => {
                 undefined,
             ),
         ).rejects.toThrow(/sentinel cursor/);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Markets pass — mirrors a slim subset of the trades suite to validate the
+// generic walker is correctly parameterized for /historical/markets. The
+// trades suite covers the shared cursor / flush / quarantine machinery; here
+// we only re-prove what's pass-specific: endpoint, mapper, skip predicate,
+// and watermark source.
+// ---------------------------------------------------------------------------
+
+function market(overrides: Partial<Market>): Market {
+    return {
+        ticker: 'KXEX-1',
+        event_ticker: 'KXEX',
+        market_type: 'binary',
+        status: 'finalized',
+        title: 'Example',
+        created_time: '2026-03-01T00:00:00.000000Z',
+        updated_time: '2026-03-02T00:00:00.000000Z',
+        yes_bid_dollars: '0.50',
+        yes_ask_dollars: '0.50',
+        no_bid_dollars: '0.50',
+        no_ask_dollars: '0.50',
+        last_price_dollars: '0.50',
+        ...overrides,
+    };
+}
+
+interface MarketsPageSpec {
+    markets: Market[];
+    cursor: string;
+}
+
+function fakeMarketsClient(pages: MarketsPageSpec[]) {
+    let i = 0;
+    const calls: Array<{ cursor: string | undefined }> = [];
+    return {
+        calls,
+        getMarketsHistorical: (params: { cursor?: string }) => {
+            calls.push({ cursor: params.cursor });
+            const p = pages[i++];
+            if (!p) throw new Error(`fakeClient: no more pages (call #${i})`);
+            return Promise.resolve(p);
+        },
+    } as unknown as Parameters<typeof runMarketsBackfill>[0] & {
+        calls: Array<{ cursor: string | undefined }>;
+    };
+}
+
+describe('runMarketsBackfill', () => {
+    test('cold start sends no cursor and writes to the markets table', async () => {
+        const m = market({ ticker: 'KXEX-A' });
+        const client = fakeMarketsClient([{ markets: [m], cursor: '' }]);
+        const queue = fakeQueue();
+        const persist = spyPersist();
+        const result = await runMarketsBackfill(
+            client,
+            queue,
+            persist,
+            undefined,
+            undefined,
+        );
+        expect(client.calls[0]?.cursor).toBeUndefined();
+        expect(result.drained).toBe(true);
+        expect(queue.rows.at(-1)?.table).toBe('markets');
+        expect(persist.mock.calls.at(-1)?.[0]).toBe(DRAINED_SENTINEL);
+    });
+
+    test('skips markets with sentinel created_time AND sentinel updated_time', async () => {
+        const realMarket = market({ ticker: 'KXEX-REAL' });
+        const sentinelCreated = market({
+            ticker: 'KXEX-SC',
+            created_time: '0001-01-01T00:00:00.000000Z',
+        });
+        const sentinelUpdated = market({
+            ticker: 'KXEX-SU',
+            updated_time: '0001-01-01T00:00:00.000000Z',
+        });
+        const client = fakeMarketsClient([
+            {
+                markets: [realMarket, sentinelCreated, sentinelUpdated],
+                cursor: '',
+            },
+        ]);
+        const queue = fakeQueue();
+        const result = await runMarketsBackfill(
+            client,
+            queue,
+            spyPersist(),
+            undefined,
+            undefined,
+        );
+        expect(result.inserted).toBe(1);
+        expect(queue.rows.length).toBe(1);
+    });
+
+    test('watermark advances to the oldest created_time seen across pages', async () => {
+        const oldest = market({
+            ticker: 'KXEX-OLD',
+            created_time: '2026-01-15T00:00:00.000000Z',
+        });
+        const newer = market({
+            ticker: 'KXEX-NEW',
+            created_time: '2026-04-01T00:00:00.000000Z',
+        });
+        const client = fakeMarketsClient([
+            { markets: [newer], cursor: 'c1' },
+            { markets: [oldest], cursor: '' },
+        ]);
+        const result = await runMarketsBackfill(
+            client,
+            fakeQueue(),
+            spyPersist(),
+            undefined,
+            undefined,
+        );
+        expect(result.oldestSeen).toBe('2026-01-15T00:00:00.000000Z');
+    });
+
+    test('quarantines on cursor loop and persists POISONED_SENTINEL', async () => {
+        const m = market({ ticker: 'KXEX-LOOP' });
+        const client = fakeMarketsClient([
+            { markets: [m], cursor: 'loop' },
+            { markets: [m], cursor: 'loop' },
+        ]);
+        const persist = spyPersist();
+        await expect(
+            runMarketsBackfill(
+                client,
+                fakeQueue(),
+                persist,
+                undefined,
+                undefined,
+            ),
+        ).rejects.toThrow(/stale cursor back/);
+        expect(persist.mock.calls.at(-1)?.[0]).toBe(POISONED_SENTINEL);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Events pass — events have an optional `last_updated_ts`, no skip predicate,
+// and write to the events table.
+// ---------------------------------------------------------------------------
+
+function eventItem(overrides: Partial<EventEntity>): EventEntity {
+    return {
+        event_ticker: 'KXEX-EVT',
+        series_ticker: 'KXEX',
+        title: 'Example event',
+        last_updated_ts: '2026-03-01T00:00:00.000000Z',
+        ...overrides,
+    };
+}
+
+interface EventsPageSpec {
+    events: EventEntity[];
+    cursor: string;
+}
+
+function fakeEventsClient(pages: EventsPageSpec[]) {
+    let i = 0;
+    const calls: Array<{ cursor: string | undefined }> = [];
+    return {
+        calls,
+        getEvents: (params: { cursor?: string; min_updated_ts?: number }) => {
+            calls.push({ cursor: params.cursor });
+            if (params.min_updated_ts !== undefined) {
+                throw new Error(
+                    'events backfill must not send min_updated_ts (would gate to recent only)',
+                );
+            }
+            const p = pages[i++];
+            if (!p) throw new Error(`fakeClient: no more pages (call #${i})`);
+            return Promise.resolve(p);
+        },
+    } as unknown as Parameters<typeof runEventsBackfill>[0] & {
+        calls: Array<{ cursor: string | undefined }>;
+    };
+}
+
+describe('runEventsBackfill', () => {
+    test('cold start sends no cursor and no min_updated_ts; writes to events', async () => {
+        const e = eventItem({ event_ticker: 'KXEX-A' });
+        const client = fakeEventsClient([{ events: [e], cursor: '' }]);
+        const queue = fakeQueue();
+        const persist = spyPersist();
+        const result = await runEventsBackfill(
+            client,
+            queue,
+            persist,
+            undefined,
+            undefined,
+        );
+        expect(client.calls[0]?.cursor).toBeUndefined();
+        expect(result.drained).toBe(true);
+        expect(queue.rows.at(-1)?.table).toBe('events');
+        expect(persist.mock.calls.at(-1)?.[0]).toBe(DRAINED_SENTINEL);
+    });
+
+    test('events without last_updated_ts do not crash the pass — watermark falls back', async () => {
+        const e = eventItem({ event_ticker: 'KXEX-NO-TS' });
+        e.last_updated_ts = undefined;
+        const client = fakeEventsClient([{ events: [e], cursor: '' }]);
+        const persist = spyPersist();
+        const result = await runEventsBackfill(
+            client,
+            fakeQueue(),
+            persist,
+            undefined,
+            undefined,
+        );
+        expect(result.inserted).toBe(1);
+        // Last persist call still happened with DRAINED + a fallback ISO
+        // string (now()-derived) — the watermark column is non-null.
+        const lastCall = persist.mock.calls.at(-1);
+        expect(lastCall?.[0]).toBe(DRAINED_SENTINEL);
+        expect(lastCall?.[1]).toMatch(/^2\d{3}-/);
     });
 });

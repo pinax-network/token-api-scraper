@@ -196,6 +196,20 @@ export class KalshiClient {
         return this.get('/markets', { limit: 1000, ...params });
     }
 
+    /** Archived (before-cutoff) markets — settled markets that have rolled
+     * off the live `/markets` endpoint. Same response shape as `getMarkets`. */
+    getMarketsHistorical(
+        params: {
+            event_ticker?: string;
+            series_ticker?: string;
+            tickers?: string;
+            limit?: number;
+            cursor?: string;
+        } = {},
+    ): Promise<MarketsPage> {
+        return this.get('/historical/markets', { limit: 1000, ...params });
+    }
+
     getEvents(
         params: {
             status?: 'unopened' | 'open' | 'closed' | 'settled';
