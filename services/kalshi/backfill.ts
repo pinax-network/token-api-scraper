@@ -161,32 +161,30 @@ export async function run(): Promise<void> {
 }
 
 /** Run one pass with quarantine + drained short-circuits + per-pass error
- * tagging. Returns true if the pass actually ran; false if it was skipped
- * (drained or poisoned). */
+ * tagging. */
 async function runPass(
     scope: string,
     label: string,
     cursors: Map<string, CursorCheckpoint>,
     body: () => Promise<unknown>,
-): Promise<boolean> {
+): Promise<void> {
     const c = cursors.get(scope);
     if (c?.last_cursor === DRAINED_SENTINEL) {
         log.info(`${label} pass drained, idling`, {
             scope,
             oldest_seen: c.last_processed_ts_iso,
         });
-        return false;
+        return;
     }
     if (c?.last_cursor === POISONED_SENTINEL) {
         log.warn(
             `${label} pass quarantined — manual intervention required to resume`,
             { scope, oldest_seen: c.last_processed_ts_iso },
         );
-        return false;
+        return;
     }
     try {
         await body();
-        return true;
     } catch (err) {
         (err as Error & { pass?: string }).pass = label;
         throw err;
