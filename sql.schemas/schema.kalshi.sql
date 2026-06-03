@@ -1,8 +1,10 @@
 -- Kalshi prediction-market data (scraped from Kalshi Trade API v2).
 --
--- Populated by the `kalshi-live` scraper service polling the public REST API
--- (https://api.elections.kalshi.com/trade-api/v2/*). No auth required for any
--- market-data endpoint used here.
+-- Populated by two scraper services polling the public REST API
+-- (https://api.elections.kalshi.com/trade-api/v2/*): `kalshi-live` tip-follows
+-- /markets/trades, /markets, /events, /series, and /markets/candlesticks;
+-- `kalshi-backfill` walks /historical/trades from the cutoff backward into the
+-- same `trades` table. No auth required for any market-data endpoint used here.
 --
 -- Apply via: npm run cli setup kalshi --clickhouse-database <db>
 
@@ -179,9 +181,9 @@ COMMENT 'Kalshi server-aggregated candlesticks (scraper-managed)';
 -- Cursor checkpoints — resumable polling across restarts.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS cursor_state (
-    scope                       String                          COMMENT 'logical scope, e.g. trades_live | trades_historical | markets_active',
-    last_cursor                 String                          COMMENT 'opaque Kalshi cursor token',
-    last_processed_ts           DateTime64(6, 'UTC')            COMMENT 'created_time of the last processed item',
+    scope                       String                          COMMENT 'logical scope, e.g. trades_live | trades_backfill | markets_refresh | events_refresh | series_refresh | candles_refresh',
+    last_cursor                 String                          COMMENT 'opaque Kalshi cursor token, or __DRAINED__/__POISONED__ sentinel for terminal states',
+    last_processed_ts           DateTime64(6, 'UTC')            COMMENT 'for data-walking scopes: created_time of the last processed item; for refresh scopes: last successful run time',
     updated_at                  DateTime64(6, 'UTC') DEFAULT now64(6)
 )
 ENGINE = ReplacingMergeTree(updated_at)
