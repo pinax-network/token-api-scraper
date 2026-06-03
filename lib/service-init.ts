@@ -15,12 +15,23 @@ import { setLivenessSource } from './prometheus';
 
 const log = createLogger('service');
 
+// Track whether service has been initialized (for one-time logs)
+let serviceInitialized = false;
+
+/** Wall-clock heartbeat for services that legitimately have nothing to flush
+ * in a cycle (no new trades, no refresh due, drained backfill archives).
+ * The liveness probe ORs this with the batch queue's `lastSuccessfulFlushAt`
+ * so idle cycles don't trip the probe — but services must NOT bump this on
+ * cycles that errored, so silent insert failures still surface. */
+let lastServiceHeartbeat: number | undefined;
+
+export function markServiceAlive(): void {
+    lastServiceHeartbeat = Date.now();
+}
+
 export interface ServiceInitOptions {
     serviceName: string;
 }
-
-// Track whether service has been initialized (for one-time logs)
-let serviceInitialized = false;
 
 /**
  * Initialize common service configuration
@@ -36,13 +47,20 @@ export function initService(options: ServiceInitOptions): void {
 
     // Wire the liveness probe's progress signal without letting prometheus.ts
     // depend on batch-insert.ts (batch-insert already depends on prometheus
-    // for metrics, so a direct import would close the cycle).
+    // for metrics, so a direct import would close the cycle). Returns the
+    // most recent of the batch-queue flush stamp and the service heartbeat —
+    // services that do real writes report progress via the queue; idle
+    // services report via `markServiceAlive`.
     setLivenessSource(() => {
+        let queueAt: number | undefined;
         try {
-            return getBatchInsertQueue().getLastSuccessfulFlushAt();
+            queueAt = getBatchInsertQueue().getLastSuccessfulFlushAt();
         } catch {
-            return undefined;
+            queueAt = undefined;
         }
+        if (queueAt === undefined) return lastServiceHeartbeat;
+        if (lastServiceHeartbeat === undefined) return queueAt;
+        return Math.max(queueAt, lastServiceHeartbeat);
     });
 
     // Log startup info (always at INFO level)

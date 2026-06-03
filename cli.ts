@@ -45,6 +45,11 @@ const SERVICES = {
         description:
             'Fetch and store Hyperliquid spot pair name lookups from the Info API spotMeta endpoint',
     },
+    'kalshi-live': {
+        path: './services/kalshi/live.ts',
+        description:
+            'Tip-follow Kalshi Trade API v2 (trades / markets / events / series / candlesticks) into the kalshi.* tables',
+    },
     'metadata-solana-rpc': {
         path: './services/metadata-solana-rpc/index.ts',
         description:
@@ -85,6 +90,11 @@ const SETUP_ACTIONS = {
         files: ['./sql.schemas/schema.hyperliquid.sql'],
         description:
             'Deploy hyperliquid spot pair name lookup table (state_spot_pair_names)',
+    },
+    kalshi: {
+        files: ['./sql.schemas/schema.kalshi.sql'],
+        description:
+            'Deploy kalshi tables (series, events, markets, trades, candlesticks, cursor_state)',
     },
     'forked-blocks': {
         files: ['./sql.schemas/schema.blocks_forked.sql'],
@@ -382,6 +392,7 @@ Services:
   metadata-balances           ${SERVICES['metadata-balances'].description}
   polymarket                  ${SERVICES['polymarket'].description}
   hyperliquid                 ${SERVICES['hyperliquid'].description}
+  kalshi-live                 ${SERVICES['kalshi-live'].description}
   metadata-solana-rpc         ${SERVICES['metadata-solana-rpc'].description}
   metadata-solana-extras-rpc  ${SERVICES['metadata-solana-extras-rpc'].description}
   metadata-solana-clickhouse  ${SERVICES['metadata-solana-clickhouse'].description}
@@ -632,6 +643,38 @@ Example:
         await handleSetupCommand(files, options);
     });
 addClickhouseOptions(setupHyperliquid);
+
+// ---- setup kalshi ----
+const setupKalshi = setupCommand
+    .command('kalshi')
+    .description(SETUP_ACTIONS.kalshi.description)
+    .addHelpText(
+        'after',
+        `
+This command deploys the Kalshi prediction-market tables ingested by
+\`npm run cli run kalshi-live\` (scraper-managed, no substreams).
+
+Tables created:
+  - series         Kalshi recurring contract templates
+  - events         Real-world occurrences grouping one or more markets
+  - markets        Binary/scalar markets, latest state per ticker
+  - trades        Append-only trade fills (live + historical scrape target)
+  - candlesticks   Server-aggregated 1m/60m/1440m bars
+  - cursor_state   Per-scope cursor checkpoints for resumable polling
+
+Example:
+  $ npm run cli setup kalshi
+  $ npm run cli setup kalshi --cluster my_cluster
+`,
+    )
+    .action(async (options: any) => {
+        log.info('Setting up kalshi tables');
+        const files = SETUP_ACTIONS.kalshi.files.map((f) =>
+            resolve(__dirname, f),
+        );
+        await handleSetupCommand(files, options);
+    });
+addClickhouseOptions(setupKalshi);
 
 // ---- setup forked-blocks ----
 const setupForkedBlocks = setupCommand
