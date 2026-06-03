@@ -71,6 +71,94 @@ const rpcRequests = new promClient.Histogram({
     registers: [register],
 });
 
+// Per-scope freshness — analogue to substreams-sink-sql `head_block_number`.
+// Unix seconds (float) of the newest record this scope has processed. Grafana
+// computes drift as `time() - scraper_head_time_seconds`, matching the
+// `head_block_time_drift` panels on the public stats dashboard.
+const headTimeGauge = new promClient.Gauge({
+    name: 'scraper_head_time_seconds',
+    help: 'Unix timestamp (seconds) of the most recent record processed by this scope',
+    labelNames: ['service', 'scope'],
+    registers: [register],
+});
+
+// Backfill scope reached `__DRAINED__` — analogue to
+// `substreams_sink_backprocessing_completion`. Reset to 0 when the scope
+// resumes (operator cleared the row or the next cycle re-engaged).
+const backfillDrainedGauge = new promClient.Gauge({
+    name: 'scraper_backfill_drained',
+    help: 'Set to 1 when a backfill scope has fully drained its source',
+    labelNames: ['service', 'scope'],
+    registers: [register],
+});
+
+// Scope was quarantined due to a cursor loop (`__POISONED__`). No substreams
+// analogue — but the state is operationally important: cycle won't advance
+// until the row is cleared manually.
+const poisonedGauge = new promClient.Gauge({
+    name: 'scraper_poisoned',
+    help: 'Set to 1 when a scope has been quarantined due to a cursor loop',
+    labelNames: ['service', 'scope'],
+    registers: [register],
+});
+
+// Rows successfully written to ClickHouse — analogue to
+// `substreams_sink_postgres_flushed_rows_count`.
+const rowsInsertedCounter = new promClient.Counter({
+    name: 'scraper_rows_inserted_total',
+    help: 'Total rows successfully inserted into ClickHouse, by destination table',
+    labelNames: ['service', 'table'],
+    registers: [register],
+});
+
+// Pages received from the upstream API — analogue to
+// `substreams_sink_data_message`. Granularity is page (one HTTP response),
+// not item.
+const pagesReceivedCounter = new promClient.Counter({
+    name: 'scraper_pages_received_total',
+    help: 'Total upstream pages received, by scope',
+    labelNames: ['service', 'scope'],
+    registers: [register],
+});
+
+// Items dropped before queue.add() — typically Kalshi `0001-01-01` sentinels
+// that would null-out into non-nullable CH columns. Surfaces silent skips.
+const itemsSkippedCounter = new promClient.Counter({
+    name: 'scraper_items_skipped_total',
+    help: 'Total upstream items skipped before insert, by destination table and reason',
+    labelNames: ['service', 'table', 'reason'],
+    registers: [register],
+});
+
+// Upstream HTTP errors — more granular than the existing
+// `scraper_error_tasks_total{service}` so dashboards can drill into which
+// endpoint or status code is failing.
+const httpErrorsCounter = new promClient.Counter({
+    name: 'scraper_http_errors_total',
+    help: 'Upstream HTTP errors, by endpoint and status code',
+    labelNames: ['service', 'endpoint', 'status_code'],
+    registers: [register],
+});
+
+// Wallclock per full `run()` invocation, labelled by outcome so a slow-cycle
+// alert can distinguish "still finishing healthy" from "throwing late".
+const cycleDurationHistogram = new promClient.Histogram({
+    name: 'scraper_cycle_duration_seconds',
+    help: 'Duration of one complete service cycle in seconds',
+    labelNames: ['service', 'outcome'],
+    buckets: [0.1, 0.5, 1, 5, 10, 30, 60, 120, 300, 600],
+    registers: [register],
+});
+
+// Cached at `initService` so metric helpers below don't need the service name
+// threaded through every call site. Falls back to `'unknown'` if a helper
+// fires before init (e.g. in a test that imports a module directly).
+let serviceNameLabel = 'unknown';
+
+export function setServiceNameLabel(name: string): void {
+    serviceNameLabel = name;
+}
+
 // Configuration info metrics
 const configInfoGauge = new promClient.Gauge({
     name: 'scraper_config_info',
@@ -256,4 +344,58 @@ export function trackRpcRequest(
 ): void {
     const durationSeconds = (performance.now() - startTime) / 1000;
     rpcRequests.labels(method, status).observe(durationSeconds);
+}
+
+/** Record the newest record-timestamp this scope has processed. Accepts ISO
+ * 8601 (with or without fractional seconds) or unix-ms; converts to unix
+ * seconds with sub-second precision preserved when present. */
+export function setScopeHeadTime(
+    scope: string,
+    timestamp: string | number,
+): void {
+    const seconds =
+        typeof timestamp === 'number'
+            ? timestamp / 1000
+            : new Date(timestamp).getTime() / 1000;
+    if (!Number.isFinite(seconds)) return;
+    headTimeGauge.labels(serviceNameLabel, scope).set(seconds);
+}
+
+/** Mark a backfill scope as drained (1) or resumed (0). */
+export function setBackfillDrained(scope: string, drained: boolean): void {
+    backfillDrainedGauge.labels(serviceNameLabel, scope).set(drained ? 1 : 0);
+}
+
+/** Mark a scope as quarantined (1) or healthy (0). */
+export function setScopePoisoned(scope: string, poisoned: boolean): void {
+    poisonedGauge.labels(serviceNameLabel, scope).set(poisoned ? 1 : 0);
+}
+
+export function incrementRowsInserted(table: string, count: number): void {
+    if (count > 0)
+        rowsInsertedCounter.labels(serviceNameLabel, table).inc(count);
+}
+
+export function incrementPagesReceived(scope: string): void {
+    pagesReceivedCounter.labels(serviceNameLabel, scope).inc();
+}
+
+export function incrementItemsSkipped(table: string, reason: string): void {
+    itemsSkippedCounter.labels(serviceNameLabel, table, reason).inc();
+}
+
+export function incrementHttpErrors(
+    endpoint: string,
+    statusCode: number | string,
+): void {
+    httpErrorsCounter
+        .labels(serviceNameLabel, endpoint, String(statusCode))
+        .inc();
+}
+
+export function observeCycleDuration(
+    seconds: number,
+    outcome: 'success' | 'error',
+): void {
+    cycleDurationHistogram.labels(serviceNameLabel, outcome).observe(seconds);
 }

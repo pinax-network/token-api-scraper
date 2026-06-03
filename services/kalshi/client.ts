@@ -3,6 +3,7 @@
 
 import { DEFAULT_CONFIG } from '../../lib/config';
 import { createLogger } from '../../lib/logger';
+import { incrementHttpErrors } from '../../lib/prometheus';
 import type {
     BulkCandlesPage,
     CandlesPage,
@@ -53,6 +54,13 @@ const RETRYABLE_FETCH_ERRORS = [
 function isRetryableFetchError(err: unknown): boolean {
     const msg = String((err as Error)?.message || err || '').toLowerCase();
     return RETRYABLE_FETCH_ERRORS.some((s) => msg.includes(s));
+}
+
+/** Collapse dynamic ticker segments to bounded route templates so the
+ * Prometheus `endpoint` label cardinality stays tied to the endpoint surface,
+ * not the universe of Kalshi tickers. */
+function normalizeEndpoint(path: string): string {
+    return path.replace(/\/[A-Z][A-Z0-9_-]*/g, '/{X}');
 }
 
 export class KalshiClient {
@@ -120,6 +128,7 @@ export class KalshiClient {
             const retryable = RETRYABLE_STATUSES.has(resp.status);
             if (!retryable || attempt >= this.opts.maxRetries) {
                 const body = await resp.text();
+                incrementHttpErrors(normalizeEndpoint(path), resp.status);
                 throw new Error(
                     `Kalshi ${resp.status} on GET ${path}: ${body.slice(0, 240)}`,
                 );

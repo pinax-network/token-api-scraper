@@ -5,7 +5,12 @@ import { resolve } from 'path';
 import { client } from './lib/clickhouse';
 import { DEFAULT_CONFIG } from './lib/config';
 import { createLogger } from './lib/logger';
-import { startPrometheusServer, stopPrometheusServer } from './lib/prometheus';
+import {
+    observeCycleDuration,
+    setServiceNameLabel,
+    startPrometheusServer,
+    stopPrometheusServer,
+} from './lib/prometheus';
 import { executeSqlSetup, promptClusterSelection } from './lib/setup';
 
 const log = createLogger('cli');
@@ -345,8 +350,14 @@ async function runService(serviceName: string, options: ServiceOptions) {
     // Run the service in a continuous loop
     let iteration = 0;
 
+    // Label per-service metrics from the runner side too, so cycle-duration
+    // observations from the loop below carry the right service name even
+    // before the imported service module calls `initService` on its first run.
+    setServiceNameLabel(serviceName);
+
     while (true) {
         iteration++;
+        const cycleStart = performance.now();
         try {
             if (options.verbose && iteration > 1) {
                 log.info(`Starting iteration ${iteration}`);
@@ -354,6 +365,10 @@ async function runService(serviceName: string, options: ServiceOptions) {
 
             // Run the service
             await serviceModule.run();
+            observeCycleDuration(
+                (performance.now() - cycleStart) / 1000,
+                'success',
+            );
 
             if (options.verbose) {
                 log.info('Service iteration completed', {
@@ -373,6 +388,10 @@ async function runService(serviceName: string, options: ServiceOptions) {
                 setTimeout(resolve, autoRestartDelay * 1000),
             );
         } catch (error) {
+            observeCycleDuration(
+                (performance.now() - cycleStart) / 1000,
+                'error',
+            );
             log.error('Service error', { error });
             // Close Prometheus server on error
             await stopPrometheusServer();

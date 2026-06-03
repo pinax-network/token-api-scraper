@@ -7,7 +7,13 @@ import {
 } from '../../lib/batch-insert';
 import { query } from '../../lib/clickhouse';
 import { createLogger } from '../../lib/logger';
-import { incrementError, incrementSuccess } from '../../lib/prometheus';
+import {
+    incrementError,
+    incrementItemsSkipped,
+    incrementPagesReceived,
+    incrementSuccess,
+    setScopePoisoned,
+} from '../../lib/prometheus';
 import { initService, markServiceAlive } from '../../lib/service-init';
 import { KalshiClient } from './client';
 import {
@@ -82,6 +88,21 @@ export async function run(): Promise<void> {
             SCOPE_SERIES,
             SCOPE_CANDLES,
         ]);
+
+        // Reassert quarantine gauges every cycle so an operator clearing
+        // `__POISONED__` is reflected without a code change.
+        for (const scope of [
+            SCOPE_TRADES,
+            SCOPE_MARKETS,
+            SCOPE_EVENTS,
+            SCOPE_SERIES,
+            SCOPE_CANDLES,
+        ]) {
+            setScopePoisoned(
+                scope,
+                cursors.get(scope)?.last_cursor === POISONED_SENTINEL,
+            );
+        }
 
         await runPass(
             cursors,
@@ -272,6 +293,7 @@ async function runTradesPass(
             cursor,
             limit: 1000,
         });
+        incrementPagesReceived(SCOPE_TRADES);
 
         if (page.trades.length === 0) break;
 
@@ -285,6 +307,7 @@ async function runTradesPass(
                     trade_id: t.trade_id,
                     ticker: t.ticker,
                 });
+                incrementItemsSkipped('trades', 'sentinel_created_time');
                 continue;
             }
             if (t.created_time <= watermarkIso) {
@@ -386,12 +409,14 @@ async function runRefreshPass<P, T>(
             );
         }
         const page = await opts.fetch(cursor, minUpdatedTs);
+        incrementPagesReceived(opts.scope);
         for (const item of opts.items(page)) {
             const skipReason = opts.skip?.(item);
             if (skipReason) {
                 log.warn(`skipping ${opts.label} item`, {
                     reason: skipReason,
                 });
+                incrementItemsSkipped(opts.table, skipReason);
                 skipped++;
                 continue;
             }

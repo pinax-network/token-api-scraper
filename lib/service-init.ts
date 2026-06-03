@@ -11,7 +11,7 @@ import {
     DEFAULT_CONFIG,
 } from './config';
 import { createLogger } from './logger';
-import { setLivenessSource } from './prometheus';
+import { setLivenessSource, setServiceNameLabel } from './prometheus';
 
 const log = createLogger('service');
 
@@ -39,6 +39,10 @@ export interface ServiceInitOptions {
  * - Logs service startup information
  */
 export function initService(options: ServiceInitOptions): void {
+    // Label all per-service metrics emitted from shared lib code (batch-insert,
+    // cursor) without threading the name through every call site.
+    setServiceNameLabel(options.serviceName);
+
     // Initialize batch insert queue
     initBatchInsertQueue({
         intervalMs: BATCH_INSERT_INTERVAL_MS,
