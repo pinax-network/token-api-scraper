@@ -2,7 +2,7 @@ import PQueue from 'p-queue';
 import { insertClient, query } from '../../lib/clickhouse';
 import { createLogger } from '../../lib/logger';
 import { incrementError, incrementSuccess } from '../../lib/prometheus';
-import { initService } from '../../lib/service-init';
+import { initService, markServiceAlive } from '../../lib/service-init';
 import {
     buildLiveOutcomeRow,
     buildOutcomeToQuestion,
@@ -203,6 +203,11 @@ export async function run(): Promise<void> {
         settledErrored,
         cycleMs,
     });
+    // We insert directly via `insertClient` rather than the batch-insert
+    // queue, so the queue's `getLastSuccessfulFlushAt()` never advances.
+    // Bump the wall-clock heartbeat here so `/live` reflects real progress
+    // after the startup grace window.
+    markServiceAlive();
     incrementSuccess(serviceName);
 }
 

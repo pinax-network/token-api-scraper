@@ -10,9 +10,12 @@ const mockQuery = mock(() =>
 const mockIncrementSuccess = mock(() => {});
 const mockIncrementError = mock(() => {});
 const mockInitService = mock(() => {});
+const mockMarkServiceAlive = mock(() => {});
 
-// `mock.module` is process-wide; mirror the full export set so unrelated
-// suites mocking the same module don't leave dangling undefined imports.
+// Mock only the `lib/clickhouse` exports this service imports
+// (`insertClient` + `query`). `mock.module` is process-wide, so providing
+// fields beyond what's needed would risk shadowing real exports for other
+// suites.
 mock.module('../../lib/clickhouse', () => ({
     insertClient: { insert: mockInsert },
     query: mockQuery,
@@ -25,6 +28,7 @@ mock.module('../../lib/prometheus', () => ({
 
 mock.module('../../lib/service-init', () => ({
     initService: mockInitService,
+    markServiceAlive: mockMarkServiceAlive,
 }));
 
 const liveBody = {
@@ -84,6 +88,7 @@ describe('hyperliquid-outcomes run()', () => {
         mockIncrementSuccess.mockClear();
         mockIncrementError.mockClear();
         mockInitService.mockClear();
+        mockMarkServiceAlive.mockClear();
         mockQuery.mockImplementation(() =>
             Promise.resolve({
                 data: [] as { outcome_id: string }[],
@@ -178,6 +183,9 @@ describe('hyperliquid-outcomes run()', () => {
 
         expect(mockIncrementSuccess).toHaveBeenCalledTimes(1);
         expect(mockIncrementError).not.toHaveBeenCalled();
+        // Direct-insert services bump the wall-clock heartbeat so the
+        // liveness probe reflects progress (batch queue is unused here).
+        expect(mockMarkServiceAlive).toHaveBeenCalledTimes(1);
     });
 
     test('proceeds when known-ids query fails (cold cluster)', async () => {
@@ -246,5 +254,8 @@ describe('hyperliquid-outcomes run()', () => {
         await expect(run()).rejects.toThrow();
         expect(mockIncrementError).toHaveBeenCalledTimes(1);
         expect(mockInsert).not.toHaveBeenCalled();
+        // Liveness heartbeat must NOT advance on a failed cycle, so silent
+        // upstream failures still surface via the `/live` probe.
+        expect(mockMarkServiceAlive).not.toHaveBeenCalled();
     });
 });
