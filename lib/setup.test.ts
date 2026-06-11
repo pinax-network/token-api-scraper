@@ -319,6 +319,24 @@ describe('schema files', () => {
         );
         expect(plainMergeTree).toBeNull();
     });
+
+    test('should parse hyperliquid-outcomes schema and transform for cluster', async () => {
+        const sql = await Bun.file(
+            './sql.schemas/schema.hyperliquid_outcomes.sql',
+        ).text();
+        const statements = splitSqlStatements(sql);
+        expect(statements.length).toBe(2);
+
+        const transformed = transformSqlForCluster(sql, 'test_cluster');
+        const tableMatches = transformed.match(/CREATE\s+TABLE/gi);
+        const tableClusterMatches = transformed.match(
+            /CREATE\s+TABLE.*ON\s+CLUSTER/gi,
+        );
+        expect(tableMatches?.length).toBe(tableClusterMatches?.length);
+        expect(transformed).toContain('ReplicatedReplacingMergeTree');
+        expect(transformed).toContain('state_outcome_meta');
+        expect(transformed).toContain('state_question_meta');
+    });
 });
 
 describe('error handling', () => {
