@@ -78,6 +78,38 @@ interface InsertCallArg {
     format: string;
 }
 
+/**
+ * Build a `mockQuery` implementation that routes to different result sets
+ * depending on which CH table the SQL references. Tests need this because
+ * the service fires two reads per cycle — `outcome_fills` for the known
+ * universe and `state_outcome_meta` for already-settled ids — and feeding
+ * both the same rows would mark every known id as already-settled and
+ * suppress the settled-lookup probes the test is verifying.
+ */
+function mockQueryRouter(routes: {
+    knownIds?: string[];
+    alreadySettled?: string[];
+}) {
+    return (sql: string) => {
+        let rows: { outcome_id: string }[] = [];
+        if (sql.includes('outcome_fills')) {
+            rows = (routes.knownIds ?? []).map((id) => ({ outcome_id: id }));
+        } else if (sql.includes('state_outcome_meta')) {
+            rows = (routes.alreadySettled ?? []).map((id) => ({
+                outcome_id: id,
+            }));
+        }
+        return Promise.resolve({
+            data: rows,
+            metrics: {
+                httpRequestTimeMs: 0,
+                dataFetchTimeMs: 0,
+                totalTimeMs: 0,
+            },
+        });
+    };
+}
+
 describe('hyperliquid-outcomes run()', () => {
     const originalFetch = globalThis.fetch;
     const originalUrl = process.env.HYPERLIQUID_INFO_URL;
@@ -119,19 +151,12 @@ describe('hyperliquid-outcomes run()', () => {
     test('inserts live + settled outcomes and questions in one cycle', async () => {
         process.env.HYPERLIQUID_INFO_URL = 'http://example/info';
         // outcome_fills knows 104, 172, and a settled 0 — 0 is missing from
-        // the live snapshot so the cycle must probe settledOutcome for it.
-        mockQuery.mockImplementation(() =>
-            Promise.resolve({
-                data: [
-                    { outcome_id: '104' },
-                    { outcome_id: '172' },
-                    { outcome_id: '0' },
-                ],
-                metrics: {
-                    httpRequestTimeMs: 0,
-                    dataFetchTimeMs: 0,
-                    totalTimeMs: 0,
-                },
+        // the live snapshot and not in already-settled, so the cycle must
+        // probe settledOutcome for it.
+        mockQuery.mockImplementation(
+            mockQueryRouter({
+                knownIds: ['104', '172', '0'],
+                alreadySettled: [],
             }),
         );
 
@@ -210,14 +235,10 @@ describe('hyperliquid-outcomes run()', () => {
 
     test('continues past per-id settledOutcome failures without aborting the cycle', async () => {
         process.env.HYPERLIQUID_INFO_URL = 'http://example/info';
-        mockQuery.mockImplementation(() =>
-            Promise.resolve({
-                data: [{ outcome_id: '999' }],
-                metrics: {
-                    httpRequestTimeMs: 0,
-                    dataFetchTimeMs: 0,
-                    totalTimeMs: 0,
-                },
+        mockQuery.mockImplementation(
+            mockQueryRouter({
+                knownIds: ['999'],
+                alreadySettled: [],
             }),
         );
         globalThis.fetch = mock((_url: string, init: RequestInit) => {
@@ -242,6 +263,66 @@ describe('hyperliquid-outcomes run()', () => {
         // Only the 2 live outcomes — settled lookup failed and was skipped.
         expect(outcomeCall!.values).toHaveLength(2);
         expect(mockIncrementSuccess).toHaveBeenCalledTimes(1);
+    });
+
+    test('skips settledOutcome probes for ids already captured as settled', async () => {
+        process.env.HYPERLIQUID_INFO_URL = 'http://example/info';
+        // outcome_fills has 104, 172, and a historically-settled 0; but our
+        // own `state_outcome_meta` already contains 0 with status='settled',
+        // so the cycle must NOT re-probe HL for it.
+        mockQuery.mockImplementation(
+            mockQueryRouter({
+                knownIds: ['104', '172', '0'],
+                alreadySettled: ['0'],
+            }),
+        );
+        const settledProbed: number[] = [];
+        globalThis.fetch = mock((_url: string, init: RequestInit) => {
+            const body = JSON.parse(init.body as string);
+            if (body.type === 'outcomeMeta') {
+                return Promise.resolve(
+                    new Response(JSON.stringify(liveBody), { status: 200 }),
+                );
+            }
+            if (body.type === 'settledOutcome') {
+                settledProbed.push(body.outcome);
+            }
+            return Promise.resolve(new Response('null', { status: 200 }));
+        }) as unknown as typeof fetch;
+
+        const { run } = await import('./index');
+        await run();
+
+        expect(settledProbed).toEqual([]);
+        const outcomeCall = mockInsert.mock.calls
+            .map((c) => c[0] as InsertCallArg)
+            .find((c) => c.table === 'state_outcome_meta');
+        // Only the 2 live outcomes inserted this cycle — settled 0 stayed in
+        // the table from the prior cycle's insert (RMT keeps the older row).
+        expect(outcomeCall!.values).toHaveLength(2);
+        expect(mockIncrementSuccess).toHaveBeenCalledTimes(1);
+        expect(mockMarkServiceAlive).toHaveBeenCalledTimes(1);
+    });
+
+    test('returns early without success metric when outcomeMeta is empty', async () => {
+        process.env.HYPERLIQUID_INFO_URL = 'http://example/info';
+        globalThis.fetch = mock(() =>
+            Promise.resolve(
+                new Response(JSON.stringify({ outcomes: [], questions: [] }), {
+                    status: 200,
+                }),
+            ),
+        ) as unknown as typeof fetch;
+
+        const { run } = await import('./index');
+        await run();
+
+        // Empty universe is a soft anomaly — don't insert, don't claim
+        // success, but also don't throw. Next cycle retries.
+        expect(mockInsert).not.toHaveBeenCalled();
+        expect(mockIncrementSuccess).not.toHaveBeenCalled();
+        expect(mockIncrementError).not.toHaveBeenCalled();
+        expect(mockMarkServiceAlive).not.toHaveBeenCalled();
     });
 
     test('records an error metric and rethrows when outcomeMeta fetch fails', async () => {

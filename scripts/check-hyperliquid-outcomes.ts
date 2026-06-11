@@ -95,6 +95,10 @@ async function checkRowCounts() {
     let settled = 0;
     for (const r of data) {
         const n = Number.parseInt(r.rows, 10);
+        if (!Number.isFinite(n)) {
+            fail(`non-numeric row count "${r.rows}" for status "${r.status}"`);
+            continue;
+        }
         if (r.status === 'live') live = n;
         else if (r.status === 'settled') settled = n;
         else fail(`unexpected status "${r.status}" (vocab is live | settled)`);
@@ -117,6 +121,10 @@ async function checkCoverage() {
          WHERE m.outcome_id IS NULL`,
     );
     const missing = Number.parseInt(data[0]?.missing ?? '0', 10);
+    if (!Number.isFinite(missing)) {
+        fail(`non-numeric coverage gap "${data[0]?.missing}"`);
+        return;
+    }
     if (missing === 0)
         pass('every outcome_id in outcome_fills has a state_outcome_meta row');
     else fail(`${missing} outcome_ids in outcome_fills lack a meta row`);
@@ -130,6 +138,10 @@ async function checkFreshness() {
            FROM state_outcome_meta`,
     );
     const lag = Number.parseInt(data[0]?.lag_s ?? '999999', 10);
+    if (!Number.isFinite(lag)) {
+        fail(`non-numeric freshness lag "${data[0]?.lag_s}"`);
+        return;
+    }
     if (lag <= 900)
         pass(`max(refresh_time)=${data[0]?.max_refresh} (lag ${lag}s)`);
     else

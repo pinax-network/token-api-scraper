@@ -39,8 +39,25 @@ async function fetchKnownOutcomeIds(): Promise<Set<number>> {
     const { data } = await query<{ outcome_id: string }>(
         'SELECT DISTINCT toString(outcome_id) AS outcome_id FROM outcome_fills',
     );
+    return parseUint64Set(data);
+}
+
+/**
+ * Discover outcome_ids we've already captured as `status='settled'`. Settled
+ * payloads are immutable on the HL side, so once we have one we never need to
+ * re-probe — skipping them turns the steady-state cycle into a no-op on the
+ * Info API even as the cumulative settled universe grows.
+ */
+async function fetchAlreadySettledIds(): Promise<Set<number>> {
+    const { data } = await query<{ outcome_id: string }>(
+        "SELECT toString(outcome_id) AS outcome_id FROM state_outcome_meta FINAL WHERE status = 'settled'",
+    );
+    return parseUint64Set(data);
+}
+
+function parseUint64Set(rows: { outcome_id: string }[]): Set<number> {
     const ids = new Set<number>();
-    for (const row of data) {
+    for (const row of rows) {
         const n = Number.parseInt(row.outcome_id, 10);
         if (Number.isFinite(n)) ids.add(n);
     }
@@ -97,26 +114,39 @@ export async function run(): Promise<void> {
         questions: meta.questions.length,
     });
 
-    let knownIds: Set<number>;
-    try {
-        knownIds = await fetchKnownOutcomeIds();
-    } catch (error) {
-        // Cold cluster (`outcome_fills` empty/absent) is non-fatal — proceed
-        // with just the live snapshot so the first cycle still records the
-        // current universe and live rows.
-        log.warn(
-            'Failed to read known outcome_ids — proceeding with live only',
-            {
-                error,
-            },
-        );
-        knownIds = new Set<number>();
+    if (meta.outcomes.length === 0 && meta.questions.length === 0) {
+        // Empty universe is unusual (HL has had standing outcomes for months).
+        // Treat as a soft failure: don't bump the success counter, don't
+        // overwrite live rows on RMT, but also don't error-throw — next
+        // cycle will retry.
+        log.warn('outcomeMeta returned empty outcomes and questions');
+        return;
     }
 
-    const settledIds = [...knownIds].filter((id) => !liveIds.has(id));
+    // Cold cluster (`outcome_fills` empty/absent) is non-fatal — proceed
+    // with just the live snapshot so the first cycle still records the
+    // current universe.
+    const knownIds = await fetchKnownOutcomeIds().catch((error) => {
+        log.warn(
+            'Failed to read known outcome_ids — proceeding with live only',
+            { error },
+        );
+        return new Set<number>();
+    });
+    const alreadySettled = await fetchAlreadySettledIds().catch((error) => {
+        log.warn('Failed to read already-settled outcome_ids — will re-probe', {
+            error,
+        });
+        return new Set<number>();
+    });
+
+    const settledIds = [...knownIds].filter(
+        (id) => !liveIds.has(id) && !alreadySettled.has(id),
+    );
     log.info('Resolved outcome universe', {
         known: knownIds.size,
         live: liveIds.size,
+        alreadySettled: alreadySettled.size,
         settledLookups: settledIds.length,
         settledConcurrency: SETTLED_CONCURRENCY,
     });

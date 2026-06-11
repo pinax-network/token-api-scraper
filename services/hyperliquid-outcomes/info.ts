@@ -170,7 +170,7 @@ export function buildOutcomeToQuestion(
     const map = new Map<number, number>();
     for (const q of questions) {
         for (const id of q.namedOutcomes) map.set(id, q.question);
-        if (q.fallbackOutcome !== null && q.fallbackOutcome !== undefined) {
+        if (q.fallbackOutcome !== null) {
             map.set(q.fallbackOutcome, q.question);
         }
     }
