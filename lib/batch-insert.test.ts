@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { BatchInsertQueue } from './batch-insert';
+import {
+    BatchInsertQueue,
+    getBatchInsertQueue,
+    getLastSuccessfulFlushAt,
+    initBatchInsertQueue,
+    shutdownBatchInsertQueue,
+} from './batch-insert';
 
 // Mock the clickhouse client
 const mockInsert = mock(() => Promise.resolve());
@@ -238,5 +244,29 @@ describe('batch insert configuration validation', () => {
         });
         expect(queue).toBeDefined();
         queue.shutdown();
+    });
+});
+
+describe('getLastSuccessfulFlushAt', () => {
+    test('keeps the flush stamp across queue shutdown and re-init', async () => {
+        initBatchInsertQueue({ intervalMs: 60_000, maxSize: 10_000 });
+        await getBatchInsertQueue().add('test_table', { id: 1 });
+        await shutdownBatchInsertQueue();
+
+        const flushedAt = getLastSuccessfulFlushAt();
+        expect(flushedAt).toBeNumber();
+
+        // Next cycle's fresh queue hasn't flushed yet
+        initBatchInsertQueue({ intervalMs: 60_000, maxSize: 10_000 });
+        expect(getLastSuccessfulFlushAt()).toBe(flushedAt);
+
+        await getBatchInsertQueue().add('test_table', { id: 2 });
+        await getBatchInsertQueue().flushAll();
+        expect(getLastSuccessfulFlushAt()).toBeGreaterThanOrEqual(
+            flushedAt as number,
+        );
+
+        await shutdownBatchInsertQueue();
+        mockInsert.mockClear();
     });
 });

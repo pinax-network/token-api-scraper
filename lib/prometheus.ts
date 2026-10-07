@@ -30,6 +30,41 @@ export function setLivenessSource(fn: () => number | undefined): void {
     getLastFlushAt = fn;
 }
 
+/** Spans the runner spent sleeping between cycles (`AUTO_RESTART_DELAY`).
+ * Nothing can make progress — or hang — inside that timer, so `/live` stays
+ * healthy while idle and these spans don't count toward staleness. A service
+ * whose writes keep failing still goes stale across cycles. */
+let idleSince: number | undefined;
+const idleSpans: { start: number; end: number }[] = [];
+
+/** Call when the runner starts sleeping between cycles. */
+export function markIdle(): void {
+    idleSince ??= Date.now();
+}
+
+/** Call when the runner wakes up to start the next cycle. */
+export function markActive(): void {
+    if (idleSince === undefined) return;
+    idleSpans.push({ start: idleSince, end: Date.now() });
+    idleSince = undefined;
+}
+
+/** Idle time inside [from, now]. Spans ending before `from` are dropped:
+ * progress stamps only move forward, so they can't matter again. */
+function idleMsSince(from: number, now: number): number {
+    while (idleSpans.length > 0 && (idleSpans[0]?.end ?? 0) <= from) {
+        idleSpans.shift();
+    }
+    let total = 0;
+    for (const span of idleSpans) {
+        total += Math.max(
+            0,
+            Math.min(span.end, now) - Math.max(span.start, from),
+        );
+    }
+    return total;
+}
+
 const log = createLogger('prometheus');
 
 // Prometheus metrics
@@ -260,16 +295,24 @@ function handleLiveness(res: http.ServerResponse): void {
     res.setHeader('Content-Type', 'application/json');
     const lastFlushAt = getLastFlushAt();
     const now = Date.now();
+    const idle = idleSince !== undefined;
     const withinGrace = now - startedAt < STARTUP_GRACE_MS;
     const ageMs = lastFlushAt !== undefined ? now - lastFlushAt : undefined;
+    const idleMs =
+        lastFlushAt !== undefined ? idleMsSince(lastFlushAt, now) : undefined;
+    const activeAgeMs = ageMs !== undefined ? ageMs - (idleMs ?? 0) : undefined;
     const healthy =
-        (ageMs !== undefined && ageMs < LIVENESS_STALE_THRESHOLD_MS) ||
+        idle ||
+        (activeAgeMs !== undefined &&
+            activeAgeMs < LIVENESS_STALE_THRESHOLD_MS) ||
         (lastFlushAt === undefined && withinGrace);
     res.statusCode = healthy ? 200 : 503;
     res.end(
         JSON.stringify({
             healthy,
+            idle,
             lastFlushAgeMs: ageMs,
+            idleMsSinceFlush: idleMs,
             staleThresholdMs: LIVENESS_STALE_THRESHOLD_MS,
             withinStartupGrace: withinGrace && lastFlushAt === undefined,
         }),

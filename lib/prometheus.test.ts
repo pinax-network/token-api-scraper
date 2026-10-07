@@ -1,8 +1,10 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, setSystemTime, test } from 'bun:test';
 import { sleep } from 'bun';
 import {
     incrementError,
     incrementSuccess,
+    markActive,
+    markIdle,
     setLivenessSource,
     startPrometheusServer,
     stopPrometheusServer,
@@ -254,5 +256,60 @@ describe('Liveness endpoint', () => {
 
         await stopPrometheusServer();
         await sleep(50);
+    });
+
+    test('returns 200 while the runner is idle between cycles, even if stale', async () => {
+        const port = 19103;
+        setLivenessSource(() => Date.now() - 60 * 60 * 1000);
+        markIdle();
+        await startPrometheusServer(port);
+        await sleep(50);
+
+        const res = await fetch(`http://localhost:${port}/live`);
+        expect(res.status).toBe(200);
+        expect(((await res.json()) as Record<string, unknown>).idle).toBe(true);
+
+        markActive();
+        const after = await fetch(`http://localhost:${port}/live`);
+        expect(after.status).toBe(503);
+
+        await stopPrometheusServer();
+        setLivenessSource(() => undefined);
+        await sleep(50);
+    });
+
+    test('excludes idle time between cycles from staleness', async () => {
+        const port = 19104;
+        await startPrometheusServer(port);
+        await sleep(50);
+
+        const minute = 60 * 1000;
+        const t0 = Date.now();
+        try {
+            // Flush at t0, sleep between cycles t0+1m..t0+11m
+            setLivenessSource(() => t0);
+            setSystemTime(new Date(t0 + minute));
+            markIdle();
+            setSystemTime(new Date(t0 + 11 * minute));
+            markActive();
+
+            // t0+12m: 12m wall-clock, but only 2m active → fresh
+            setSystemTime(new Date(t0 + 12 * minute));
+            let res = await fetch(`http://localhost:${port}/live`);
+            let body = (await res.json()) as Record<string, unknown>;
+            expect(res.status).toBe(200);
+            expect(body.idleMsSinceFlush).toBe(10 * minute);
+
+            // t0+20m: 10m active without a flush → stale
+            setSystemTime(new Date(t0 + 20 * minute));
+            res = await fetch(`http://localhost:${port}/live`);
+            body = (await res.json()) as Record<string, unknown>;
+            expect(res.status).toBe(503);
+        } finally {
+            setSystemTime();
+            await stopPrometheusServer();
+            setLivenessSource(() => undefined);
+            await sleep(50);
+        }
     });
 });

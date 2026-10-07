@@ -223,6 +223,22 @@ export class BatchInsertQueue {
 // Global batch insert queue instance
 let globalBatchQueue: BatchInsertQueue | null = null;
 
+/** Flush stamp carried over from queues already shut down, so the liveness
+ * probe keeps a progress signal between cycles instead of reading "never". */
+let lastFlushAtFromPreviousQueues: number | undefined;
+
+/**
+ * Most recent successful flush across every queue this process has run.
+ * Unlike `getBatchInsertQueue().getLastSuccessfulFlushAt()`, this survives
+ * `shutdownBatchInsertQueue()` and never throws.
+ */
+export function getLastSuccessfulFlushAt(): number | undefined {
+    return (
+        globalBatchQueue?.getLastSuccessfulFlushAt() ??
+        lastFlushAtFromPreviousQueues
+    );
+}
+
 /**
  * Initialize the global batch insert queue
  * If already initialized, this is a no-op to prevent errors when services are restarted
@@ -263,6 +279,7 @@ export async function shutdownBatchInsertQueue(): Promise<void> {
         await globalBatchQueue.shutdown();
         log.info('Batch insert queue shutdown complete');
     } finally {
+        lastFlushAtFromPreviousQueues = getLastSuccessfulFlushAt();
         globalBatchQueue = null;
     }
 }

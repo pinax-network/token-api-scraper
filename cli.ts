@@ -6,6 +6,8 @@ import { client } from './lib/clickhouse';
 import { DEFAULT_CONFIG } from './lib/config';
 import { createLogger } from './lib/logger';
 import {
+    markActive,
+    markIdle,
     observeCycleDuration,
     setServiceNameLabel,
     startPrometheusServer,
@@ -387,9 +389,16 @@ async function runService(serviceName: string, options: ServiceOptions) {
             log.info(
                 `Waiting ${autoRestartDelay} seconds before querying for new data`,
             );
-            await new Promise((resolve) =>
-                setTimeout(resolve, autoRestartDelay * 1000),
-            );
+            // Liveness pauses while sleeping so the delay can exceed the
+            // stale threshold without the probe killing an idle runner.
+            markIdle();
+            try {
+                await new Promise((resolve) =>
+                    setTimeout(resolve, autoRestartDelay * 1000),
+                );
+            } finally {
+                markActive();
+            }
         } catch (error) {
             observeCycleDuration(
                 (performance.now() - cycleStart) / 1000,
