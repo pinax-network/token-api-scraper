@@ -14,7 +14,6 @@ import { insertRow } from '../../src/insert';
 import {
     fetchEventFromApi,
     fetchMarketFromApi,
-    fetchMarketsFromApi,
     type PolymarketEvent,
     type PolymarketMarket,
     type PolymarketSeries,
@@ -598,51 +597,49 @@ async function enrichEvents(): Promise<void> {
 async function processEventEnrichment(eventSlug: string): Promise<void> {
     const event = await fetchEventFromApi(eventSlug);
 
-    if (!event || !event.markets || event.markets.length === 0) {
+    if (!event) {
         // Don't record in enriched table — transient API failures should be retriable
-        log.debug('Event enrichment skipped', { eventSlug, hasEvent: !!event });
+        log.debug('Event enrichment skipped', { eventSlug });
+        return;
+    }
+    if (event === 'not_found') {
+        // Deleted on Gamma's side; retrying would only pin it to the queue head
+        log.debug('Event not found on Gamma', { eventSlug });
+        await recordEnrichment(eventSlug, 0, 0);
         return;
     }
 
-    const allConditionIds = event.markets
+    // From here on the event is always recorded, so a market we can't insert
+    // never sends the slug back to the head of the queue on the next cycle.
+    const eventMarkets = event.markets ?? [];
+    const allConditionIds = eventMarkets
         .map((m) => m.conditionId)
         .filter(Boolean);
 
     // Batch existence check — single query instead of per-market
-    const existing = await query<{ condition_id: string }>(
-        `SELECT condition_id FROM {db:Identifier}.polymarket_markets WHERE condition_id IN ({ids:Array(String)})`,
-        { db: CLICKHOUSE_DATABASE_INSERT, ids: allConditionIds },
-    );
+    const existing =
+        allConditionIds.length > 0
+            ? await query<{ condition_id: string }>(
+                  `SELECT condition_id FROM {db:Identifier}.polymarket_markets WHERE condition_id IN ({ids:Array(String)})`,
+                  { db: CLICKHOUSE_DATABASE_INSERT, ids: allConditionIds },
+              )
+            : { data: [] };
     const existingSet = new Set(existing.data.map((r) => r.condition_id));
 
-    const missingIds = allConditionIds.filter((id) => !existingSet.has(id));
-    if (missingIds.length === 0) {
-        await insertRow(
-            'polymarket_events_enriched',
-            {
-                slug: eventSlug,
-                markets_found: event.markets.length,
-                markets_inserted: 0,
-            },
-            `Failed to record enrichment for ${eventSlug}`,
-            {},
-        );
-        return;
-    }
-
-    // Batch fetch all missing markets in one API call
-    const markets = await fetchMarketsFromApi(missingIds);
-    if (markets.length === 0) {
-        // API failure or none resolved — don't record, allow retry
-        log.debug('Batch market fetch returned nothing', {
-            eventSlug,
-            missingCount: missingIds.length,
-        });
-        return;
-    }
+    // Insert the embedded market objects directly instead of re-fetching them
+    // via `/markets/keyset?condition_ids=`, which omits placeholder markets
+    // (e.g. unnamed negRisk "App D" slots) even though the event lists them.
+    const { markets: _, ...parentEvent } = event;
+    const missingMarkets = eventMarkets.filter(
+        (m) => m.conditionId && !existingSet.has(m.conditionId),
+    );
     let inserted = 0;
 
-    for (const market of markets) {
+    for (const embedded of missingMarkets) {
+        const market: PolymarketMarket = {
+            ...embedded,
+            events: embedded.events?.length ? embedded.events : [parentEvent],
+        };
         const clobTokenIds = parseJsonArray(market.clobTokenIds);
 
         // Chain fields unavailable — these markets were discovered via Gamma, not on-chain events
@@ -661,24 +658,32 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
         }
     }
 
-    await insertRow(
-        'polymarket_events_enriched',
-        {
-            slug: eventSlug,
-            markets_found: event.markets.length,
-            markets_inserted: inserted,
-        },
-        `Failed to record enrichment for ${eventSlug}`,
-        {},
-    );
+    await recordEnrichment(eventSlug, eventMarkets.length, inserted);
 
     if (inserted > 0) {
         log.info('Event enriched', {
             eventSlug,
-            marketsFound: event.markets.length,
+            marketsFound: eventMarkets.length,
             marketsInserted: inserted,
         });
     }
+}
+
+async function recordEnrichment(
+    eventSlug: string,
+    marketsFound: number,
+    marketsInserted: number,
+): Promise<void> {
+    await insertRow(
+        'polymarket_events_enriched',
+        {
+            slug: eventSlug,
+            markets_found: marketsFound,
+            markets_inserted: marketsInserted,
+        },
+        `Failed to record enrichment for ${eventSlug}`,
+        {},
+    );
 }
 
 // Run the service if this is the main module

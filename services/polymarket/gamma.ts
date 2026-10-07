@@ -18,6 +18,8 @@ const KEYSET_PAGE_LIMIT = 1000;
 
 const POLYMARKET_API_BASE = 'https://gamma-api.polymarket.com';
 
+const CLOB_API_BASE = 'https://clob.polymarket.com';
+
 const log = createLogger('polymarket');
 
 /**
@@ -176,14 +178,11 @@ export interface PolymarketSeries {
 }
 
 /**
- * Items inside the Gamma `/events/keyset` response (simplified — only fields
- * we need for sibling-market enrichment).
+ * Items inside the Gamma `/events/keyset` response. Embedded markets carry the
+ * same fields as `/markets/keyset` items, minus the `events` back-reference.
  */
-export interface GammaEvent {
-    id: string;
-    slug: string;
-    title: string;
-    markets?: { conditionId: string; question: string }[];
+export interface GammaEvent extends PolymarketEvent {
+    markets?: PolymarketMarket[];
 }
 
 /**
@@ -245,7 +244,34 @@ export async function fetchMarketFromApi(
     conditionId: string,
 ): Promise<PolymarketMarket | null> {
     const results = await fetchMarketsFromApi([conditionId]);
-    return results[0] ?? null;
+    return results[0] ?? (await fetchMarketViaClobSlug(conditionId));
+}
+
+/**
+ * `/markets/keyset` never returns inactive markets (e.g. unnamed negRisk
+ * placeholder slots), whatever `active`/`closed`/`archived` filters are passed.
+ * The CLOB API still resolves them by condition id, and its `market_slug` keys
+ * Gamma's `/markets/slug/{slug}`, which returns the full market with events.
+ */
+async function fetchMarketViaClobSlug(
+    conditionId: string,
+): Promise<PolymarketMarket | null> {
+    const ctx = { conditionId };
+    const clob = await fetchJson<{ market_slug?: string }>(
+        `${CLOB_API_BASE}/markets/${encodeURIComponent(conditionId)}`,
+        ctx,
+    );
+    const slug = clob.status === 'ok' ? clob.data.market_slug : undefined;
+    if (!slug) return null;
+
+    const market = await fetchJson<PolymarketMarket>(
+        `${POLYMARKET_API_BASE}/markets/slug/${encodeURIComponent(slug)}`,
+        ctx,
+    );
+    if (market.status !== 'ok' || market.data.conditionId !== conditionId) {
+        return null;
+    }
+    return market.data;
 }
 
 export async function fetchMarketsFromApi(
@@ -280,12 +306,68 @@ export async function fetchMarketsFromApi(
     return [...results, ...closedResults];
 }
 
-export function fetchEventFromApi(
+/**
+ * Look up an event by slug. Returns `'not_found'` only when Gamma confirms the
+ * event doesn't exist; `null` means a transient failure worth retrying.
+ */
+export async function fetchEventFromApi(
     eventSlug: string,
-): Promise<GammaEvent | null> {
-    return fetchGammaApi<GammaEvent>(
+): Promise<GammaEvent | 'not_found' | null> {
+    const ctx = { eventSlug };
+    const results = await fetchGammaApi<GammaEvent>(
         `/events/keyset?slug=${encodeURIComponent(eventSlug)}`,
         'events',
-        { eventSlug },
-    ).then((r) => r[0] ?? null);
+        ctx,
+    );
+    if (results[0]) return results[0];
+
+    // The keyset endpoint returns [] both on errors and for unknown slugs; the
+    // slug endpoint answers 404 only for events that really don't exist.
+    const event = await fetchJson<GammaEvent>(
+        `${POLYMARKET_API_BASE}/events/slug/${encodeURIComponent(eventSlug)}`,
+        ctx,
+    );
+    if (event.status === 'not_found') return 'not_found';
+    if (event.status === 'ok' && event.data.slug === eventSlug) {
+        return event.data;
+    }
+    return null;
+}
+
+type FetchJsonResult<T> =
+    | { status: 'ok'; data: T }
+    | { status: 'not_found' }
+    | { status: 'error' };
+
+/**
+ * GET a single JSON object, keeping a 404 distinct from other failures so
+ * callers can stop retrying lookups that can never succeed.
+ */
+async function fetchJson<T>(
+    url: string,
+    context: Record<string, string>,
+): Promise<FetchJsonResult<T>> {
+    try {
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+        if (response.status === 404) return { status: 'not_found' };
+        if (!response.ok) {
+            log.warn('Polymarket API returned non-OK status', {
+                url,
+                status: response.status,
+                statusText: response.statusText,
+                ...context,
+            });
+            return { status: 'error' };
+        }
+        return { status: 'ok', data: (await response.json()) as T };
+    } catch (error) {
+        log.warn('Failed to fetch from Polymarket API', {
+            url,
+            ...context,
+            error: (error as Error).message,
+        });
+        return { status: 'error' };
+    }
 }
