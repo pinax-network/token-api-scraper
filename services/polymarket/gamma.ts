@@ -176,14 +176,11 @@ export interface PolymarketSeries {
 }
 
 /**
- * Items inside the Gamma `/events/keyset` response (simplified — only fields
- * we need for sibling-market enrichment).
+ * Items inside the Gamma `/events/keyset` response. Embedded markets carry the
+ * same fields as `/markets/keyset` items, minus the `events` back-reference.
  */
-export interface GammaEvent {
-    id: string;
-    slug: string;
-    title: string;
-    markets?: { conditionId: string; question: string }[];
+export interface GammaEvent extends PolymarketEvent {
+    markets?: PolymarketMarket[];
 }
 
 /**
