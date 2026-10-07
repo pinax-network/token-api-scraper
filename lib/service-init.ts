@@ -3,7 +3,7 @@
  * Handles common initialization tasks for all services
  */
 
-import { getBatchInsertQueue, initBatchInsertQueue } from './batch-insert';
+import { getLastSuccessfulFlushAt, initBatchInsertQueue } from './batch-insert';
 import {
     BATCH_INSERT_INTERVAL_MS,
     BATCH_INSERT_MAX_SIZE,
@@ -56,12 +56,7 @@ export function initService(options: ServiceInitOptions): void {
     // services that do real writes report progress via the queue; idle
     // services report via `markServiceAlive`.
     setLivenessSource(() => {
-        let queueAt: number | undefined;
-        try {
-            queueAt = getBatchInsertQueue().getLastSuccessfulFlushAt();
-        } catch {
-            queueAt = undefined;
-        }
+        const queueAt = getLastSuccessfulFlushAt();
         if (queueAt === undefined) return lastServiceHeartbeat;
         if (lastServiceHeartbeat === undefined) return queueAt;
         return Math.max(queueAt, lastServiceHeartbeat);
