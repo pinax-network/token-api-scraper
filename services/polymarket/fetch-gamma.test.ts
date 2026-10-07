@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { fetchGammaApi, fetchMarketsFromApi } from './gamma';
+import {
+    fetchEventFromApi,
+    fetchGammaApi,
+    fetchMarketFromApi,
+    fetchMarketsFromApi,
+} from './gamma';
 
 // LOG_LEVEL=error keeps warn/info noise out of the test output.
 process.env.LOG_LEVEL = 'error';
@@ -165,5 +170,113 @@ describe('fetchMarketsFromApi chunking', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(3);
         expect(result).toHaveLength(1500);
+    });
+});
+
+/** Route mocked responses by URL substring; unmatched URLs return 404. */
+function routeFetch(
+    routes: Record<string, { status?: number; body: unknown }>,
+) {
+    mockFetch.mockImplementation((url: string) => {
+        const match = Object.entries(routes).find(([key]) => url.includes(key));
+        const status = match ? (match[1].status ?? 200) : 404;
+        return Promise.resolve({
+            ok: status >= 200 && status < 300,
+            status,
+            statusText: String(status),
+            json: () => Promise.resolve(match?.[1].body ?? {}),
+        }) as ReturnType<typeof globalThis.fetch>;
+    });
+}
+
+describe('fetchMarketFromApi placeholder fallback', () => {
+    const cid = conditionId(7);
+
+    beforeEach(() => {
+        mockFetch.mockClear();
+    });
+
+    test('resolves markets keyset omits via CLOB market_slug', async () => {
+        routeFetch({
+            '/markets/keyset': { body: { markets: [] } },
+            [`clob.polymarket.com/markets/${cid}`]: {
+                body: { condition_id: cid, market_slug: 'will-app-d-win' },
+            },
+            '/markets/slug/will-app-d-win': {
+                body: { ...marketStub(7), active: false, events: [] },
+            },
+        });
+
+        const market = await fetchMarketFromApi(cid);
+
+        expect(market?.conditionId).toBe(cid);
+        expect(mockFetch).toHaveBeenCalledTimes(4);
+    });
+
+    test('returns null when CLOB does not know the condition', async () => {
+        routeFetch({ '/markets/keyset': { body: { markets: [] } } });
+
+        expect(await fetchMarketFromApi(cid)).toBeNull();
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    test('rejects a slug lookup that resolves to a different condition', async () => {
+        routeFetch({
+            '/markets/keyset': { body: { markets: [] } },
+            [`clob.polymarket.com/markets/${cid}`]: {
+                body: { market_slug: 'reused-slug' },
+            },
+            '/markets/slug/reused-slug': { body: marketStub(8) },
+        });
+
+        expect(await fetchMarketFromApi(cid)).toBeNull();
+    });
+
+    test('skips the fallback when keyset finds the market', async () => {
+        routeFetch({
+            '/markets/keyset': { body: { markets: [marketStub(7)] } },
+        });
+
+        expect((await fetchMarketFromApi(cid))?.conditionId).toBe(cid);
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('fetchEventFromApi', () => {
+    beforeEach(() => {
+        mockFetch.mockClear();
+    });
+
+    test('returns the keyset event without a slug lookup', async () => {
+        routeFetch({
+            '/events/keyset': { body: { events: [{ id: '1', slug: 'e' }] } },
+        });
+
+        expect(await fetchEventFromApi('e')).toMatchObject({ slug: 'e' });
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    test('falls back to the slug endpoint when keyset is empty', async () => {
+        routeFetch({
+            '/events/keyset': { body: { events: [] } },
+            '/events/slug/e': { body: { id: '1', slug: 'e', markets: [] } },
+        });
+
+        expect(await fetchEventFromApi('e')).toMatchObject({ slug: 'e' });
+    });
+
+    test("returns 'not_found' when the slug endpoint 404s", async () => {
+        routeFetch({ '/events/keyset': { body: { events: [] } } });
+
+        expect(await fetchEventFromApi('gone')).toBe('not_found');
+    });
+
+    test('returns null on transient failures', async () => {
+        routeFetch({
+            '/events/keyset': { status: 503, body: {} },
+            '/events/slug/e': { status: 503, body: {} },
+        });
+
+        expect(await fetchEventFromApi('e')).toBeNull();
     });
 });

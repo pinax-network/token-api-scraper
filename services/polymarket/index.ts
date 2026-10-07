@@ -602,6 +602,12 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
         log.debug('Event enrichment skipped', { eventSlug });
         return;
     }
+    if (event === 'not_found') {
+        // Deleted on Gamma's side; retrying would only pin it to the queue head
+        log.debug('Event not found on Gamma', { eventSlug });
+        await recordEnrichment(eventSlug, 0, 0);
+        return;
+    }
 
     // From here on the event is always recorded, so a market we can't insert
     // never sends the slug back to the head of the queue on the next cycle.
@@ -652,16 +658,7 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
         }
     }
 
-    await insertRow(
-        'polymarket_events_enriched',
-        {
-            slug: eventSlug,
-            markets_found: eventMarkets.length,
-            markets_inserted: inserted,
-        },
-        `Failed to record enrichment for ${eventSlug}`,
-        {},
-    );
+    await recordEnrichment(eventSlug, eventMarkets.length, inserted);
 
     if (inserted > 0) {
         log.info('Event enriched', {
@@ -670,6 +667,23 @@ async function processEventEnrichment(eventSlug: string): Promise<void> {
             marketsInserted: inserted,
         });
     }
+}
+
+async function recordEnrichment(
+    eventSlug: string,
+    marketsFound: number,
+    marketsInserted: number,
+): Promise<void> {
+    await insertRow(
+        'polymarket_events_enriched',
+        {
+            slug: eventSlug,
+            markets_found: marketsFound,
+            markets_inserted: marketsInserted,
+        },
+        `Failed to record enrichment for ${eventSlug}`,
+        {},
+    );
 }
 
 // Run the service if this is the main module
