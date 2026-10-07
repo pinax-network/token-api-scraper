@@ -49,14 +49,19 @@ export function markActive(): void {
     idleSince = undefined;
 }
 
-/** Idle time inside [from, now]. Spans ending before `from` are dropped:
- * progress stamps only move forward, so they can't matter again. */
+/** Idle time inside [from, now], including an in-progress sleep. Spans ending
+ * before `from` are dropped: progress stamps only move forward, so they can't
+ * matter again. */
 function idleMsSince(from: number, now: number): number {
     while (idleSpans.length > 0 && (idleSpans[0]?.end ?? 0) <= from) {
         idleSpans.shift();
     }
+    const spans =
+        idleSince !== undefined
+            ? [...idleSpans, { start: idleSince, end: now }]
+            : idleSpans;
     let total = 0;
-    for (const span of idleSpans) {
+    for (const span of spans) {
         total += Math.max(
             0,
             Math.min(span.end, now) - Math.max(span.start, from),

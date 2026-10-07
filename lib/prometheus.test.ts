@@ -290,6 +290,15 @@ describe('Liveness endpoint', () => {
             setLivenessSource(() => t0);
             setSystemTime(new Date(t0 + minute));
             markIdle();
+
+            // Mid-sleep diagnostics include the in-progress span
+            setSystemTime(new Date(t0 + 6 * minute));
+            const mid = await fetch(`http://localhost:${port}/live`);
+            const midBody = (await mid.json()) as Record<string, unknown>;
+            expect(mid.status).toBe(200);
+            expect(midBody.idle).toBe(true);
+            expect(midBody.idleMsSinceFlush).toBe(5 * minute);
+
             setSystemTime(new Date(t0 + 11 * minute));
             markActive();
 
