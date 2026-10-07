@@ -861,8 +861,9 @@ describe('Polymarket markets service', () => {
         await run();
 
         expect(mockQuery).toHaveBeenCalled();
-        // 3 fetch calls: found market, not-found market, not-found retry with closed=true
-        expect(mockFetch).toHaveBeenCalledTimes(3);
+        // 4 fetch calls: found market, not-found market, not-found retry with
+        // closed=true, CLOB slug lookup (no market_slug in the mock → stop)
+        expect(mockFetch).toHaveBeenCalledTimes(4);
         // Should insert 1 market and 1 error
         expect(mockInsertRow).toHaveBeenCalledTimes(2);
         expect(mockInsertRow).toHaveBeenCalledWith(
@@ -1443,6 +1444,43 @@ describe('Polymarket markets service', () => {
             'polymarket_events_enriched',
             expect.objectContaining({
                 slug: 'empty-event',
+                markets_found: 0,
+                markets_inserted: 0,
+            }),
+            expect.any(String),
+            expect.any(Object),
+        );
+    });
+
+    test('enrichment pass should record events deleted on Gamma', async () => {
+        mockQuery.mockReturnValueOnce(queryResult([]));
+        mockQuery.mockReturnValueOnce(
+            queryResult([{ event_slug: 'deleted-event' }]),
+        );
+
+        // /events/keyset: empty; /events/slug/{slug}: 404
+        mockFetch.mockReturnValueOnce(
+            Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ events: [] }),
+            }),
+        );
+        mockFetch.mockReturnValueOnce(
+            Promise.resolve({
+                ok: false,
+                status: 404,
+                statusText: 'Not Found',
+                json: () => Promise.resolve({}),
+            }),
+        );
+
+        const { run } = await import('./index');
+        await run();
+
+        expect(mockInsertRow).toHaveBeenCalledWith(
+            'polymarket_events_enriched',
+            expect.objectContaining({
+                slug: 'deleted-event',
                 markets_found: 0,
                 markets_inserted: 0,
             }),
