@@ -435,21 +435,21 @@ Services:
   metadata-solana-clickhouse  ${SERVICES['metadata-solana-clickhouse'].description}
 
 Examples:
-  $ npm run cli run metadata-transfers
-  $ npm run cli run metadata-swaps
-  $ npm run cli run metadata-balances
-  $ npm run cli run polymarket
-  $ npm run cli run hyperliquid
-  $ npm run cli run metadata-solana-rpc
-  $ npm run cli run metadata-solana-extras-rpc
-  $ npm run cli run metadata-solana-clickhouse
+  $ bun run cli run metadata-transfers
+  $ bun run cli run metadata-swaps
+  $ bun run cli run metadata-balances
+  $ bun run cli run polymarket
+  $ bun run cli run hyperliquid
+  $ bun run cli run metadata-solana-rpc
+  $ bun run cli run metadata-solana-extras-rpc
+  $ bun run cli run metadata-solana-clickhouse
 
   # Auto-restart delay examples
-  $ npm run cli run metadata-transfers --auto-restart-delay 30
-  $ npm run cli run metadata-swaps --auto-restart-delay 60
+  $ bun run cli run metadata-transfers --auto-restart-delay 30
+  $ bun run cli run metadata-swaps --auto-restart-delay 60
 
   # Disable Prometheus metrics server
-  $ npm run cli run metadata-transfers --no-prometheus
+  $ bun run cli run metadata-transfers --no-prometheus
     `,
     )
     .action(async (service: string, options: any) => {
@@ -585,8 +585,8 @@ Tables created:
   - metadata_errors: Tracks RPC errors during metadata fetching
 
 Example:
-  $ npm run cli setup metadata-evm
-  $ npm run cli setup metadata-evm --cluster my_cluster
+  $ bun run cli setup metadata-evm
+  $ bun run cli setup metadata-evm --cluster my_cluster
 `,
     )
     .action(async (options: any) => {
@@ -613,8 +613,8 @@ Tables created:
   - metadata_errors: Tracks RPC errors during metadata fetching
 
 Example:
-  $ npm run cli setup metadata-solana
-  $ npm run cli setup metadata-solana --cluster my_cluster
+  $ bun run cli setup metadata-solana
+  $ bun run cli setup metadata-solana --cluster my_cluster
 `,
     )
     .action(async (options: any) => {
@@ -641,8 +641,8 @@ Tables created:
   - polymarket_assets: Links asset IDs to condition IDs
 
 Example:
-  $ npm run cli setup polymarket
-  $ npm run cli setup polymarket --cluster my_cluster
+  $ bun run cli setup polymarket
+  $ bun run cli setup polymarket --cluster my_cluster
 `,
     )
     .action(async (options: any) => {
@@ -670,8 +670,8 @@ Tables created:
   - state_question_meta:   HIP-4 multi-outcome question groupings (namedOutcomes, fallbackOutcome)
 
 Example:
-  $ npm run cli setup hyperliquid
-  $ npm run cli setup hyperliquid --cluster my_cluster
+  $ bun run cli setup hyperliquid
+  $ bun run cli setup hyperliquid --cluster my_cluster
 `,
     )
     .action(async (options: any) => {
@@ -691,7 +691,7 @@ const setupKalshi = setupCommand
         'after',
         `
 This command deploys the Kalshi prediction-market tables ingested by
-\`npm run cli run kalshi-live\` (scraper-managed, no substreams).
+\`bun run cli run kalshi-live\` (scraper-managed, no substreams).
 
 Tables created:
   - series         Kalshi recurring contract templates
@@ -702,8 +702,8 @@ Tables created:
   - cursor_state   Per-scope cursor checkpoints for resumable polling
 
 Example:
-  $ npm run cli setup kalshi
-  $ npm run cli setup kalshi --cluster my_cluster
+  $ bun run cli setup kalshi
+  $ bun run cli setup kalshi --cluster my_cluster
 `,
     )
     .action(async (options: any) => {
@@ -752,24 +752,24 @@ Tables/Views created:
   - mv_blocks_forked: Refreshable MV that populates blocks_forked
 
 Example:
-  $ npm run cli setup forked-blocks \\
+  $ bun run cli setup forked-blocks \\
       --canonical-database mainnet:blocks@v0.1.0 \\
       --clickhouse-database mainnet:evm-transfers@v0.2.1
 
   # With custom refresh interval (every 5 minutes)
-  $ npm run cli setup forked-blocks \\
+  $ bun run cli setup forked-blocks \\
       --canonical-database mainnet:blocks@v0.1.0 \\
       --clickhouse-database mainnet:evm-transfers@v0.2.1 \\
       --refresh-interval 300
 
   # With cluster support
-  $ npm run cli setup forked-blocks \\
+  $ bun run cli setup forked-blocks \\
       --canonical-database mainnet:blocks@v0.1.0 \\
       --clickhouse-database mainnet:evm-transfers@v0.2.1 \\
       --cluster my_cluster
 
   # Using environment variables
-  $ CLICKHOUSE_DATABASE=mainnet:evm-transfers@v0.2.1 npm run cli setup forked-blocks \\
+  $ CLICKHOUSE_DATABASE=mainnet:evm-transfers@v0.2.1 bun run cli setup forked-blocks \\
       --canonical-database mainnet:blocks@v0.1.0
 `,
     )
@@ -847,16 +847,16 @@ Cluster Support:
 
 Examples:
   # Deploy single schema file
-  $ npm run cli setup files sql.schemas/schema.metadata_evm.sql
+  $ bun run cli setup files sql.schemas/schema.metadata_evm.sql
 
   # Deploy multiple schema files
-  $ npm run cli setup files sql.schemas/schema.metadata_evm.sql sql.schemas/schema.metadata_solana.sql
+  $ bun run cli setup files sql.schemas/schema.metadata_evm.sql sql.schemas/schema.metadata_solana.sql
 
   # Deploy all schema files
-  $ npm run cli setup files sql.schemas/schema.*.sql
+  $ bun run cli setup files sql.schemas/schema.*.sql
 
   # Deploy to a cluster
-  $ npm run cli setup files sql.schemas/schema.metadata_evm.sql --cluster my_cluster
+  $ bun run cli setup files sql.schemas/schema.metadata_evm.sql --cluster my_cluster
 `,
     )
     .action(async (files: string[], options: any) => {

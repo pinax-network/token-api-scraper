@@ -6,7 +6,7 @@
 -- `kalshi-backfill` walks /historical/trades from the cutoff backward into the
 -- same `trades` table. No auth required for any market-data endpoint used here.
 --
--- Apply via: npm run cli setup kalshi --clickhouse-database <db>
+-- Apply via: bun run cli setup kalshi --clickhouse-database <db>
 
 -- ============================================================
 -- Series — Kalshi recurring contract templates (~10K rows, slow-changing).

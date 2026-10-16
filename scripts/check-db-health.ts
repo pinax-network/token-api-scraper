@@ -10,7 +10,7 @@
  * Set SKIP_DB_CHECK=1 to skip the health check
  * Set DB_CHECK_WARN_ONLY=1 to show warnings but not fail the build
  *
- * Run with: tsx scripts/check-db-health.ts
+ * Run with: bun run ./scripts/check-db-health.ts
  */
 
 import { config } from 'dotenv';

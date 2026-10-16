@@ -29,7 +29,7 @@ ORDER BY (
 --   - {refresh_interval}: Refresh interval in seconds (default: 60)
 --
 -- Usage:
---   npm run cli setup forked-blocks --canonical-database mainnet:blocks@v0.1.0 --clickhouse-database mainnet:evm-transfers@v0.2.1
+--   bun run cli setup forked-blocks --canonical-database mainnet:blocks@v0.1.0 --clickhouse-database mainnet:evm-transfers@v0.2.1
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_blocks_forked
 REFRESH EVERY {refresh_interval:UInt32} SECOND
