@@ -181,13 +181,13 @@ Example:
 
 ```bash
 # Use default 10 second delay between restarts
-npm run cli run metadata-transfers
+bun run cli run metadata-transfers
 
 # Custom 30 second delay between restarts
-AUTO_RESTART_DELAY=30 npm run cli run metadata-swaps
+AUTO_RESTART_DELAY=30 bun run cli run metadata-swaps
 
 # Combine with other options
-AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run metadata-transfers
+AUTO_RESTART_DELAY=60 CONCURRENCY=20 bun run cli run metadata-transfers
 ```
 
 **Benefits of continuous auto-restart:**
@@ -219,13 +219,13 @@ Example:
 
 ```bash
 # Run with verbose logging
-VERBOSE=true npm run cli run metadata-transfers
+VERBOSE=true bun run cli run metadata-transfers
 
 # Run silently with structured logs (default)
-npm run cli run metadata-transfers
+bun run cli run metadata-transfers
 
 # Run with JSON logs for production
-LOG_TYPE=json LOG_LEVEL=warn npm run cli run metadata-transfers
+LOG_TYPE=json LOG_LEVEL=warn bun run cli run metadata-transfers
 ```
 
 ## Configuration Priority
@@ -243,7 +243,7 @@ Example showing all three:
 CONCURRENCY=10
 
 # Command-line flag overrides .env
-npm run cli run metadata --concurrency 20
+bun run cli run metadata --concurrency 20
 ```
 
 ## Configuration Files
