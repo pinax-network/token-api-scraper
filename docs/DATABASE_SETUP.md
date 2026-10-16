@@ -251,7 +251,7 @@ echo "SELECT COUNT(*) FROM metadata" | clickhouse-client
 The project includes a database health check script:
 
 ```bash
-npm run check-db
+bun run ./scripts/check-db-health.ts
 ```
 
 ## Migration and Updates

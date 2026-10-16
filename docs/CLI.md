@@ -367,13 +367,13 @@ bun run cli run metadata-transfers \
   --clickhouse-database production_evm
 ```
 
-## Legacy npm Scripts
+## Package Scripts
 
-For backward compatibility, direct npm scripts are still available:
+`package.json` has no `start` script. Run services through the CLI (see [run](#run)):
 
 ```bash
-# Run metadata RPC service
-npm run start
+# Run the EVM metadata service
+bun run cli run metadata-transfers
 
 # Run tests
 bun run test

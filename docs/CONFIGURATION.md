@@ -61,7 +61,7 @@ Example:
 
 ```bash
 # Set concurrency to 5 for conservative processing
-CONCURRENCY=5 npm run start
+CONCURRENCY=5 bun run cli run metadata-transfers
 ```
 
 #### Retry Configuration
@@ -95,7 +95,7 @@ Example:
 
 ```bash
 # More aggressive retry settings for unreliable networks
-MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 npm run start
+MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 bun run cli run metadata-transfers
 ```
 
 ### Monitoring Configuration
@@ -114,10 +114,10 @@ Example:
 
 ```bash
 # Prometheus metrics are always enabled on port 9090 by default
-npm run start
+bun run cli run metadata-transfers
 
 # Specify a custom port
-PROMETHEUS_PORT=8080 npm run start
+PROMETHEUS_PORT=8080 bun run cli run metadata-transfers
 ```
 
 **Available Metrics:**
@@ -153,13 +153,13 @@ Example:
 
 ```bash
 # Default batch settings (1 second, 10000 rows)
-npm run start
+bun run cli run metadata-transfers
 
 # Custom batch settings for high-throughput scenarios
-BATCH_INSERT_INTERVAL_MS=5000 BATCH_INSERT_MAX_SIZE=50000 npm run start
+BATCH_INSERT_INTERVAL_MS=5000 BATCH_INSERT_MAX_SIZE=50000 bun run cli run metadata-transfers
 
 # Lower latency configuration (more frequent flushes)
-BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 npm run start
+BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 bun run cli run metadata-transfers
 ```
 
 **Batch insert benefits:**
