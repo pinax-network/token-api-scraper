@@ -18,10 +18,10 @@ The fastest way to get started:
 
 ```bash
 # Deploy EVM metadata schema files to ClickHouse
-npm run cli setup metadata-evm
+bun run cli setup metadata-evm
 
 # Deploy Solana metadata schema files to ClickHouse
-npm run cli setup metadata-solana
+bun run cli setup metadata-solana
 ```
 
 This creates all necessary:
@@ -45,7 +45,7 @@ The project includes these main schema files:
 
 **Deployment**:
 ```bash
-npm run cli setup metadata-evm
+bun run cli setup metadata-evm
 ```
 
 ### 2. schema.metadata_solana.sql
@@ -60,7 +60,7 @@ npm run cli setup metadata-evm
 
 **Deployment**:
 ```bash
-npm run cli setup metadata-solana
+bun run cli setup metadata-solana
 ```
 
 ## Deployment Options
@@ -71,13 +71,13 @@ Deploy to a single ClickHouse instance:
 
 ```bash
 # Deploy EVM metadata schemas
-npm run cli setup metadata-evm
+bun run cli setup metadata-evm
 
 # Deploy Solana metadata schemas
-npm run cli setup metadata-solana
+bun run cli setup metadata-solana
 
 # Deploy custom SQL files
-npm run cli setup files sql.schemas/schema.*.sql
+bun run cli setup files sql.schemas/schema.*.sql
 ```
 
 ### Custom Database Connection
@@ -85,7 +85,7 @@ npm run cli setup files sql.schemas/schema.*.sql
 Specify connection parameters:
 
 ```bash
-npm run cli setup metadata-evm \
+bun run cli setup metadata-evm \
   --clickhouse-url http://localhost:8123 \
   --clickhouse-username default \
   --clickhouse-password secret \
@@ -103,10 +103,10 @@ For clustered deployments, use the `--cluster` flag. This automatically:
 
 ```bash
 # Deploy to a cluster
-npm run cli setup metadata-evm --cluster my_cluster
+bun run cli setup metadata-evm --cluster my_cluster
 
 # Deploy to cluster with custom settings
-npm run cli setup files sql.schemas/schema.*.sql \
+bun run cli setup files sql.schemas/schema.*.sql \
   --cluster production_cluster \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database evm_data
@@ -251,7 +251,7 @@ echo "SELECT COUNT(*) FROM metadata" | clickhouse-client
 The project includes a database health check script:
 
 ```bash
-npm run check-db
+bun run ./scripts/check-db-health.ts
 ```
 
 ## Migration and Updates
@@ -265,7 +265,7 @@ To update schemas:
 3. The `IF NOT EXISTS` clauses prevent errors
 
 ```bash
-npm run cli setup metadata-evm
+bun run cli setup metadata-evm
 ```
 
 ### Adding Indexes
@@ -314,7 +314,7 @@ DROP TABLE IF EXISTS metadata;
 
 Then re-run:
 ```bash
-npm run cli setup metadata-evm
+bun run cli setup metadata-evm
 ```
 
 ## Best Practices

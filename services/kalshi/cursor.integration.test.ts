@@ -1,6 +1,6 @@
 // Integration tests for cursor checkpoint round-trip against a real CH.
 // Gated by `KALSHI_API_TESTS=1` AND requires a running CH with the kalshi
-// schema applied (see `npm run cli setup kalshi`).
+// schema applied (see `bun run cli setup kalshi`).
 
 import { describe, expect, test } from 'bun:test';
 import { client } from '../../lib/clickhouse';

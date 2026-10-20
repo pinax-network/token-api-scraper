@@ -61,7 +61,7 @@ Example:
 
 ```bash
 # Set concurrency to 5 for conservative processing
-CONCURRENCY=5 npm run start
+CONCURRENCY=5 bun run cli run metadata-transfers
 ```
 
 #### Retry Configuration
@@ -95,7 +95,7 @@ Example:
 
 ```bash
 # More aggressive retry settings for unreliable networks
-MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 npm run start
+MAX_RETRIES=5 BASE_DELAY_MS=1000 MAX_DELAY_MS=60000 bun run cli run metadata-transfers
 ```
 
 ### Monitoring Configuration
@@ -114,10 +114,10 @@ Example:
 
 ```bash
 # Prometheus metrics are always enabled on port 9090 by default
-npm run start
+bun run cli run metadata-transfers
 
 # Specify a custom port
-PROMETHEUS_PORT=8080 npm run start
+PROMETHEUS_PORT=8080 bun run cli run metadata-transfers
 ```
 
 **Available Metrics:**
@@ -153,13 +153,13 @@ Example:
 
 ```bash
 # Default batch settings (1 second, 10000 rows)
-npm run start
+bun run cli run metadata-transfers
 
 # Custom batch settings for high-throughput scenarios
-BATCH_INSERT_INTERVAL_MS=5000 BATCH_INSERT_MAX_SIZE=50000 npm run start
+BATCH_INSERT_INTERVAL_MS=5000 BATCH_INSERT_MAX_SIZE=50000 bun run cli run metadata-transfers
 
 # Lower latency configuration (more frequent flushes)
-BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 npm run start
+BATCH_INSERT_INTERVAL_MS=500 BATCH_INSERT_MAX_SIZE=5000 bun run cli run metadata-transfers
 ```
 
 **Batch insert benefits:**
@@ -181,13 +181,13 @@ Example:
 
 ```bash
 # Use default 10 second delay between restarts
-npm run cli run metadata-transfers
+bun run cli run metadata-transfers
 
 # Custom 30 second delay between restarts
-AUTO_RESTART_DELAY=30 npm run cli run metadata-swaps
+AUTO_RESTART_DELAY=30 bun run cli run metadata-swaps
 
 # Combine with other options
-AUTO_RESTART_DELAY=60 CONCURRENCY=20 npm run cli run metadata-transfers
+AUTO_RESTART_DELAY=60 CONCURRENCY=20 bun run cli run metadata-transfers
 ```
 
 **Benefits of continuous auto-restart:**
@@ -219,13 +219,13 @@ Example:
 
 ```bash
 # Run with verbose logging
-VERBOSE=true npm run cli run metadata-transfers
+VERBOSE=true bun run cli run metadata-transfers
 
 # Run silently with structured logs (default)
-npm run cli run metadata-transfers
+bun run cli run metadata-transfers
 
 # Run with JSON logs for production
-LOG_TYPE=json LOG_LEVEL=warn npm run cli run metadata-transfers
+LOG_TYPE=json LOG_LEVEL=warn bun run cli run metadata-transfers
 ```
 
 ## Configuration Priority
@@ -243,7 +243,7 @@ Example showing all three:
 CONCURRENCY=10
 
 # Command-line flag overrides .env
-npm run cli run metadata --concurrency 20
+bun run cli run metadata --concurrency 20
 ```
 
 ## Configuration Files

@@ -1,11 +1,11 @@
 # Use official Bun image
-FROM oven/bun:1.3.2-alpine AS base
+FROM oven/bun:1.4.3-alpine AS base
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package.json bun.lock* ./
+COPY package.json bun.lock ./
 
 # Install dependencies
 RUN bun install --frozen-lockfile

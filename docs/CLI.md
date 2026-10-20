@@ -7,7 +7,7 @@ This document provides detailed information about the command-line interface (CL
 The CLI provides a unified interface for managing database setup, running services, and configuring the scraper. All commands are accessed through:
 
 ```bash
-npm run cli <command> [options]
+bun run cli <command> [options]
 ```
 
 ## Commands
@@ -17,7 +17,7 @@ npm run cli <command> [options]
 Display help information about available commands.
 
 ```bash
-npm run cli help
+bun run cli help
 ```
 
 ### version
@@ -25,7 +25,7 @@ npm run cli help
 Show the current version of the application.
 
 ```bash
-npm run cli version
+bun run cli version
 ```
 
 ### list
@@ -33,7 +33,7 @@ npm run cli version
 List all available services that can be run.
 
 ```bash
-npm run cli list
+bun run cli list
 ```
 
 Output example:
@@ -56,14 +56,14 @@ These are the recommended setup commands for deploying specific schemas:
 
 ```bash
 # Deploy metadata tables (metadata, metadata_errors)
-npm run cli setup metadata
+bun run cli setup metadata
 
 # Deploy polymarket tables (polymarket_markets, polymarket_assets)
-npm run cli setup polymarket
+bun run cli setup polymarket
 
 # Deploy forked-blocks table and refreshable materialized view
 # NOTE: This is a refreshable MV and only needs to be run once to initialize
-npm run cli setup forked-blocks \
+bun run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
   --clickhouse-database mainnet:evm-transfers@v0.2.1
 ```
@@ -76,22 +76,22 @@ The source database (blocks to check for forks) is taken from `--clickhouse-data
 
 ```bash
 # Basic setup
-npm run cli setup forked-blocks \
+bun run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
   --clickhouse-database mainnet:evm-transfers@v0.2.1
 
 # Using environment variable for source database
-CLICKHOUSE_DATABASE=mainnet:evm-transfers@v0.2.1 npm run cli setup forked-blocks \
+CLICKHOUSE_DATABASE=mainnet:evm-transfers@v0.2.1 bun run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0
 
 # With custom refresh interval (every 5 minutes)
-npm run cli setup forked-blocks \
+bun run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
   --clickhouse-database mainnet:evm-transfers@v0.2.1 \
   --refresh-interval 300
 
 # With custom lookback period (7 days)
-npm run cli setup forked-blocks \
+bun run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
   --clickhouse-database mainnet:evm-transfers@v0.2.1 \
   --days-back 7
@@ -112,13 +112,13 @@ For deploying custom SQL files, use the `files` subcommand:
 
 ```bash
 # Deploy custom SQL files
-npm run cli setup files sql.schemas/custom.sql
+bun run cli setup files sql.schemas/custom.sql
 
 # Deploy multiple files
-npm run cli setup files sql.schemas/schema.metadata_evm.sql
+bun run cli setup files sql.schemas/schema.metadata_evm.sql
 
 # Use wildcards
-npm run cli setup files sql.schemas/schema.*.sql
+bun run cli setup files sql.schemas/schema.*.sql
 ```
 
 #### Cluster Support
@@ -131,16 +131,16 @@ For ClickHouse clusters, use the `--cluster` flag with any setup command. This w
 
 ```bash
 # Deploy to a cluster
-npm run cli setup metadata-evm --cluster my_cluster
+bun run cli setup metadata-evm --cluster my_cluster
 
 # Deploy forked-blocks to cluster
-npm run cli setup forked-blocks \
+bun run cli setup forked-blocks \
   --canonical-database mainnet:blocks@v0.1.0 \
   --clickhouse-database mainnet:evm-transfers@v0.2.1 \
   --cluster production_cluster
 
 # Deploy files to cluster with custom database
-npm run cli setup files sql.schemas/schema.*.sql \
+bun run cli setup files sql.schemas/schema.*.sql \
   --cluster production_cluster \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database evm_data
@@ -179,13 +179,13 @@ Run a specific service. Each service performs different data collection tasks.
 Fetches token metadata (name, symbol, decimals) from smart contracts.
 
 ```bash
-npm run cli run metadata
+bun run cli run metadata
 
 # With custom concurrency
-npm run cli run metadata --concurrency 20
+bun run cli run metadata --concurrency 20
 
 # With Prometheus metrics
-npm run cli run metadata --enable-prometheus --prometheus-port 8080
+bun run cli run metadata --enable-prometheus --prometheus-port 8080
 ```
 
 ##### polymarket
@@ -193,10 +193,10 @@ npm run cli run metadata --enable-prometheus --prometheus-port 8080
 Processes Polymarket market metadata.
 
 ```bash
-npm run cli run polymarket
+bun run cli run polymarket
 
 # With custom parameters
-npm run cli run polymarket --concurrency 15 --enable-prometheus
+bun run cli run polymarket --concurrency 15 --enable-prometheus
 ```
 
 ### query
@@ -209,13 +209,13 @@ Query metadata for a single EVM contract address with verbose debug logging.
 
 ```bash
 # Query USDT on TRON (base58 format)
-npm run cli query metadata-evm TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+bun run cli query metadata-evm TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
 
 # Query with hex address format
-npm run cli query metadata-evm 0xdAC17F958D2ee523a2206206994597C13D831ec7
+bun run cli query metadata-evm 0xdAC17F958D2ee523a2206206994597C13D831ec7
 
 # With custom RPC endpoint
-npm run cli query metadata-evm <contract> --node-url https://api.trongrid.io/jsonrpc
+bun run cli query metadata-evm <contract> --node-url https://api.trongrid.io/jsonrpc
 ```
 
 This command:
@@ -231,13 +231,13 @@ Query metadata for a single Solana mint address with verbose debug logging.
 
 ```bash
 # Query wrapped SOL
-npm run cli query metadata-solana So11111111111111111111111111111111111111112
+bun run cli query metadata-solana So11111111111111111111111111111111111111112
 
 # Query pump.fun token
-npm run cli query metadata-solana C8y5X4NfcXexq5WvauuWCSj9CfWJVNMnBnUfeoo4pump
+bun run cli query metadata-solana C8y5X4NfcXexq5WvauuWCSj9CfWJVNMnBnUfeoo4pump
 
 # With custom RPC endpoint
-npm run cli query metadata-solana <mint> --node-url https://api.mainnet-beta.solana.com
+bun run cli query metadata-solana <mint> --node-url https://api.mainnet-beta.solana.com
 ```
 
 #### query metadata-solana-extras
@@ -245,8 +245,8 @@ npm run cli query metadata-solana <mint> --node-url https://api.mainnet-beta.sol
 Query LP token metadata for a single Solana mint address with verbose debug logging.
 
 ```bash
-npm run cli query metadata-solana-extras <mint>
-npm run cli query metadata-solana-extras <mint> --node-url https://api.mainnet-beta.solana.com
+bun run cli query metadata-solana-extras <mint>
+bun run cli query metadata-solana-extras <mint> --node-url https://api.mainnet-beta.solana.com
 ```
 
 ## Command-Line Flags
@@ -312,28 +312,28 @@ Valid values for `--transfers-table`: `transfers`, `native_transfer`, `erc20_tra
 
 ```bash
 # 1. Setup database schemas
-npm run cli setup metadata
+bun run cli setup metadata
 
 # 2. Fetch token metadata
-npm run cli run metadata-transfers
-npm run cli run metadata-swaps
-npm run cli run metadata-balances
+bun run cli run metadata-transfers
+bun run cli run metadata-swaps
+bun run cli run metadata-balances
 
 # 3. Optionally run polymarket service
-npm run cli run polymarket
+bun run cli run polymarket
 ```
 
 ### Custom Configuration
 
 ```bash
 # Run with verbose logging enabled
-npm run cli run metadata --verbose
+bun run cli run metadata --verbose
 
 # Run silently (default - no verbose output)
-npm run cli run metadata
+bun run cli run metadata
 
 # Run with custom database and RPC settings with verbose output
-npm run cli run metadata \
+bun run cli run metadata \
   --verbose \
   --clickhouse-url http://clickhouse.example.com:8123 \
   --clickhouse-username scraper \
@@ -347,36 +347,36 @@ npm run cli run metadata \
 
 ```bash
 # Deploy to ClickHouse cluster using named setup commands
-npm run cli setup metadata --cluster production_cluster \
+bun run cli setup metadata --cluster production_cluster \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database production_evm
 
-npm run cli setup balances --cluster production_cluster \
+bun run cli setup balances --cluster production_cluster \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database production_evm
 
 # Or deploy all files at once
-npm run cli setup files sql.schemas/schema.*.sql \
+bun run cli setup files sql.schemas/schema.*.sql \
   --cluster production_cluster \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database production_evm
 
 # Run metadata service
-npm run cli run metadata-transfers \
+bun run cli run metadata-transfers \
   --clickhouse-url http://clickhouse-node1:8123 \
   --clickhouse-database production_evm
 ```
 
-## Legacy npm Scripts
+## Package Scripts
 
-For backward compatibility, direct npm scripts are still available:
+`package.json` has no `start` script. Run services through the CLI (see [run](#run)):
 
 ```bash
-# Run metadata RPC service
-npm run start
+# Run the EVM metadata service
+bun run cli run metadata-transfers
 
 # Run tests
-npm run test
+bun run test
 ```
 
 ## Logging and Monitoring
@@ -428,9 +428,6 @@ If you get "command not found" errors:
 
 ```bash
 # Make sure dependencies are installed
-npm install
-
-# Or use with bun
 bun install
 ```
 
@@ -452,7 +449,7 @@ If you can't connect to ClickHouse:
 curl http://localhost:8123/ping
 
 # Verify credentials
-npm run cli setup files sql.schemas/schema.metadata_evm.sql \
+bun run cli setup files sql.schemas/schema.metadata_evm.sql \
   --clickhouse-url http://localhost:8123 \
   --clickhouse-username default \
   --clickhouse-password "" \
@@ -464,7 +461,7 @@ npm run cli setup files sql.schemas/schema.metadata_evm.sql \
 If a service fails to start:
 
 1. Check the error message for specific details
-2. Verify database schema is deployed: `npm run cli setup files sql.schemas/schema.*.sql`
+2. Verify database schema is deployed: `bun run cli setup files sql.schemas/schema.*.sql`
 3. Check configuration with environment variables or flags
 4. Review logs for detailed error information
 5. Try reducing concurrency: `--concurrency 5`
@@ -477,16 +474,16 @@ You can run multiple services in parallel for maximum throughput:
 
 ```bash
 # Terminal 1: Metadata from transfers
-npm run cli run metadata-transfers
+bun run cli run metadata-transfers
 
 # Terminal 2: Metadata from swaps
-npm run cli run metadata-swaps
+bun run cli run metadata-swaps
 
 # Terminal 3: Metadata from balances
-npm run cli run metadata-balances
+bun run cli run metadata-balances
 
 # Terminal 4: Polymarket service
-npm run cli run polymarket
+bun run cli run polymarket
 ```
 
 ### Automated Scheduling
@@ -496,7 +493,7 @@ Set up cron jobs for periodic updates:
 ```bash
 # crontab -e
 # Run every hour
-0 * * * * cd /path/to/token-api-scraper && npm run cli run metadata-transfers
+0 * * * * cd /path/to/token-api-scraper && bun run cli run metadata-transfers
 ```
 
 ### Continuous Operation
@@ -505,13 +502,13 @@ Services automatically run in continuous mode, restarting after each completion 
 
 ```bash
 # Run with default 10 second delay between restarts
-npm run cli run metadata-transfers
+bun run cli run metadata-transfers
 
 # Custom delay (30 seconds) between restarts
-npm run cli run metadata-swaps --auto-restart-delay 30
+bun run cli run metadata-swaps --auto-restart-delay 30
 
 # Combine with other options
-npm run cli run metadata-transfers \
+bun run cli run metadata-transfers \
   --auto-restart-delay 60 \
   --concurrency 20
 ```

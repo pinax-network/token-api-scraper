@@ -17,13 +17,13 @@ A specialized tool for scraping and indexing ERC-20 token data on the TRON block
 
 ```bash
 # Deploy EVM metadata schemas to ClickHouse
-npm run cli setup metadata-evm
+bun run cli setup metadata-evm
 
 # Deploy Solana metadata schemas to ClickHouse
-npm run cli setup metadata-solana
+bun run cli setup metadata-solana
 
 # Or deploy custom SQL files
-npm run cli setup files sql.schemas/schema.metadata_evm.sql
+bun run cli setup files sql.schemas/schema.metadata_evm.sql
 ```
 
 See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and cluster deployment.
@@ -32,12 +32,12 @@ See [Database Setup Guide](docs/DATABASE_SETUP.md) for detailed instructions and
 
 ```bash
 # Fetch token metadata Transfers/Swaps/Balances
-npm run cli run metadata-transfers
-npm run cli run metadata-swaps
-npm run cli run metadata-balances
+bun run cli run metadata-transfers
+bun run cli run metadata-swaps
+bun run cli run metadata-balances
 
 # Fetch Solana token metadata
-npm run cli run metadata-solana
+bun run cli run metadata-solana
 ```
 
 See [CLI Reference](docs/CLI.md) for all available commands and options.
@@ -48,14 +48,14 @@ Use the `query` commands to debug individual token metadata fetching without sto
 
 ```bash
 # Query EVM token metadata (TRON/Ethereum)
-npm run cli query metadata-evm TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t  # USDT on TRON
-npm run cli query metadata-evm 0xdAC17F958D2ee523a2206206994597C13D831ec7  # EVM hex format
+bun run cli query metadata-evm TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t  # USDT on TRON
+bun run cli query metadata-evm 0xdAC17F958D2ee523a2206206994597C13D831ec7  # EVM hex format
 
 # Query Solana token metadata
-npm run cli query metadata-solana So11111111111111111111111111111111111111112
+bun run cli query metadata-solana So11111111111111111111111111111111111111112
 
 # Query Solana LP token metadata
-npm run cli query metadata-solana-extras <mint>
+bun run cli query metadata-solana-extras <mint>
 ```
 
 ### 3. Configuration
@@ -148,7 +148,7 @@ histogram_quantile(0.95, sum(rate(scraper_clickhouse_operations_seconds_bucket{o
 ## Testing
 
 ```bash
-npm run test
+bun run test
 ```
 
 Example output:
