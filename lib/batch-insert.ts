@@ -1,5 +1,5 @@
-import { insertClient } from './clickhouse';
-import { NODE_URL } from './config';
+import { insertClient, withDeadline } from './clickhouse';
+import { CLICKHOUSE_REQUEST_TIMEOUT_MS, NODE_URL } from './config';
 import { createLogger } from './logger';
 import { incrementRowsInserted, trackClickHouseOperation } from './prometheus';
 
@@ -108,11 +108,17 @@ export class BatchInsertQueue {
             return;
         }
 
-        await insertClient.insert({
-            table,
-            format: 'JSONEachRow',
-            values,
-        });
+        await withDeadline(
+            (signal) =>
+                insertClient.insert({
+                    table,
+                    format: 'JSONEachRow',
+                    values,
+                    abort_signal: signal,
+                }),
+            CLICKHOUSE_REQUEST_TIMEOUT_MS,
+            `insert into ${table}`,
+        );
 
         log.debug('Batch insert completed', {
             table,
