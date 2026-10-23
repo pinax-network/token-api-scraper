@@ -49,6 +49,7 @@ describe('withDeadline', () => {
     test('passes the rows through when the server answers', async () => {
         const ch = stub();
         const rows = await withDeadline(
+            'read',
             async (signal) => {
                 const rs = await ch.query({
                     query: 'SELECT 1',
@@ -69,6 +70,7 @@ describe('withDeadline', () => {
         const started = performance.now();
         await expect(
             withDeadline(
+                'read',
                 async (signal) => {
                     const rs = await ch.query({
                         query: 'SELECT STALL_BODY',
@@ -88,6 +90,7 @@ describe('withDeadline', () => {
         const ch = stub();
         await expect(
             withDeadline(
+                'insert',
                 (signal) =>
                     ch.insert({
                         table: 'STALL_HEADERS',

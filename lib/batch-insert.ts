@@ -109,6 +109,7 @@ export class BatchInsertQueue {
         }
 
         await withDeadline(
+            'insert',
             (signal) =>
                 insertClient.insert({
                     table,

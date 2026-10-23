@@ -22,21 +22,25 @@ let _setupClient: ClickHouseClient | null = null;
  * pod sat idle until it was deleted by hand.
  *
  * The timer rejects on its own, aborts the in-flight request for clients that do
- * honour it, and discards the cached clients so the next call opens a fresh
- * connection instead of queueing behind the dead one.
+ * honour it, and discards the client instance the operation ran on so the next
+ * call opens a fresh connection instead of queueing behind the dead one. Only
+ * that instance is touched: the other pool keeps serving, and a late timer from
+ * an old request cannot close the replacement that has since taken its place.
  */
 export async function withDeadline<T>(
+    slot: ClientSlot,
     run: (signal: AbortSignal) => Promise<T>,
     ms: number,
     what: string,
 ): Promise<T> {
+    const instance = slot === 'read' ? getClient() : getInsertClient();
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
             const err = new Error(`ClickHouse ${what} timed out after ${ms}ms`);
             controller.abort(err);
-            discardClients();
+            discardClient(slot, instance);
             reject(err);
         }, ms);
     });
@@ -47,17 +51,21 @@ export async function withDeadline<T>(
     }
 }
 
+type ClientSlot = 'read' | 'insert';
+
 /**
- * Forget every cached client so a connection that stopped responding is never
- * reused. close() is not awaited: on a hung socket it may never settle.
+ * Forget one cached client so a connection that stopped responding is never
+ * reused. The slot is cleared only while it still holds this instance. close()
+ * is not awaited: on a hung socket it may never settle.
  */
-function discardClients(): void {
-    for (const c of [_client, _insertClient, _setupClient]) {
-        c?.close().catch(() => {});
+function discardClient(slot: ClientSlot, instance: ClickHouseClient): void {
+    instance.close().catch(() => {});
+    if (slot === 'read' && _client === instance) {
+        _client = null;
     }
-    _client = null;
-    _insertClient = null;
-    _setupClient = null;
+    if (slot === 'insert' && _insertClient === instance) {
+        _insertClient = null;
+    }
 }
 
 /**
@@ -213,6 +221,7 @@ export async function query<T = any>(
             parseStartTime,
             parseEndTime,
         } = await withDeadline(
+            'read',
             async (signal) => {
                 // Track query execution time
                 const queryStartTime = performance.now();
