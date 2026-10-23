@@ -62,11 +62,13 @@ describe('BatchInsertQueue', () => {
             await smallQueue.add('test_table', { id: 3 });
 
             expect(mockInsert).toHaveBeenCalledTimes(1);
-            expect(mockInsert).toHaveBeenCalledWith({
-                table: 'test_table',
-                format: 'JSONEachRow',
-                values: [{ id: 1 }, { id: 2 }, { id: 3 }],
-            });
+            expect(mockInsert).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    table: 'test_table',
+                    format: 'JSONEachRow',
+                    values: [{ id: 1 }, { id: 2 }, { id: 3 }],
+                }),
+            );
 
             await smallQueue.shutdown();
         });
@@ -78,11 +80,13 @@ describe('BatchInsertQueue', () => {
             await queue.flushAll();
 
             expect(mockInsert).toHaveBeenCalledTimes(1);
-            expect(mockInsert).toHaveBeenCalledWith({
-                table: 'test_table',
-                format: 'JSONEachRow',
-                values: [{ id: 1 }, { id: 2 }],
-            });
+            expect(mockInsert).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    table: 'test_table',
+                    format: 'JSONEachRow',
+                    values: [{ id: 1 }, { id: 2 }],
+                }),
+            );
             expect(queue.getQueueSize('test_table')).toBe(0);
         });
 

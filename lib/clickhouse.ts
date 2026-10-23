@@ -11,6 +11,64 @@ let _insertClient: ClickHouseClient | null = null;
 let _setupClient: ClickHouseClient | null = null;
 
 /**
+ * Run a ClickHouse call with a deadline that is enforced here, not by the client.
+ *
+ * clickhouse-js relies on the node:http ClientRequest emitting 'abort' / 'timeout'
+ * to settle its promise. On Bun neither fires once the response headers have
+ * arrived, so a body that stalls mid-stream leaves `await resultSet.json()`
+ * pending forever while the event loop (and the liveness probe) stay healthy.
+ * This happened to the bsc metadata scraper a couple of times a week: its last
+ * log line was "Querying database", the query had finished server-side, and the
+ * pod sat idle until it was deleted by hand.
+ *
+ * The timer rejects on its own, aborts the in-flight request for clients that do
+ * honour it, and discards the client instance the operation ran on so the next
+ * call opens a fresh connection instead of queueing behind the dead one. Only
+ * that instance is touched: the other pool keeps serving, and a late timer from
+ * an old request cannot close the replacement that has since taken its place.
+ */
+export async function withDeadline<T>(
+    slot: ClientSlot,
+    run: (signal: AbortSignal) => Promise<T>,
+    ms: number,
+    what: string,
+): Promise<T> {
+    const instance = slot === 'read' ? getClient() : getInsertClient();
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+            const err = new Error(`ClickHouse ${what} timed out after ${ms}ms`);
+            controller.abort(err);
+            discardClient(slot, instance);
+            reject(err);
+        }, ms);
+    });
+    try {
+        return await Promise.race([run(controller.signal), deadline]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+type ClientSlot = 'read' | 'insert';
+
+/**
+ * Forget one cached client so a connection that stopped responding is never
+ * reused. The slot is cleared only while it still holds this instance. close()
+ * is not awaited: on a hung socket it may never settle.
+ */
+function discardClient(slot: ClientSlot, instance: ClickHouseClient): void {
+    instance.close().catch(() => {});
+    if (slot === 'read' && _client === instance) {
+        _client = null;
+    }
+    if (slot === 'insert' && _insertClient === instance) {
+        _insertClient = null;
+    }
+}
+
+/**
  * Get the database name for insert operations
  * Falls back to CLICKHOUSE_DATABASE if CLICKHOUSE_DATABASE_INSERT is not set
  */
@@ -153,31 +211,44 @@ export async function query<T = any>(
     // Track total operation time
     const startTime = performance.now();
 
-    const controller = new AbortController();
-    const timeoutHandle = setTimeout(() => {
-        controller.abort(
-            new Error(
-                `ClickHouse query timed out after ${CLICKHOUSE_REQUEST_TIMEOUT_MS}ms`,
-            ),
-        );
-    }, CLICKHOUSE_REQUEST_TIMEOUT_MS);
-
     try {
-        // Track query execution time
-        const queryStartTime = performance.now();
-        const resultSet = await client.query({
-            query,
-            query_params,
-            format: 'JSONEachRow',
-            abort_signal: controller.signal,
-        });
-        trackClickHouseOperation('read', 'success', startTime);
-        const queryEndTime = performance.now();
+        // The deadline covers both the request and reading the body: a read is
+        // only complete (and only counted as one) once the rows are in hand.
+        const {
+            data,
+            queryStartTime,
+            queryEndTime,
+            parseStartTime,
+            parseEndTime,
+        } = await withDeadline(
+            'read',
+            async (signal) => {
+                // Track query execution time
+                const queryStartTime = performance.now();
+                const resultSet = await client.query({
+                    query,
+                    query_params,
+                    format: 'JSONEachRow',
+                    abort_signal: signal,
+                });
+                const queryEndTime = performance.now();
 
-        // Track data parsing time
-        const parseStartTime = performance.now();
-        const data: T[] = await resultSet.json();
-        const parseEndTime = performance.now();
+                // Track data parsing time
+                const parseStartTime = performance.now();
+                const data: T[] = await resultSet.json();
+                const parseEndTime = performance.now();
+                return {
+                    data,
+                    queryStartTime,
+                    queryEndTime,
+                    parseStartTime,
+                    parseEndTime,
+                };
+            },
+            CLICKHOUSE_REQUEST_TIMEOUT_MS,
+            'query',
+        );
+        trackClickHouseOperation('read', 'success', startTime);
 
         const endTime = performance.now();
 
@@ -196,7 +267,6 @@ export async function query<T = any>(
             totalTimeMs,
         });
 
-        clearTimeout(timeoutHandle);
         return {
             data,
             metrics: {
@@ -206,7 +276,6 @@ export async function query<T = any>(
             },
         };
     } catch (error: unknown) {
-        clearTimeout(timeoutHandle);
         trackClickHouseOperation('read', 'error', startTime);
         const url = process.env.CLICKHOUSE_URL || 'http://localhost:8123';
         const urlObj = new URL(url);
