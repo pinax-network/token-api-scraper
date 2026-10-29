@@ -19,6 +19,7 @@ mock.module('../../lib/clickhouse', () => ({
 mock.module('../../lib/prometheus', () => ({
     incrementSuccess: mockIncrementSuccess,
     incrementError: mockIncrementError,
+    incrementHttpErrors: mock(() => {}),
 }));
 
 // `mock.module` applies process-wide for the test session. Mirror the full set
@@ -341,7 +342,7 @@ describe('hyperliquid runOutcomesCycle()', () => {
 
     test('records an error metric and rethrows when outcomeMeta fetch fails', async () => {
         globalThis.fetch = mock(() =>
-            Promise.resolve(new Response('nope', { status: 502 })),
+            Promise.resolve(new Response('nope', { status: 500 })),
         ) as unknown as typeof fetch;
 
         const { runOutcomesCycle } = await import('./outcomes');

@@ -1,18 +1,5 @@
 import { createLogger } from '../../lib/logger';
-
-/**
- * Per-request timeout for Hyperliquid Info API calls. Without this, a stalled
- * TCP connection can hang the run loop indefinitely. Falls back to 30s if the
- * env override is missing, non-numeric, or non-positive — guards against
- * `parseInt('garbage')` ⇒ NaN ⇒ instant abort.
- */
-const FETCH_TIMEOUT_MS = (() => {
-    const parsed = Number.parseInt(
-        process.env.HYPERLIQUID_FETCH_TIMEOUT_MS ?? '',
-        10,
-    );
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 30000;
-})();
+import { postInfo } from './info';
 
 const log = createLogger('hyperliquid');
 
@@ -69,35 +56,17 @@ export interface SpotPairNameRow {
 export async function fetchSpotMeta(
     infoUrl: string,
 ): Promise<HyperliquidSpotMeta> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const body = await postInfo<HyperliquidSpotMeta>(infoUrl, {
+        type: 'spotMeta',
+    });
 
-    try {
-        const response = await fetch(infoUrl, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ type: 'spotMeta' }),
-            signal: controller.signal,
-        });
-
-        if (!response.ok) {
-            throw new Error(
-                `Hyperliquid /info returned HTTP ${response.status}`,
-            );
-        }
-
-        const body = (await response.json()) as HyperliquidSpotMeta;
-
-        if (!Array.isArray(body.tokens) || !Array.isArray(body.universe)) {
-            throw new Error(
-                'Hyperliquid /info spotMeta response missing tokens/universe arrays',
-            );
-        }
-
-        return body;
-    } finally {
-        clearTimeout(timeout);
+    if (!Array.isArray(body.tokens) || !Array.isArray(body.universe)) {
+        throw new Error(
+            'Hyperliquid /info spotMeta response missing tokens/universe arrays',
+        );
     }
+
+    return body;
 }
 
 /**

@@ -1,17 +1,5 @@
 import { createLogger } from '../../lib/logger';
-
-/**
- * Per-request timeout for Hyperliquid Info API calls. Shared with the spotMeta
- * service via the same env var so both pollers tolerate the same upstream
- * slowness budget. Falls back to 30s if the override is missing or invalid.
- */
-const FETCH_TIMEOUT_MS = (() => {
-    const parsed = Number.parseInt(
-        process.env.HYPERLIQUID_FETCH_TIMEOUT_MS ?? '',
-        10,
-    );
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 30000;
-})();
+import { DEFAULT_INFO_RETRY, postInfo } from './info';
 
 const log = createLogger('hyperliquid:outcomes');
 
@@ -110,30 +98,6 @@ export interface QuestionMetaRow {
     refresh_time: string;
 }
 
-async function postInfo<T>(
-    infoUrl: string,
-    body: Record<string, unknown>,
-): Promise<T> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    try {
-        const response = await fetch(infoUrl, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(body),
-            signal: controller.signal,
-        });
-        if (!response.ok) {
-            throw new Error(
-                `Hyperliquid /info returned HTTP ${response.status}`,
-            );
-        }
-        return (await response.json()) as T;
-    } finally {
-        clearTimeout(timeout);
-    }
-}
-
 /**
  * Fetch the live outcome universe + question groupings. `outcomes` only
  * contains outcomes whose markets are still open — settled outcomes drop off
@@ -156,15 +120,20 @@ export async function fetchOutcomeMeta(
 /**
  * Recover a settled outcome's spec + resolution payload. Returns `null` when
  * the outcome is still live (HL returns top-level `null`).
+ *
+ * Single attempt, no retries: a cycle makes thousands of these, a failed one
+ * is counted and re-probed next cycle, and backing off on each during an
+ * outage would stretch the cycle by hours.
  */
 export async function fetchSettledOutcome(
     infoUrl: string,
     outcomeId: number,
 ): Promise<HyperliquidSettledOutcome | null> {
-    const body = await postInfo<HyperliquidSettledOutcome | null>(infoUrl, {
-        type: 'settledOutcome',
-        outcome: outcomeId,
-    });
+    const body = await postInfo<HyperliquidSettledOutcome | null>(
+        infoUrl,
+        { type: 'settledOutcome', outcome: outcomeId },
+        { ...DEFAULT_INFO_RETRY, retries: 0 },
+    );
     if (body === null) return null;
     if (
         typeof body !== 'object' ||

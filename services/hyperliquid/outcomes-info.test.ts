@@ -291,12 +291,14 @@ describe('fetchSettledOutcome', () => {
         expect(await fetchSettledOutcome('http://example/info', 1)).toBeNull();
     });
 
-    test('throws on non-2xx response', async () => {
-        globalThis.fetch = mock(() =>
+    test('throws on non-2xx response without retrying', async () => {
+        const fetchMock = mock(() =>
             Promise.resolve(new Response('boom', { status: 503 })),
-        ) as unknown as typeof fetch;
+        );
+        globalThis.fetch = fetchMock as unknown as typeof fetch;
         await expect(
             fetchSettledOutcome('http://example/info', 1),
         ).rejects.toThrow(/HTTP 503/);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 });
