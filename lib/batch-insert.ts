@@ -32,6 +32,10 @@ export class BatchInsertQueue {
     private lastFlushError: string | undefined;
     private lastSuccessfulFlushAt: number | undefined;
 
+    /** Flushes that have started and not settled, so `shutdown()` can wait
+     * for one the periodic timer began just before the cycle ended. */
+    private inFlight = new Set<Promise<'noop' | 'ok' | 'err'>>();
+
     constructor(config: BatchInsertConfig) {
         this.config = config;
         this.startTimer();
@@ -62,7 +66,15 @@ export class BatchInsertQueue {
      * per-cycle `flushAll` results so a lingering error from a prior
      * (no-retry-since) failure also triggers a loud shutdown.
      */
-    private async flush(table: string): Promise<'noop' | 'ok' | 'err'> {
+    private flush(table: string): Promise<'noop' | 'ok' | 'err'> {
+        const flushing = this.flushTable(table);
+        this.inFlight.add(flushing);
+        const settle = () => this.inFlight.delete(flushing);
+        flushing.then(settle, settle);
+        return flushing;
+    }
+
+    private async flushTable(table: string): Promise<'noop' | 'ok' | 'err'> {
         const queue = this.queues.get(table);
         if (!queue || queue.length === 0) {
             return 'noop';
@@ -183,6 +195,13 @@ export class BatchInsertQueue {
             clearInterval(this.timer);
             this.timer = null;
         }
+
+        // A periodic flush that started before the timer was cleared has
+        // already taken its rows off the queue, so `flushAll()` below finds
+        // nothing to do. Without waiting here, shutdown returns while that
+        // insert is still in flight and the runner's `client.close()` cuts it
+        // off ("socket hang up"), dropping the batch.
+        await Promise.allSettled(this.inFlight);
 
         const results = await this.flushAll();
 
