@@ -219,6 +219,55 @@ describe('BatchInsertQueue', () => {
 
             await q.shutdown();
         });
+
+        test('shutdown waits for a periodic flush that is still in flight', async () => {
+            let finishInsert = () => {};
+            let insertFinished = false;
+            mockInsert.mockImplementationOnce(
+                () =>
+                    new Promise<void>((resolve) => {
+                        finishInsert = () => {
+                            insertFinished = true;
+                            resolve();
+                        };
+                    }),
+            );
+
+            const q = new BatchInsertQueue({ intervalMs: 10, maxSize: 10000 });
+            await q.add('test_table', { id: 1 });
+
+            // Let the timer take the row off the queue and start the insert.
+            await new Promise((r) => setTimeout(r, 30));
+            expect(mockInsert).toHaveBeenCalledTimes(1);
+            expect(q.getQueueSize('test_table')).toBe(0);
+
+            const shutdown = q.shutdown();
+            setTimeout(() => finishInsert(), 20);
+            await shutdown;
+
+            expect(insertFinished).toBe(true);
+            expect(q.isHealthy()).toBe(true);
+        });
+
+        test('shutdown surfaces a failure from a periodic flush still in flight', async () => {
+            let failInsert = () => {};
+            mockInsert.mockImplementationOnce(
+                () =>
+                    new Promise<void>((_, reject) => {
+                        failInsert = () => reject(new Error('Insert failed'));
+                    }),
+            );
+
+            const q = new BatchInsertQueue({ intervalMs: 10, maxSize: 10000 });
+            await q.add('test_table', { id: 1 });
+            await new Promise((r) => setTimeout(r, 30));
+
+            const shutdown = q.shutdown();
+            setTimeout(() => failInsert(), 20);
+            await expect(shutdown).rejects.toThrow(
+                /Batch insert shutdown failed.*Insert failed/,
+            );
+        });
     });
 });
 

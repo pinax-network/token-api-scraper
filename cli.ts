@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { client } from './lib/clickhouse';
 import { DEFAULT_CONFIG } from './lib/config';
+import { isTransientUpstreamError } from './lib/errors';
 import { createLogger } from './lib/logger';
 import {
     markActive,
@@ -360,6 +361,19 @@ async function runService(serviceName: string, options: ServiceOptions) {
     // before the imported service module calls `initService` on its first run.
     setServiceNameLabel(serviceName);
 
+    // Liveness pauses while sleeping so the delay can exceed the stale
+    // threshold without the probe killing an idle runner.
+    const waitForNextCycle = async () => {
+        markIdle();
+        try {
+            await new Promise((resolve) =>
+                setTimeout(resolve, autoRestartDelay * 1000),
+            );
+        } finally {
+            markActive();
+        }
+    };
+
     while (true) {
         iteration++;
         const cycleStart = performance.now();
@@ -389,21 +403,28 @@ async function runService(serviceName: string, options: ServiceOptions) {
             log.info(
                 `Waiting ${autoRestartDelay} seconds before querying for new data`,
             );
-            // Liveness pauses while sleeping so the delay can exceed the
-            // stale threshold without the probe killing an idle runner.
-            markIdle();
-            try {
-                await new Promise((resolve) =>
-                    setTimeout(resolve, autoRestartDelay * 1000),
-                );
-            } finally {
-                markActive();
-            }
+            await waitForNextCycle();
         } catch (error) {
             observeCycleDuration(
                 (performance.now() - cycleStart) / 1000,
                 'error',
             );
+            if (isTransientUpstreamError(error)) {
+                // The upstream is down and the service has already retried.
+                // Exiting would only turn the outage into container restarts
+                // and CrashLoopBackOff, so skip this cycle and try again.
+                log.warn(
+                    `Upstream unavailable, retrying in ${autoRestartDelay} seconds`,
+                    {
+                        errors: (error instanceof AggregateError
+                            ? error.errors
+                            : [error]
+                        ).map(String),
+                    },
+                );
+                await waitForNextCycle();
+                continue;
+            }
             log.error('Service error', { error });
             // Close Prometheus server on error
             await stopPrometheusServer();

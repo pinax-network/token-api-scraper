@@ -520,7 +520,7 @@ bun run cli run metadata-transfers \
 - Better for long-running monitoring scenarios
 - Simplified deployment (no need for external process managers)
 
-**Note:** The service only restarts after successful completion (exit code 0). Failures will not trigger a restart.
+**Note:** A failed cycle exits the process with code 1 so the supervisor (Kubernetes, Docker) restarts it. The exception is a cycle that failed only because an upstream API stayed unavailable through the service's own retries (HTTP 5xx/429, timeouts, connection or temporary DNS errors): it is logged as `Upstream unavailable` and the next cycle starts after the usual delay.
 
 ### Docker Integration
 
